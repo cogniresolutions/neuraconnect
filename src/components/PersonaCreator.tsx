@@ -7,7 +7,7 @@ import { Loader2, Upload, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VALID_VOICES } from "@/constants/voices";
-import { VALID_SKILLS, VALID_TOPICS } from "@/constants/personaOptions";
+import { VALID_SKILLS, VALID_TOPICS, ValidSkill, ValidTopic } from "@/constants/personaOptions";
 
 type ValidVoice = typeof VALID_VOICES[number];
 
@@ -16,8 +16,8 @@ interface PersonaFormData {
   description: string;
   voiceStyle: ValidVoice;
   personality: string;
-  skills: string[];
-  topics: string[];
+  skills: ValidSkill[];
+  topics: ValidTopic[];
 }
 
 const PersonaCreator = () => {
@@ -50,7 +50,9 @@ const PersonaCreator = () => {
   const handleSkillsInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setSkillsInput(e.target.value);
     const inputSkills = e.target.value.split('\n').map(skill => skill.trim());
-    const validSkills = inputSkills.filter(skill => VALID_SKILLS.includes(skill));
+    const validSkills = inputSkills.filter((skill): skill is ValidSkill => 
+      VALID_SKILLS.includes(skill as ValidSkill)
+    );
     
     if (validSkills.length !== inputSkills.length) {
       toast({
@@ -69,7 +71,9 @@ const PersonaCreator = () => {
   const handleTopicsInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setTopicsInput(e.target.value);
     const inputTopics = e.target.value.split('\n').map(topic => topic.trim());
-    const validTopics = inputTopics.filter(topic => VALID_TOPICS.includes(topic));
+    const validTopics = inputTopics.filter((topic): topic is ValidTopic => 
+      VALID_TOPICS.includes(topic as ValidTopic)
+    );
     
     if (validTopics.length !== inputTopics.length) {
       toast({
