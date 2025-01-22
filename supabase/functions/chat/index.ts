@@ -49,7 +49,7 @@ serve(async (req) => {
     console.log("Making request to OpenAI...");
 
     const completion = await openai.createChatCompletion({
-      model: "gpt-4o-mini",
+      model: "gpt-4",  // Fixed model name
       messages: [
         {
           role: "system",
