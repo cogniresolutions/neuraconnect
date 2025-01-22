@@ -35,6 +35,7 @@ interface Persona {
   description: string;
   status: string;
   created_at: string;
+  voice_style?: string;
 }
 
 const PersonaCreator = () => {
