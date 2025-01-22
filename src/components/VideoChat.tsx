@@ -14,7 +14,7 @@ interface VideoOverlayProps {
 }
 
 const VideoOverlay: React.FC<VideoOverlayProps> = ({ personaImage, isActive, isAnimating }) => {
-  if (!isActive || !personaImage) return null;
+  if (!isActive) return null;
   
   return (
     <div className="absolute inset-0 flex items-center justify-center">
@@ -49,7 +49,7 @@ const VideoChat = () => {
         .from('personas')
         .select('*')
         .eq('status', 'deployed')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -96,6 +96,15 @@ const VideoChat = () => {
   };
 
   const togglePersona = () => {
+    if (!persona && !isPersonaActive) {
+      toast({
+        title: "No Persona Available",
+        description: "Please deploy a persona first before activating.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsPersonaActive(!isPersonaActive);
     toast({
       title: isPersonaActive ? "Persona Deactivated" : "Persona Activated",
