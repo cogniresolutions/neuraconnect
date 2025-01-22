@@ -93,6 +93,11 @@ export const PersonaForm = ({
 
       await audio.play();
       console.log('Audio played successfully');
+      
+      toast({
+        title: "Voice Test Successful",
+        description: "The voice test completed successfully.",
+      });
 
     } catch (error: any) {
       console.error('Voice test error:', error);
