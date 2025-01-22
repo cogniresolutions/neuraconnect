@@ -44,7 +44,7 @@ export class RealtimeChat {
   private audioRecorder: AudioRecorder;
   private persona: any;
   private messageHandler: (event: any) => void;
-  private sessionToken: string | null = null;
+  private ws: WebSocket | null = null;
 
   constructor(messageHandler: (event: any) => void) {
     this.audioRecorder = new AudioRecorder();
@@ -55,34 +55,64 @@ export class RealtimeChat {
     this.persona = persona;
     
     try {
-      // Get chat token from Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('generate-chat-token', {
-        body: { personaId: persona.id }
-      });
-
-      if (error) throw error;
-      
-      this.sessionToken = data.token;
       await this.audioRecorder.start();
       
-      // Start WebSocket connection
-      this.connect();
+      // Connect to our Edge Function WebSocket
+      const { data: { url } } = await supabase.functions.invoke('realtime-chat');
+      this.ws = new WebSocket(url);
+      
+      this.ws.onopen = () => {
+        console.log('WebSocket connection established');
+        this.messageHandler({ type: 'connection.established' });
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.messageHandler(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        this.messageHandler({ 
+          type: 'error',
+          error: 'WebSocket connection error'
+        });
+      };
+
+      this.ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        this.messageHandler({ type: 'connection.closed' });
+      };
+
     } catch (error) {
       console.error('Error initializing chat:', error);
       throw error;
     }
   }
 
-  private connect(): void {
-    // Implement WebSocket connection logic here
-    console.log('WebSocket connection established');
+  async sendMessage(text: string): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket connection not ready');
+    }
+
+    this.ws.send(JSON.stringify({
+      text,
+      systemPrompt: `You are ${this.persona.name}, ${this.persona.description}. 
+                     Your personality is: ${this.persona.personality}.
+                     Your skills include: ${this.persona.skills.join(', ')}.
+                     You are knowledgeable about: ${this.persona.topics.join(', ')}.`
+    }));
   }
 
   disconnect(): void {
-    if (this.audioRecorder) {
-      this.audioRecorder.stop();
+    this.audioRecorder.stop();
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
-    // Cleanup WebSocket connection
-    console.log('Chat disconnected');
   }
 }
