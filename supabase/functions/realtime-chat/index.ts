@@ -19,6 +19,11 @@ serve(async (req) => {
     }
 
     const { persona } = await req.json();
+    console.log('Received persona:', persona);
+
+    if (!persona) {
+      throw new Error('No persona data provided');
+    }
 
     // Request a session from OpenAI
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
@@ -30,15 +35,25 @@ serve(async (req) => {
       body: JSON.stringify({
         model: persona.model_config?.model || "gpt-4o-mini",
         voice: persona.voice_style || "alloy",
-        instructions: `You are ${persona.name}, ${persona.description}. 
-                      Your personality is: ${persona.personality}.
-                      Your skills include: ${persona.skills.join(', ')}.
-                      You are knowledgeable about: ${persona.topics.join(', ')}.`
+        instructions: `You are ${persona.name}, ${persona.description || ''}. 
+                      Your personality is: ${persona.personality || ''}.
+                      Your skills include: ${(persona.skills || []).join(', ')}.
+                      You are knowledgeable about: ${(persona.topics || []).join(', ')}.`
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
     const data = await response.json();
     console.log("Session created:", data);
+
+    if (!data.url) {
+      throw new Error('No WebSocket URL received from OpenAI');
+    }
 
     return new Response(JSON.stringify({ url: data.url }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
