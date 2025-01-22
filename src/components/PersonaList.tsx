@@ -11,7 +11,7 @@ interface Persona {
   personality: string;
 }
 
-export default function PersonaList() {
+const PersonaList = () => {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -78,8 +78,6 @@ export default function PersonaList() {
 
   return (
     <div className="w-full max-w-2xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">Your Personas</h2>
-      
       <div className="space-y-4">
         {personas.length === 0 ? (
           <p className="text-center text-gray-500">No personas created yet.</p>
@@ -110,4 +108,6 @@ export default function PersonaList() {
       </div>
     </div>
   );
-}
+};
+
+export default PersonaList;
