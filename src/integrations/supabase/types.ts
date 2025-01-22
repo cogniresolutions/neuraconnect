@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      emotion_analysis: {
+        Row: {
+          created_at: string
+          emotion_data: Json | null
+          environment_data: Json | null
+          id: string
+          persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          emotion_data?: Json | null
+          environment_data?: Json | null
+          id?: string
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          emotion_data?: Json | null
+          environment_data?: Json | null
+          id?: string
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emotion_analysis_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emotion_analysis_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mood_aggregations: {
         Row: {
           average_mood: number | null
@@ -216,9 +258,12 @@ export type Database = {
       }
       personas: {
         Row: {
+          avatar_model_url: string | null
           avatar_url: string | null
           created_at: string
           description: string | null
+          emotion_settings: Json | null
+          environment_analysis: boolean | null
           id: string
           model_config: Json | null
           name: string
@@ -231,9 +276,12 @@ export type Database = {
           voice_style: string | null
         }
         Insert: {
+          avatar_model_url?: string | null
           avatar_url?: string | null
           created_at?: string
           description?: string | null
+          emotion_settings?: Json | null
+          environment_analysis?: boolean | null
           id?: string
           model_config?: Json | null
           name: string
@@ -246,9 +294,12 @@ export type Database = {
           voice_style?: string | null
         }
         Update: {
+          avatar_model_url?: string | null
           avatar_url?: string | null
           created_at?: string
           description?: string | null
+          emotion_settings?: Json | null
+          environment_analysis?: boolean | null
           id?: string
           model_config?: Json | null
           name?: string
