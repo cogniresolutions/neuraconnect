@@ -9,420 +9,358 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      ascii_conversions: {
+      mood_aggregations: {
         Row: {
+          average_mood: number | null
           created_at: string
-          id: number
-          total_count: number
-          type: string
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          total_count?: number
-          type: string
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          total_count?: number
-          type?: string
-        }
-        Relationships: []
-      }
-      badge_images: {
-        Row: {
-          created_at: string
+          dominant_mood: string | null
           id: string
-          image_url: string | null
-          prompt: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          prompt: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          prompt?: string
-        }
-        Relationships: []
-      }
-      blog_posts: {
-        Row: {
-          content: string | null
-          created_at: string
-          excerpt: string | null
-          id: number
-          image_url: string | null
-          read_time: number | null
-          title: string | null
-          updated_at: string | null
-          views: number | null
-        }
-        Insert: {
-          content?: string | null
-          created_at?: string
-          excerpt?: string | null
-          id?: number
-          image_url?: string | null
-          read_time?: number | null
-          title?: string | null
-          updated_at?: string | null
-          views?: number | null
-        }
-        Update: {
-          content?: string | null
-          created_at?: string
-          excerpt?: string | null
-          id?: number
-          image_url?: string | null
-          read_time?: number | null
-          title?: string | null
-          updated_at?: string | null
-          views?: number | null
-        }
-        Relationships: []
-      }
-      channel_invitations: {
-        Row: {
-          accepted_at: string | null
-          channel_id: string | null
-          created_at: string
-          created_by: string | null
-          email: string
-          id: string
-          role: string
-        }
-        Insert: {
-          accepted_at?: string | null
-          channel_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          email: string
-          id?: string
-          role?: string
-        }
-        Update: {
-          accepted_at?: string | null
-          channel_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          email?: string
-          id?: string
-          role?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "channel_invitations_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "channels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      channel_members: {
-        Row: {
-          channel_id: string | null
-          created_at: string
-          id: string
-          role: string
-          user_id: string | null
-        }
-        Insert: {
-          channel_id?: string | null
-          created_at?: string
-          id?: string
-          role?: string
-          user_id?: string | null
-        }
-        Update: {
-          channel_id?: string | null
-          created_at?: string
-          id?: string
-          role?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "channel_members_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "channels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      channels: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
+          location_name: string
+          location_type: string
+          total_entries: number | null
           updated_at: string
         }
         Insert: {
+          average_mood?: number | null
           created_at?: string
+          dominant_mood?: string | null
           id?: string
-          name: string
+          location_name: string
+          location_type: string
+          total_entries?: number | null
           updated_at?: string
         }
         Update: {
+          average_mood?: number | null
           created_at?: string
+          dominant_mood?: string | null
           id?: string
-          name?: string
+          location_name?: string
+          location_type?: string
+          total_entries?: number | null
           updated_at?: string
         }
         Relationships: []
       }
-      chat_messages: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          role: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      html_edits: {
-        Row: {
-          created_at: string
-          html_content: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          html_content: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          html_content?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      image_generations: {
+      mood_challenges: {
         Row: {
           created_at: string
           description: string | null
-          generated_image_url: string | null
-          id: number
-          screenshot_url: string | null
-          url: string
+          end_date: string
+          id: string
+          location_name: string | null
+          location_type: string | null
+          participants_count: number | null
+          start_date: string
+          target_mood: string
+          title: string
         }
         Insert: {
           created_at?: string
           description?: string | null
-          generated_image_url?: string | null
-          id?: number
-          screenshot_url?: string | null
-          url: string
+          end_date: string
+          id?: string
+          location_name?: string | null
+          location_type?: string | null
+          participants_count?: number | null
+          start_date: string
+          target_mood: string
+          title: string
         }
         Update: {
           created_at?: string
           description?: string | null
-          generated_image_url?: string | null
-          id?: number
-          screenshot_url?: string | null
+          end_date?: string
+          id?: string
+          location_name?: string | null
+          location_type?: string | null
+          participants_count?: number | null
+          start_date?: string
+          target_mood?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      mood_entries: {
+        Row: {
+          confidence: number
+          created_at: string
+          id: string
+          mood: string
+          notes: string | null
+          source: string
+          user_id: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          id?: string
+          mood: string
+          notes?: string | null
+          source: string
+          user_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          mood?: string
+          notes?: string | null
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mood_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mood_locations: {
+        Row: {
+          created_at: string
+          id: string
+          latitude: number | null
+          location_grid_id: string | null
+          longitude: number | null
+          mood_entry_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          location_grid_id?: string | null
+          longitude?: number | null
+          mood_entry_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          location_grid_id?: string | null
+          longitude?: number | null
+          mood_entry_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mood_locations_mood_entry_id_fkey"
+            columns: ["mood_entry_id"]
+            isOneToOne: false
+            referencedRelation: "mood_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mood_recommendations: {
+        Row: {
+          created_at: string
+          id: string
+          mood_pattern: string
+          recommendation: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mood_pattern: string
+          recommendation: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mood_pattern?: string
+          recommendation?: string
+        }
+        Relationships: []
+      }
+      music_sources: {
+        Row: {
+          age_range: unknown | null
+          artist: string | null
+          created_at: string
+          description: string | null
+          id: string
+          language: string
+          mood_tags: string[]
+          platform: string
+          title: string
+          url: string
+        }
+        Insert: {
+          age_range?: unknown | null
+          artist?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language: string
+          mood_tags: string[]
+          platform: string
+          title: string
+          url: string
+        }
+        Update: {
+          age_range?: unknown | null
+          artist?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language?: string
+          mood_tags?: string[]
+          platform?: string
+          title?: string
           url?: string
         }
         Relationships: []
       }
-      issues: {
+      profiles: {
         Row: {
-          assignee_id: string | null
-          channel_id: string | null
+          avatar_url: string | null
+          birth_date: string | null
           created_at: string
-          created_by: string | null
-          description: string | null
-          due_date: string | null
           id: string
-          priority: string
-          status: string
-          team_id: string | null
-          title: string
+          music_preferences: Json | null
+          preferred_language: string | null
           updated_at: string
+          username: string | null
         }
         Insert: {
-          assignee_id?: string | null
-          channel_id?: string | null
+          avatar_url?: string | null
+          birth_date?: string | null
           created_at?: string
-          created_by?: string | null
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          priority?: string
-          status?: string
-          team_id?: string | null
-          title: string
+          id: string
+          music_preferences?: Json | null
+          preferred_language?: string | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
-          assignee_id?: string | null
-          channel_id?: string | null
+          avatar_url?: string | null
+          birth_date?: string | null
           created_at?: string
-          created_by?: string | null
-          description?: string | null
-          due_date?: string | null
           id?: string
-          priority?: string
-          status?: string
-          team_id?: string | null
-          title?: string
+          music_preferences?: Json | null
+          preferred_language?: string | null
           updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      recommendations: {
+        Row: {
+          age_range: unknown | null
+          created_at: string
+          description: string | null
+          id: string
+          language: string
+          mood_tags: string[] | null
+          title: string
+          type: string
+        }
+        Insert: {
+          age_range?: unknown | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language?: string
+          mood_tags?: string[] | null
+          title: string
+          type: string
+        }
+        Update: {
+          age_range?: unknown | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language?: string
+          mood_tags?: string[] | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      tavus_sessions: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          last_checked_at: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          last_checked_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          last_checked_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "issues_channel_id_fkey"
-            columns: ["channel_id"]
+            foreignKeyName: "tavus_sessions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "channels"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      lovable: {
+      user_achievements: {
         Row: {
-          created_at: string
-          id: number
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-        }
-        Update: {
-          created_at?: string
-          id?: number
-        }
-        Relationships: []
-      }
-      published_projects: {
-        Row: {
-          created_at: string
-          html_content: string
+          achieved_at: string
+          achievement_name: string
+          achievement_type: string
           id: string
-          project_name: string
           user_id: string
         }
         Insert: {
-          created_at?: string
-          html_content: string
+          achieved_at?: string
+          achievement_name: string
+          achievement_type: string
           id?: string
-          project_name: string
           user_id: string
         }
         Update: {
-          created_at?: string
-          html_content?: string
+          achieved_at?: string
+          achievement_name?: string
+          achievement_type?: string
           id?: string
-          project_name?: string
           user_id?: string
         }
-        Relationships: []
-      }
-      twitter_predictions: {
-        Row: {
-          created_at: string
-          id: number
-          predictions: Json
-          profile: Json
-          twitter_handle: string
-        }
-        Insert: {
-          created_at?: string
-          id?: never
-          predictions: Json
-          profile: Json
-          twitter_handle: string
-        }
-        Update: {
-          created_at?: string
-          id?: never
-          predictions?: Json
-          profile?: Json
-          twitter_handle?: string
-        }
-        Relationships: []
-      }
-      user_profiles: {
-        Row: {
-          channels: string[] | null
-          created_at: string | null
-          generated_posts: Json | null
-          id: string
-          message: string | null
-          subreddits: Json | null
-          subreddits_with_posts: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          channels?: string[] | null
-          created_at?: string | null
-          generated_posts?: Json | null
-          id: string
-          message?: string | null
-          subreddits?: Json | null
-          subreddits_with_posts?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          channels?: string[] | null
-          created_at?: string | null
-          generated_posts?: Json | null
-          id?: string
-          message?: string | null
-          subreddits?: Json | null
-          subreddits_with_posts?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      create_team_with_admin: {
+      generate_location_grid_id: {
         Args: {
-          team_name: string
-          team_description: string
-          user_id: string
+          lat: number
+          lon: number
         }
-        Returns: undefined
-      }
-      increment_conversion_count: {
-        Args: {
-          conversion_type: string
-        }
-        Returns: undefined
-      }
-      increment_view_count: {
-        Args: {
-          post_id: number
-        }
-        Returns: undefined
+        Returns: string
       }
     }
     Enums: {
