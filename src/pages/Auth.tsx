@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,12 +8,17 @@ import { useToast } from "@/hooks/use-toast";
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Check if user is already logged in
     supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session);
       if (session) {
+        toast({
+          title: "Success",
+          description: "Successfully logged in!",
+        });
         navigate("/create-persona");
       }
     });
@@ -35,6 +40,7 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     try {
+      setIsLoading(true);
       const redirectURL = `${window.location.origin}/auth`;
       console.log("Redirect URL:", redirectURL);
 
@@ -62,6 +68,8 @@ const Auth = () => {
         description: error.message || "Failed to sign in with Google",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -72,11 +80,12 @@ const Auth = () => {
         <Button
           type="button"
           variant="outline"
-          className="w-full bg-white text-black hover:bg-gray-100"
+          className="w-full bg-white text-black hover:bg-gray-100 transition-colors duration-200"
           onClick={handleGoogleSignIn}
+          disabled={isLoading}
         >
           <Globe className="mr-2 h-4 w-4" />
-          Continue with Google
+          {isLoading ? "Connecting..." : "Continue with Google"}
         </Button>
       </div>
     </div>
