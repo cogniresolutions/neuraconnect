@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, CameraOff } from "lucide-react";
 import Avatar3D from "../Avatar3D";
+import { useToast } from "@/hooks/use-toast";
 
 interface PersonaPreviewProps {
   isWebcamActive: boolean;
@@ -15,6 +16,43 @@ export const PersonaPreview = ({
   avatarAnimating,
 }: PersonaPreviewProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    const setupWebcam = async () => {
+      try {
+        if (isWebcamActive) {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            } 
+          });
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        }
+      } catch (error) {
+        console.error('Webcam error:', error);
+        toast({
+          title: "Camera Error",
+          description: error instanceof Error ? error.message : "Failed to access camera",
+          variant: "destructive",
+        });
+      }
+    };
+
+    setupWebcam();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isWebcamActive, toast]);
 
   return (
     <div className="space-y-4">

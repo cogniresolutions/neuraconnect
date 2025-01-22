@@ -7,7 +7,7 @@ import { VALID_VOICES } from "@/constants/voices";
 import { validatePersonaDescription, getSuggestedDescription } from "@/utils/personaValidation";
 import { useToast } from "@/hooks/use-toast";
 import { useTextToSpeech } from "@/hooks/use-text-to-speech";
-import { PlayCircle } from "lucide-react";
+import { PlayCircle, Loader2 } from "lucide-react";
 
 interface PersonaFormProps {
   name: string;
@@ -57,8 +57,16 @@ export const PersonaForm = ({
   };
 
   const handleTestVoice = async () => {
-    const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
-    await speak(testText, { voice: voiceStyle });
+    try {
+      const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
+      await speak(testText, { voice: voiceStyle });
+    } catch (error) {
+      toast({
+        title: "Voice Test Failed",
+        description: error instanceof Error ? error.message : "Failed to test voice",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -113,8 +121,17 @@ export const PersonaForm = ({
           disabled={isSpeaking || !name || !description}
           className="w-full text-purple-400 border-purple-400/30"
         >
-          <PlayCircle className="mr-2 h-4 w-4" />
-          {isSpeaking ? "Speaking..." : "Test Voice"}
+          {isSpeaking ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Speaking...
+            </>
+          ) : (
+            <>
+              <PlayCircle className="mr-2 h-4 w-4" />
+              Test Voice
+            </>
+          )}
         </Button>
       </div>
       <Button
