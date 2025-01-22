@@ -1,225 +1,102 @@
-import React, { useRef, useEffect, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Video, Mic, MicOff, VideoOff, User } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import PersonaSelector from "./PersonaSelector";
-import AIVideoInterface from "./AIVideoInterface";
-import { supabase } from "@/integrations/supabase/client";
-
-interface VideoOverlayProps {
-  personaImage?: string;
-  isActive: boolean;
-  isAnimating: boolean;
-}
-
-interface AnalysisResult {
-  objects?: { object: string }[];
-  scenes?: { scenery: string }[];
-  tags?: { name: string }[];
-}
-
-interface Persona {
-  id: string;
-  name: string;
-  avatar_url: string;
-}
-
-const VideoOverlay: React.FC<VideoOverlayProps> = ({ personaImage, isActive, isAnimating }) => {
-  if (!isActive) return null;
-  
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <Avatar 
-        className={cn(
-          "w-full h-full rounded-lg transition-transform duration-300",
-          isAnimating && "animate-subtle-movement"
-        )}
-      >
-        <AvatarImage src={personaImage} className="object-cover" />
-        <AvatarFallback>
-          <User className="w-12 h-12" />
-        </AvatarFallback>
-      </Avatar>
-    </div>
-  );
-};
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Loader2, Video, VideoOff } from 'lucide-react';
+import AIVideoInterface from './AIVideoInterface';
 
 const VideoChat = () => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isVideoOn, setIsVideoOn] = useState(true);
-  const [isAudioOn, setIsAudioOn] = useState(true);
-  const [isPersonaActive, setIsPersonaActive] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
-  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const { personaId } = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [persona, setPersona] = useState<any>(null);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
 
   useEffect(() => {
-    startVideo();
-    const animationInterval = setInterval(() => {
-      setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 2000);
-    }, 5000);
+    const loadPersona = async () => {
+      if (!personaId) {
+        navigate('/create-persona');
+        return;
+      }
 
-    return () => clearInterval(animationInterval);
-  }, []);
+      try {
+        const { data, error } = await supabase
+          .from('personas')
+          .select('*')
+          .eq('id', personaId)
+          .single();
 
-  useEffect(() => {
-    let analysisInterval: NodeJS.Timeout;
+        if (error) throw error;
+        if (!data) {
+          toast({
+            title: "Error",
+            description: "Persona not found",
+            variant: "destructive",
+          });
+          navigate('/create-persona');
+          return;
+        }
 
-    if (isAnalyzing && videoRef.current) {
-      analysisInterval = setInterval(async () => {
-        await captureAndAnalyze();
-      }, 1000);
-    }
-
-    return () => {
-      if (analysisInterval) {
-        clearInterval(analysisInterval);
+        setPersona(data);
+      } catch (error: any) {
+        console.error('Error loading persona:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load persona",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
-  }, [isAnalyzing]);
 
-  const startVideo = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: isVideoOn,
-        audio: isAudioOn,
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (error) {
-      toast({
-        title: "Camera Error",
-        description: "Unable to access camera or microphone",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const captureAndAnalyze = async () => {
-    if (!videoRef.current) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    ctx.drawImage(videoRef.current, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg');
-
-    try {
-      const { data, error } = await supabase.functions.invoke('analyze-video', {
-        body: { imageData }
-      });
-
-      if (error) throw error;
-
-      setAnalysisResults(prev => [...prev.slice(-4), data]);
-      
-      console.log('Scene Analysis:', data);
-      
-    } catch (error) {
-      console.error('Analysis error:', error);
-      setIsAnalyzing(false);
-      toast({
-        title: "Analysis Error",
-        description: "Failed to analyze video frame",
-        variant: "destructive",
-      });
-    }
-  };
+    loadPersona();
+  }, [personaId, navigate, toast]);
 
   const toggleVideo = () => {
-    setIsVideoOn(!isVideoOn);
-    startVideo();
+    setIsVideoEnabled(!isVideoEnabled);
   };
 
-  const toggleAudio = () => {
-    setIsAudioOn(!isAudioOn);
-    startVideo();
-  };
-
-  const handlePersonaSelect = (persona: Persona | null) => {
-    setSelectedPersona(persona);
-    if (persona) {
-      toast({
-        title: "Persona Selected",
-        description: `Selected ${persona.name} as your video persona`,
-      });
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="relative w-full max-w-2xl mx-auto">
-      <div className="relative">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          className={cn(
-            "w-full rounded-lg bg-gray-900",
-            isPersonaActive && "opacity-0"
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Video Chat with {persona?.name}</h1>
+        <Button
+          variant="outline"
+          onClick={toggleVideo}
+          className="bg-gray-700 text-white hover:bg-gray-600"
+        >
+          {isVideoEnabled ? (
+            <>
+              <VideoOff className="mr-2 h-4 w-4" />
+              Disable Video
+            </>
+          ) : (
+            <>
+              <Video className="mr-2 h-4 w-4" />
+              Enable Video
+            </>
           )}
-        />
-        <VideoOverlay 
-          personaImage={selectedPersona?.avatar_url} 
-          isActive={isPersonaActive}
-          isAnimating={isAnimating}
-        />
-        {analysisResults.length > 0 && (
-          <div className="absolute top-2 left-2 right-2 bg-black/50 p-2 rounded text-white text-sm">
-            {analysisResults[analysisResults.length - 1]?.scenes?.[0]?.scenery && (
-              <p>Scene: {analysisResults[analysisResults.length - 1].scenes[0].scenery}</p>
-            )}
-            {analysisResults[analysisResults.length - 1]?.objects?.slice(0, 3).map((obj, i) => (
-              <span key={i} className="mr-2">
-                {obj.object}
-              </span>
-            ))}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {isVideoEnabled && (
+          <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
+            <AIVideoInterface persona={persona} />
           </div>
         )}
       </div>
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 items-center">
-        <PersonaSelector 
-          onPersonaSelect={handlePersonaSelect}
-          selectedPersonaId={selectedPersona?.id}
-        />
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleVideo}
-          className={cn(
-            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-            !isVideoOn && "bg-red-500/50 hover:bg-red-500/70"
-          )}
-        >
-          {isVideoOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleAudio}
-          className={cn(
-            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-            !isAudioOn && "bg-red-500/50 hover:bg-red-500/70"
-          )}
-        >
-          {isAudioOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-        </Button>
-      </div>
-      {selectedPersona && (
-        <AIVideoInterface
-          persona={selectedPersona}
-          onSpeakingChange={setIsPersonaActive}
-        />
-      )}
     </div>
   );
 };

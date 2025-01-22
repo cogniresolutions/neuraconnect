@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import PersonaCreator from "./components/PersonaCreator";
+import VideoChat from "./components/VideoChat";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,16 @@ const App = () => (
               <PrivateRoute>
                 <div className="min-h-screen bg-black text-white p-4">
                   <PersonaCreator />
+                </div>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/video-chat/:personaId?"
+            element={
+              <PrivateRoute>
+                <div className="min-h-screen bg-black text-white">
+                  <VideoChat />
                 </div>
               </PrivateRoute>
             }
