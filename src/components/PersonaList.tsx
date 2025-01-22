@@ -151,11 +151,6 @@ const PersonaList = () => {
     return null;
   };
 
-  const handleDeployClick = (persona: Persona) => {
-    setDeployingPersona(persona);
-    setIsDeployDialogOpen(true);
-  };
-
   const handleDeploy = async () => {
     if (!deployingPersona) return;
 
@@ -339,51 +334,17 @@ const PersonaList = () => {
           </Dialog>
 
           {persona.status === 'ready' && (
-            <Dialog open={isDeployDialogOpen && deployingPersona?.id === persona.id} onOpenChange={(open) => !open && handleDeployDialogClose()}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-blue-500 hover:text-blue-600"
-                  onClick={() => handleDeployClick(persona)}
-                >
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Deploy Persona</DialogTitle>
-                </DialogHeader>
-                <div className="py-4">
-                  <h3 className="font-medium mb-2">Validation Status</h3>
-                  {validatePersonaForDeployment(persona.description) ? (
-                    <div className="text-red-500">
-                      {validatePersonaForDeployment(persona.description)}
-                    </div>
-                  ) : (
-                    <div className="text-green-500 flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Ready to deploy
-                    </div>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button
-                    onClick={handleDeploy}
-                    disabled={isDeploying || !!validatePersonaForDeployment(persona.description)}
-                  >
-                    {isDeploying ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Deploying...
-                      </>
-                    ) : (
-                      'Deploy'
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-blue-500 hover:text-blue-600"
+              onClick={() => {
+                setDeployingPersona(persona);
+                setIsDeployDialogOpen(true);
+              }}
+            >
+              <UserPlus className="h-4 w-4" />
+            </Button>
           )}
 
           <AlertDialog>
@@ -429,6 +390,46 @@ const PersonaList = () => {
 
   return (
     <div className="space-y-8">
+      <Dialog open={isDeployDialogOpen} onOpenChange={(open) => !open && handleDeployDialogClose()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deploy Persona</DialogTitle>
+          </DialogHeader>
+          {deployingPersona && (
+            <>
+              <div className="py-4">
+                <h3 className="font-medium mb-2">Validation Status</h3>
+                {validatePersonaForDeployment(deployingPersona.description) ? (
+                  <div className="text-red-500">
+                    {validatePersonaForDeployment(deployingPersona.description)}
+                  </div>
+                ) : (
+                  <div className="text-green-500 flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Ready to deploy
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={handleDeploy}
+                  disabled={isDeploying || !!validatePersonaForDeployment(deployingPersona.description)}
+                >
+                  {isDeploying ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deploying...
+                    </>
+                  ) : (
+                    'Deploy'
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div>
         <h2 className="text-xl font-semibold mb-4">Created Personas</h2>
         <Table>
