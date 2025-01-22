@@ -9,6 +9,60 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          ip_whitelist: string[] | null
+          is_active: boolean | null
+          key_hash: string
+          last_used_at: string | null
+          name: string | null
+          persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_whitelist?: string[] | null
+          is_active?: boolean | null
+          key_hash: string
+          last_used_at?: string | null
+          name?: string | null
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ip_whitelist?: string[] | null
+          is_active?: boolean | null
+          key_hash?: string
+          last_used_at?: string | null
+          name?: string | null
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emotion_analysis: {
         Row: {
           created_at: string
@@ -436,6 +490,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tavus_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_videos: {
+        Row: {
+          consent_url: string
+          created_at: string
+          id: string
+          persona_id: string | null
+          status: string | null
+          updated_at: string
+          user_id: string | null
+          video_url: string
+        }
+        Insert: {
+          consent_url: string
+          created_at?: string
+          id?: string
+          persona_id?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string | null
+          video_url: string
+        }
+        Update: {
+          consent_url?: string
+          created_at?: string
+          id?: string
+          persona_id?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string | null
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_videos_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_videos_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
