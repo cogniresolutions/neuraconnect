@@ -2,7 +2,7 @@ import VideoChat from "@/components/VideoChat";
 import MessageList from "@/components/MessageList";
 import ChatInput from "@/components/ChatInput";
 import PersonaCreator from "@/components/PersonaCreator";
-import PersonaList from "@/components/PersonaList";
+import { PersonaList } from "@/components/PersonaList";
 import { useState } from "react";
 import { sendMessageToAI } from "@/lib/azure-openai";
 import { useToast } from "@/hooks/use-toast";
