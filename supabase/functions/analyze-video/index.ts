@@ -23,7 +23,10 @@ serve(async (req) => {
     // Convert base64 to binary
     const imageBuffer = Uint8Array.from(atob(base64Image), c => c.charCodeAt(0));
 
+    // Construct the proper URL using the endpoint
     const analyzeUrl = `${azureEndpoint}/vision/v3.2/analyze?visualFeatures=Objects,Scenes,Tags`;
+    
+    console.log('Calling Azure Vision API at:', analyzeUrl);
     
     const response = await fetch(analyzeUrl, {
       method: 'POST',
@@ -33,6 +36,12 @@ serve(async (req) => {
       },
       body: imageBuffer,
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Azure API Error:', errorText);
+      throw new Error(`Azure API returned ${response.status}: ${errorText}`);
+    }
 
     const analysisResult = await response.json();
     console.log('Azure Analysis Result:', analysisResult);
