@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { VALID_VOICES } from "@/constants/voices";
 import { validatePersonaDescription, getSuggestedDescription } from "@/utils/personaValidation";
 import { useToast } from "@/hooks/use-toast";
-import { useTextToSpeech } from "@/hooks/use-text-to-speech";
+import { supabase } from "@/integrations/supabase/client";
 import { PlayCircle, Loader2 } from "lucide-react";
 
 interface PersonaFormProps {
@@ -31,7 +31,7 @@ export const PersonaForm = ({
   isCreating
 }: PersonaFormProps) => {
   const { toast } = useToast();
-  const { speak, isLoading: isSpeaking } = useTextToSpeech();
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [validationResult, setValidationResult] = useState({
     isValid: true,
     issues: [] as string[],
@@ -58,14 +58,32 @@ export const PersonaForm = ({
 
   const handleTestVoice = async () => {
     try {
+      setIsSpeaking(true);
       const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
-      await speak(testText, { voice: voiceStyle });
-    } catch (error) {
+      
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: testText,
+          voice: voiceStyle
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.audioContent) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+        await audio.play();
+      }
+
+    } catch (error: any) {
+      console.error('Voice test error:', error);
       toast({
         title: "Voice Test Failed",
-        description: error instanceof Error ? error.message : "Failed to test voice",
+        description: error.message || "Failed to test voice",
         variant: "destructive",
       });
+    } finally {
+      setIsSpeaking(false);
     }
   };
 
