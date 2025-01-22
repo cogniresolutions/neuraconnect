@@ -1,3 +1,4 @@
+<lov-code>
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,13 @@ const PersonaCreator = () => {
         return;
       }
 
-      setPersonas(personasData || []);
+      // Cast the emotion_settings to the correct type
+      const typedPersonas = (personasData || []).map(persona => ({
+        ...persona,
+        emotion_settings: persona.emotion_settings as { sensitivity: number; response_delay: number }
+      })) as Persona[];
+
+      setPersonas(typedPersonas);
     };
     
     checkAuthAndFetchPersonas();
@@ -354,183 +361,4 @@ const PersonaCreator = () => {
                   onChange={(e) => setName(e.target.value)}
                   className="bg-white/10 border-purple-400/30 text-white placeholder:text-gray-400"
                 />
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Persona Description"
-                    value={description}
-                    onChange={handleDescriptionChange}
-                    className="bg-white/10 border-purple-400/30 text-white min-h-[120px] placeholder:text-gray-400"
-                  />
-                  {!validationResult.isValid && (
-                    <Alert variant="destructive" className="bg-red-500/20 border-red-400/30">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Validation Issues</AlertTitle>
-                      <AlertDescription>
-                        <ul className="list-disc pl-4">
-                          {validationResult.issues.map((issue, index) => (
-                            <li key={index}>{issue}</li>
-                          ))}
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  {validationResult.suggestions.length > 0 && (
-                    <Alert className="bg-purple-500/20 border-purple-400/30">
-                      <CheckCircle className="h-4 w-4" />
-                      <AlertTitle>Suggestions</AlertTitle>
-                      <AlertDescription>
-                        <ul className="list-disc pl-4">
-                          {validationResult.suggestions.map((suggestion, index) => (
-                            <li key={index}>{suggestion}</li>
-                          ))}
-                        </ul>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleSuggestImprovement}
-                          className="mt-2 bg-purple-500/20 border-purple-400/30 hover:bg-purple-500/30"
-                        >
-                          Apply Suggestions
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
-                <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-                  <SelectTrigger className="bg-white/10 border-purple-400/30 text-white">
-                    <SelectValue placeholder="Select a voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VALID_VOICES.map((voice) => (
-                      <SelectItem key={voice} value={voice}>
-                        {voice}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300"
-                  onClick={handleCreatePersona}
-                  disabled={isCreating || !validationResult.isValid}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {isCreating ? "Creating..." : "Create Persona"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Preview */}
-          <div className="space-y-6">
-            <Card className="border-0 bg-white/5 backdrop-blur-lg shadow-xl overflow-hidden">
-              <CardContent className="p-6">
-                {isWebcamActive && (
-                  <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black/50 mb-6">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black/50">
-                  <Avatar3D isAnimating={avatarAnimating} />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Personas List */}
-        <div className="mt-12 space-y-8">
-          {/* Created Personas */}
-          <div>
-            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-purple-400 mb-6">
-              Created Personas
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {createdPersonas.map((persona) => (
-                <Card key={persona.id} className="border-0 bg-white/5 backdrop-blur-lg shadow-xl hover:shadow-2xl transition-all duration-300">
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-white">{persona.name}</CardTitle>
-                      <div className="flex items-center space-x-2">
-                        <CheckCircle className="h-5 w-5 text-green-400" />
-                        <span className="text-sm text-gray-400">Created</span>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-300 mb-4 line-clamp-3">{persona.description}</p>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleEdit(persona)}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="bg-red-500/20 border-red-400/30 hover:bg-red-500/30 text-white"
-                        onClick={() => handleDelete(persona.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        onClick={() => handleDeploy(persona.id)}
-                        disabled={isDeploying}
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-                      >
-                        {isDeploying ? (
-                          <>
-                            <ServerIcon className="mr-2 h-4 w-4 animate-pulse" />
-                            Deploying...
-                          </>
-                        ) : (
-                          <>
-                            <ServerIcon className="mr-2 h-4 w-4" />
-                            Deploy
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          {/* Deployed Personas */}
-          <div>
-            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-purple-400 mb-6">
-              Deployed Personas
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {deployedPersonas.map((persona) => (
-                <Card key={persona.id} className="border-0 bg-white/5 backdrop-blur-lg shadow-xl hover:shadow-2xl transition-all duration-300">
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-white">{persona.name}</CardTitle>
-                      <div className="flex items-center space-x-2">
-                        <PlayCircle className="h-5 w-5 text-blue-400" />
-                        <span className="text-sm text-gray-400">Deployed</span>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-300 line-clamp-3">{persona.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default PersonaCreator;
+               
