@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -43,11 +44,13 @@ const PersonaList = () => {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+  const [deployingPersona, setDeployingPersona] = useState<Persona | null>(null);
   const [newDescription, setNewDescription] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeployDialogOpen, setIsDeployDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -121,8 +124,6 @@ const PersonaList = () => {
         title: "Success",
         description: "Persona deleted successfully",
       });
-
-      // Persona will be removed from the list automatically due to the realtime subscription
     } catch (error: any) {
       toast({
         title: "Error",
@@ -139,7 +140,6 @@ const PersonaList = () => {
       return "Description must be at least 10 characters long";
     }
     
-    // Check for potentially problematic content
     const lowercaseDesc = description.toLowerCase();
     const forbiddenTerms = ['harmful', 'illegal', 'malicious', 'offensive'];
     const foundTerm = forbiddenTerms.find(term => lowercaseDesc.includes(term));
@@ -148,22 +148,19 @@ const PersonaList = () => {
       return `Description contains inappropriate content: "${foundTerm}"`;
     }
 
-    return null; // No validation errors
+    return null;
   };
 
-  const handleDeploy = async (personaId: string) => {
-    const persona = personas.find(p => p.id === personaId);
-    if (!persona) {
-      toast({
-        title: "Error",
-        description: "Persona not found",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleDeployClick = (persona: Persona) => {
+    setDeployingPersona(persona);
+    setIsDeployDialogOpen(true);
+  };
+
+  const handleDeploy = async () => {
+    if (!deployingPersona) return;
 
     // Only allow deployment of created personas
-    if (persona.status !== 'ready') {
+    if (deployingPersona.status !== 'ready') {
       toast({
         title: "Error",
         description: "Only created personas can be deployed",
@@ -173,7 +170,7 @@ const PersonaList = () => {
     }
 
     // Validate persona before deployment
-    const validationError = validatePersonaForDeployment(persona.description);
+    const validationError = validatePersonaForDeployment(deployingPersona.description);
     if (validationError) {
       toast({
         title: "Validation Error",
@@ -186,7 +183,7 @@ const PersonaList = () => {
     setIsDeploying(true);
     try {
       const { error } = await supabase.functions.invoke("deploy-persona", {
-        body: { personaId }
+        body: { personaId: deployingPersona.id }
       });
 
       if (error) throw error;
@@ -195,6 +192,7 @@ const PersonaList = () => {
         title: "Success",
         description: "Deployment initiated successfully",
       });
+      setIsDeployDialogOpen(false);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -203,6 +201,7 @@ const PersonaList = () => {
       });
     } finally {
       setIsDeploying(false);
+      setDeployingPersona(null);
     }
   };
 
@@ -263,6 +262,11 @@ const PersonaList = () => {
     setIsDialogOpen(false);
     setEditingPersona(null);
     setNewDescription("");
+  };
+
+  const handleDeployDialogClose = () => {
+    setIsDeployDialogOpen(false);
+    setDeployingPersona(null);
   };
 
   if (isLoading) {
@@ -335,19 +339,51 @@ const PersonaList = () => {
           </Dialog>
 
           {persona.status === 'ready' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-blue-500 hover:text-blue-600"
-              onClick={() => handleDeploy(persona.id)}
-              disabled={isDeploying}
-            >
-              {isDeploying ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserPlus className="h-4 w-4" />
-              )}
-            </Button>
+            <Dialog open={isDeployDialogOpen && deployingPersona?.id === persona.id} onOpenChange={(open) => !open && handleDeployDialogClose()}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-blue-500 hover:text-blue-600"
+                  onClick={() => handleDeployClick(persona)}
+                >
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Deploy Persona</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                  <h3 className="font-medium mb-2">Validation Status</h3>
+                  {validatePersonaForDeployment(persona.description) ? (
+                    <div className="text-red-500">
+                      {validatePersonaForDeployment(persona.description)}
+                    </div>
+                  ) : (
+                    <div className="text-green-500 flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Ready to deploy
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={handleDeploy}
+                    disabled={isDeploying || !!validatePersonaForDeployment(persona.description)}
+                  >
+                    {isDeploying ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Deploying...
+                      </>
+                    ) : (
+                      'Deploy'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
 
           <AlertDialog>
