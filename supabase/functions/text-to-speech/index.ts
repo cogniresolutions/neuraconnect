@@ -33,13 +33,7 @@ serve(async (req) => {
     }
 
     // Construct SSML with proper voice name format for Azure
-    const ssml = `
-      <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="en-US-${voice}Neural">
-          ${text}
-        </voice>
-      </speak>
-    `.trim()
+    const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-${voice}Neural">${text}</voice></speak>`
 
     console.log('Making request to Azure with endpoint:', endpoint)
     console.log('Using voice:', `en-US-${voice}Neural`)
