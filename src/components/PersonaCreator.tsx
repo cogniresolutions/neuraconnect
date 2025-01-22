@@ -36,6 +36,20 @@ const PersonaCreator = () => {
     setIsLoading(true);
 
     try {
+      // Get the current user's session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+      
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to create a persona.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: personaData, error: personaError } = await supabase
         .from('personas')
         .insert([
@@ -44,7 +58,8 @@ const PersonaCreator = () => {
             description: formData.description,
             voice_style: formData.voiceStyle,
             personality: formData.personality,
-            status: 'draft'
+            status: 'draft',
+            user_id: session.user.id
           }
         ])
         .select()
@@ -85,6 +100,20 @@ const PersonaCreator = () => {
   const handleDeploy = async () => {
     setIsDeploying(true);
     try {
+      // Get the current user's session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+      
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to deploy a persona.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("deploy-persona", {
         body: { personaId: formData.name } // Using name as temp ID for demo
       });
