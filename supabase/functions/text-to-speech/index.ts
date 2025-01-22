@@ -25,17 +25,18 @@ serve(async (req) => {
       console.error('Azure credentials not found:', { endpoint: !!endpoint, key: !!subscriptionKey })
       throw new Error('Azure credentials not configured')
     }
-    
-    // Construct SSML
+
+    // Construct SSML with proper voice name format
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="en-US-${voice}Neural">
+        <voice name="en-US-${voice}">
           ${text}
         </voice>
       </speak>
     `
 
-    console.log('Making request to Azure with SSML:', ssml)
+    console.log('Making request to Azure with endpoint:', endpoint)
+    console.log('SSML payload:', ssml)
 
     const response = await fetch(`${endpoint}/cognitiveservices/v1`, {
       method: 'POST',
@@ -49,9 +50,13 @@ serve(async (req) => {
     })
 
     if (!response.ok) {
-      const error = await response.text()
-      console.error('Azure TTS Error:', error)
-      throw new Error('Failed to generate speech')
+      const errorText = await response.text()
+      console.error('Azure TTS Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      })
+      throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
     }
 
     console.log('Successfully received audio response')
@@ -71,7 +76,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Text-to-speech error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error instanceof Error ? error.stack : undefined
+      }),
       {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
