@@ -4,18 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Video, Mic, MicOff, VideoOff, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface VideoOverlayProps {
   personaImage?: string;
   isActive: boolean;
+  isAnimating: boolean;
 }
 
-const VideoOverlay: React.FC<VideoOverlayProps> = ({ personaImage, isActive }) => {
+const VideoOverlay: React.FC<VideoOverlayProps> = ({ personaImage, isActive, isAnimating }) => {
   if (!isActive || !personaImage) return null;
   
   return (
     <div className="absolute inset-0 flex items-center justify-center">
-      <Avatar className="w-full h-full rounded-lg">
+      <Avatar 
+        className={cn(
+          "w-full h-full rounded-lg transition-transform duration-300",
+          isAnimating && "animate-subtle-movement"
+        )}
+      >
         <AvatarImage src={personaImage} className="object-cover" />
         <AvatarFallback>
           <User className="w-12 h-12" />
@@ -30,13 +38,33 @@ const VideoChat = () => {
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isPersonaActive, setIsPersonaActive] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const { toast } = useToast();
 
-  // This would be passed from props in a real implementation
-  const personaImage = "https://example.com/persona-avatar.jpg";
+  // Fetch active persona from Supabase
+  const { data: persona } = useQuery({
+    queryKey: ['active-persona'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .eq('status', 'deployed')
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   useEffect(() => {
     startVideo();
+    // Start subtle animation loop
+    const animationInterval = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 2000);
+    }, 5000);
+
+    return () => clearInterval(animationInterval);
   }, []);
 
   const startVideo = async () => {
@@ -90,8 +118,9 @@ const VideoChat = () => {
           )}
         />
         <VideoOverlay 
-          personaImage={personaImage} 
-          isActive={isPersonaActive} 
+          personaImage={persona?.avatar_url} 
+          isActive={isPersonaActive}
+          isAnimating={isAnimating}
         />
       </div>
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4">
