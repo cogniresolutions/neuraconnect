@@ -58,6 +58,14 @@ const Auth = () => {
                 label: 'hidden',
                 input: 'hidden',
                 message: 'hidden',
+                // Hide all other auth elements
+                emailInput: 'hidden',
+                passwordInput: 'hidden',
+                emailLabel: 'hidden',
+                passwordLabel: 'hidden',
+                buttonText: 'hidden',
+                forgottenPassword: 'hidden',
+                socialButtonsBlockButton: 'auth-button',
               },
             }}
             providers={["google"]}
