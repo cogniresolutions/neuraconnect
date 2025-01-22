@@ -1,4 +1,8 @@
 project_id = "kzubwatryfgonzuzldej"
 
-[manage-personas]
+[global.env]
+AZURE_COGNITIVE_KEY = "AZURE_COGNITIVE_KEY"
+
+[[functions]]
+name = "text-to-speech"
 verify_jwt = true

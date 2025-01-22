@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { VALID_VOICES } from "@/constants/voices";
 import { validatePersonaDescription, getSuggestedDescription } from "@/utils/personaValidation";
 import { useToast } from "@/hooks/use-toast";
+import { useTextToSpeech } from "@/hooks/use-text-to-speech";
+import { PlayCircle } from "lucide-react";
 
 interface PersonaFormProps {
   name: string;
@@ -29,6 +31,7 @@ export const PersonaForm = ({
   isCreating
 }: PersonaFormProps) => {
   const { toast } = useToast();
+  const { speak, isLoading: isSpeaking } = useTextToSpeech();
   const [validationResult, setValidationResult] = useState({
     isValid: true,
     issues: [] as string[],
@@ -51,6 +54,11 @@ export const PersonaForm = ({
       title: "Description Updated",
       description: "The description has been improved with suggested changes.",
     });
+  };
+
+  const handleTestVoice = async () => {
+    const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
+    await speak(testText, { voice: voiceStyle });
   };
 
   return (
@@ -85,18 +93,30 @@ export const PersonaForm = ({
           </Button>
         )}
       </div>
-      <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-        <SelectTrigger className="bg-white/10 border-purple-400/30 text-white">
-          <SelectValue placeholder="Select a voice" />
-        </SelectTrigger>
-        <SelectContent>
-          {VALID_VOICES.map((voice) => (
-            <SelectItem key={voice} value={voice}>
-              {voice}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="space-y-2">
+        <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+          <SelectTrigger className="bg-white/10 border-purple-400/30 text-white">
+            <SelectValue placeholder="Select a voice" />
+          </SelectTrigger>
+          <SelectContent>
+            {VALID_VOICES.map((voice) => (
+              <SelectItem key={voice} value={voice}>
+                {voice}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleTestVoice}
+          disabled={isSpeaking || !name || !description}
+          className="w-full text-purple-400 border-purple-400/30"
+        >
+          <PlayCircle className="mr-2 h-4 w-4" />
+          {isSpeaking ? "Speaking..." : "Test Voice"}
+        </Button>
+      </div>
       <Button
         onClick={onSubmit}
         disabled={isCreating}
