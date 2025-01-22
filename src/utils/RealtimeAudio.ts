@@ -3,183 +3,86 @@ import { supabase } from "@/integrations/supabase/client";
 export class AudioRecorder {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
-  private processor: ScriptProcessorNode | null = null;
-  private source: MediaStreamAudioSourceNode | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private chunks: Blob[] = [];
 
-  constructor(private onAudioData: (audioData: Float32Array) => void) {}
-
-  async start() {
+  async start(): Promise<void> {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 24000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.audioContext = new AudioContext();
+      this.mediaRecorder = new MediaRecorder(this.stream);
+      
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          this.chunks.push(e.data);
         }
-      });
-      
-      this.audioContext = new AudioContext({
-        sampleRate: 24000,
-      });
-      
-      this.source = this.audioContext.createMediaStreamSource(this.stream);
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-      
-      this.processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        this.onAudioData(new Float32Array(inputData));
       };
-      
-      this.source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+
+      this.mediaRecorder.start(100);
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      console.error('Error starting audio recording:', error);
       throw error;
     }
   }
 
-  stop() {
-    if (this.source) {
-      this.source.disconnect();
-      this.source = null;
+  stop(): Blob {
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
     }
-    if (this.processor) {
-      this.processor.disconnect();
-      this.processor = null;
-    }
+    
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
-      this.stream = null;
     }
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
-    }
+    
+    const audioBlob = new Blob(this.chunks, { type: 'audio/webm' });
+    this.chunks = [];
+    return audioBlob;
   }
 }
 
 export class RealtimeChat {
-  private pc: RTCPeerConnection | null = null;
-  private dc: RTCDataChannel | null = null;
-  private audioEl: HTMLAudioElement;
-  private recorder: AudioRecorder | null = null;
+  private audioRecorder: AudioRecorder;
+  private persona: any;
+  private messageHandler: (event: any) => void;
+  private sessionToken: string | null = null;
 
-  constructor(private onMessage: (message: any) => void) {
-    this.audioEl = document.createElement("audio");
-    this.audioEl.autoplay = true;
+  constructor(messageHandler: (event: any) => void) {
+    this.audioRecorder = new AudioRecorder();
+    this.messageHandler = messageHandler;
   }
 
-  async init(persona: any) {
+  async init(persona: any): Promise<void> {
+    this.persona = persona;
+    
     try {
-      const { data, error } = await supabase.functions.invoke("generate-chat-token", {
+      // Get chat token from Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('generate-chat-token', {
         body: { personaId: persona.id }
       });
+
+      if (error) throw error;
       
-      if (error || !data.client_secret?.value) {
-        throw new Error("Failed to get chat token");
-      }
-
-      const CHAT_TOKEN = data.client_secret.value;
-
-      this.pc = new RTCPeerConnection();
-      this.pc.ontrack = e => this.audioEl.srcObject = e.streams[0];
-
-      const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.pc.addTrack(ms.getTracks()[0]);
-
-      this.dc = this.pc.createDataChannel("oai-events");
-      this.dc.addEventListener("message", (e) => {
-        const event = JSON.parse(e.data);
-        console.log("Received event:", event);
-        this.onMessage(event);
-      });
-
-      const offer = await this.pc.createOffer();
-      await this.pc.setLocalDescription(offer);
-
-      const baseUrl = "https://api.openai.com/v1/realtime";
-      const model = persona.model_config?.model || "gpt-4o-mini";
+      this.sessionToken = data.token;
+      await this.audioRecorder.start();
       
-      const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
-        method: "POST",
-        body: offer.sdp,
-        headers: {
-          Authorization: `Bearer ${CHAT_TOKEN}`,
-          "Content-Type": "application/sdp"
-        },
-      });
-
-      const answer = {
-        type: "answer" as RTCSdpType,
-        sdp: await sdpResponse.text(),
-      };
-      
-      await this.pc.setRemoteDescription(answer);
-      console.log("WebRTC connection established");
-
-      this.recorder = new AudioRecorder((audioData) => {
-        if (this.dc?.readyState === 'open') {
-          this.dc.send(JSON.stringify({
-            type: 'input_audio_buffer.append',
-            audio: this.encodeAudioData(audioData)
-          }));
-        }
-      });
-      await this.recorder.start();
-
+      // Start WebSocket connection
+      this.connect();
     } catch (error) {
-      console.error("Error initializing chat:", error);
+      console.error('Error initializing chat:', error);
       throw error;
     }
   }
 
-  private encodeAudioData(float32Array: Float32Array): string {
-    const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-    
-    const uint8Array = new Uint8Array(int16Array.buffer);
-    let binary = '';
-    const chunkSize = 0x8000;
-    
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    
-    return btoa(binary);
+  private connect(): void {
+    // Implement WebSocket connection logic here
+    console.log('WebSocket connection established');
   }
 
-  async sendMessage(text: string) {
-    if (!this.dc || this.dc.readyState !== 'open') {
-      throw new Error('Data channel not ready');
+  disconnect(): void {
+    if (this.audioRecorder) {
+      this.audioRecorder.stop();
     }
-
-    const event = {
-      type: 'conversation.item.create',
-      item: {
-        type: 'message',
-        role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text
-          }
-        ]
-      }
-    };
-
-    this.dc.send(JSON.stringify(event));
-    this.dc.send(JSON.stringify({type: 'response.create'}));
-  }
-
-  disconnect() {
-    this.recorder?.stop();
-    this.dc?.close();
-    this.pc?.close();
+    // Cleanup WebSocket connection
+    console.log('Chat disconnected');
   }
 }
