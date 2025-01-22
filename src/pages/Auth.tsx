@@ -19,7 +19,7 @@ const Auth = () => {
           title: "Success",
           description: "Successfully logged in!",
         });
-        navigate("/create-persona");
+        navigate("/"); // Changed from /create-persona to /
       }
     });
 
