@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Video, Mic, MicOff, VideoOff, User, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import PersonaSelector from "./PersonaSelector";
 
 interface VideoOverlayProps {
   personaImage?: string;
@@ -17,6 +16,12 @@ interface AnalysisResult {
   objects?: { object: string }[];
   scenes?: { scenery: string }[];
   tags?: { name: string }[];
+}
+
+interface Persona {
+  id: string;
+  name: string;
+  avatar_url: string;
 }
 
 const VideoOverlay: React.FC<VideoOverlayProps> = ({ personaImage, isActive, isAnimating }) => {
@@ -47,22 +52,8 @@ const VideoChat = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
+  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const { toast } = useToast();
-
-  // Fetch active persona from Supabase
-  const { data: persona } = useQuery({
-    queryKey: ['active-persona'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .eq('status', 'deployed')
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-  });
 
   useEffect(() => {
     startVideo();
@@ -156,10 +147,10 @@ const VideoChat = () => {
   };
 
   const togglePersona = () => {
-    if (!persona && !isPersonaActive) {
+    if (!selectedPersona && !isPersonaActive) {
       toast({
-        title: "No Persona Available",
-        description: "Please deploy a persona first before activating.",
+        title: "No Persona Selected",
+        description: "Please select a persona first before activating.",
         variant: "destructive",
       });
       return;
@@ -174,14 +165,14 @@ const VideoChat = () => {
     });
   };
 
-  const toggleAnalysis = () => {
-    setIsAnalyzing(!isAnalyzing);
-    toast({
-      title: isAnalyzing ? "Analysis Stopped" : "Analysis Started",
-      description: isAnalyzing 
-        ? "Video analysis has been stopped" 
-        : "Analyzing video feed every second",
-    });
+  const handlePersonaSelect = (persona: Persona | null) => {
+    setSelectedPersona(persona);
+    if (persona) {
+      toast({
+        title: "Persona Selected",
+        description: `Selected ${persona.name} as your video persona`,
+      });
+    }
   };
 
   return (
@@ -197,7 +188,7 @@ const VideoChat = () => {
           )}
         />
         <VideoOverlay 
-          personaImage={persona?.avatar_url} 
+          personaImage={selectedPersona?.avatar_url} 
           isActive={isPersonaActive}
           isAnimating={isAnimating}
         />
@@ -214,7 +205,11 @@ const VideoChat = () => {
           </div>
         )}
       </div>
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4">
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4 items-center">
+        <PersonaSelector 
+          onPersonaSelect={handlePersonaSelect}
+          selectedPersonaId={selectedPersona?.id}
+        />
         <Button
           variant="outline"
           size="icon"
@@ -247,17 +242,6 @@ const VideoChat = () => {
           )}
         >
           <User className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleAnalysis}
-          className={cn(
-            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-            isAnalyzing && "bg-green-500/50 hover:bg-green-500/70"
-          )}
-        >
-          <Camera className="h-4 w-4" />
         </Button>
       </div>
     </div>
