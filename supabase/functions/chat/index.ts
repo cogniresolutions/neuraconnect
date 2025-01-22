@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Configuration, OpenAIApi } from "https://esm.sh/openai@3.3.0";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-
-if (!OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY is required");
-}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,8 +10,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log("Received request:", req.method);
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
@@ -31,6 +26,16 @@ serve(async (req) => {
         JSON.stringify({ error: "Message is required" }),
         { 
           status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "OpenAI API key is not configured" }),
+        { 
+          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
@@ -59,7 +64,7 @@ serve(async (req) => {
       temperature: 0.7,
     });
 
-    console.log("OpenAI response received:", completion.data);
+    console.log("OpenAI response received");
 
     if (!completion.data?.choices?.[0]?.message?.content) {
       throw new Error("Invalid response from OpenAI");
