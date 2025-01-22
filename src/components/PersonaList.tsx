@@ -134,18 +134,18 @@ const PersonaList = () => {
     }
   };
 
-  const validatePersonaForDeployment = (persona: Persona) => {
-    if (!persona.description || persona.description.trim().length < 10) {
+  const validatePersonaForDeployment = (description: string) => {
+    if (!description || description.trim().length < 10) {
       return "Description must be at least 10 characters long";
     }
     
     // Check for potentially problematic content
-    const lowercaseDesc = persona.description.toLowerCase();
+    const lowercaseDesc = description.toLowerCase();
     const forbiddenTerms = ['harmful', 'illegal', 'malicious', 'offensive'];
-    for (const term of forbiddenTerms) {
-      if (lowercaseDesc.includes(term)) {
-        return `Description contains inappropriate content: ${term}`;
-      }
+    const foundTerm = forbiddenTerms.find(term => lowercaseDesc.includes(term));
+    
+    if (foundTerm) {
+      return `Description contains inappropriate content: "${foundTerm}"`;
     }
 
     return null; // No validation errors
@@ -173,7 +173,7 @@ const PersonaList = () => {
     }
 
     // Validate persona before deployment
-    const validationError = validatePersonaForDeployment(persona);
+    const validationError = validatePersonaForDeployment(persona.description);
     if (validationError) {
       toast({
         title: "Validation Error",
@@ -208,6 +208,17 @@ const PersonaList = () => {
 
   const handleUpdate = async () => {
     if (!editingPersona) return;
+
+    // Validate the new description before updating
+    const validationError = validatePersonaForDeployment(newDescription);
+    if (validationError) {
+      toast({
+        title: "Validation Error",
+        description: validationError,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsUpdating(true);
     try {
