@@ -1,0 +1,7 @@
+project_id = "kzubwatryfgonzuzldej"
+
+[analyze-emotion]
+verify_jwt = true
+
+[analyze-environment]
+verify_jwt = true

@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const AZURE_COGNITIVE_ENDPOINT = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
+const AZURE_API_KEY = Deno.env.get('AZURE_API_KEY')
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -12,39 +16,62 @@ serve(async (req) => {
   }
 
   try {
-    const AZURE_COGNITIVE_ENDPOINT = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
-    if (!AZURE_COGNITIVE_ENDPOINT) {
-      throw new Error('AZURE_COGNITIVE_ENDPOINT is not set')
-    }
+    const { image_data, user_id, persona_id } = await req.json()
 
-    const { image } = await req.json()
-    if (!image) {
+    if (!image_data) {
       throw new Error('No image data provided')
     }
 
-    // Call Azure Cognitive Services Computer Vision API
-    const response = await fetch(`${AZURE_COGNITIVE_ENDPOINT}/vision/v3.2/analyze?visualFeatures=Objects,Tags,Description`, {
+    // Call Azure Computer Vision API for environment analysis
+    const response = await fetch(`${AZURE_COGNITIVE_ENDPOINT}/vision/v3.2/analyze?visualFeatures=Categories,Objects,Tags`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Ocp-Apim-Subscription-Key': Deno.env.get('AZURE_COGNITIVE_KEY') || '',
+        'Ocp-Apim-Subscription-Key': AZURE_API_KEY!,
       },
       body: JSON.stringify({
-        url: image
+        url: image_data
       })
     })
 
-    const data = await response.json()
-    console.log('Environment analysis response:', data)
+    const environmentData = await response.json()
+    console.log('Environment analysis result:', environmentData)
 
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    // Create Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Store environment analysis results
+    const { data, error } = await supabaseClient
+      .from('emotion_analysis')
+      .update({ 
+        environment_data: environmentData,
+        environment_context: {
+          objects: environmentData.objects?.map((obj: any) => obj.object) || [],
+          tags: environmentData.tags?.map((tag: any) => tag.name) || [],
+          categories: environmentData.categories?.map((cat: any) => cat.name) || []
+        }
+      })
+      .match({ user_id, persona_id })
+      .is('environment_data', null)
+
+    if (error) throw error
+
+    return new Response(
+      JSON.stringify({ success: true, data: environmentData }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
   } catch (error) {
-    console.error('Error in analyze-environment function:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    })
+    console.error('Error:', error.message)
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
   }
 })
