@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle } from "lucide-react";
+import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle, ServerIcon, PlayCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Avatar3D from "./Avatar3D";
 import { VALID_VOICES } from "@/constants/voices";
@@ -21,6 +21,21 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+interface Persona {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  created_at: string;
+}
 
 const PersonaCreator = () => {
   const navigate = useNavigate();
@@ -33,6 +48,8 @@ const PersonaCreator = () => {
   const [description, setDescription] = useState("");
   const [voiceStyle, setVoiceStyle] = useState<string>("alloy");
   const [isCreating, setIsCreating] = useState(false);
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [isDeploying, setIsDeploying] = useState(false);
 
   const [validationResult, setValidationResult] = useState({
     isValid: true,
@@ -41,16 +58,54 @@ const PersonaCreator = () => {
   });
 
   useEffect(() => {
-    // Check if user is authenticated
-    const checkAuth = async () => {
+    // Check if user is authenticated and fetch personas
+    const checkAuthAndFetchPersonas = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate('/auth');
+        return;
       }
+      
+      // Fetch personas
+      const { data: personasData, error } = await supabase
+        .from('personas')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        toast({
+          title: "Error fetching personas",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setPersonas(personasData || []);
     };
     
-    checkAuth();
-  }, [navigate]);
+    checkAuthAndFetchPersonas();
+
+    // Set up real-time subscription for personas
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'personas'
+        },
+        () => {
+          checkAuthAndFetchPersonas();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [navigate, toast]);
 
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newDescription = e.target.value;
@@ -136,6 +191,30 @@ const PersonaCreator = () => {
     }
   };
 
+  const handleDeploy = async (personaId: string) => {
+    setIsDeploying(true);
+    try {
+      const { error } = await supabase.functions.invoke("deploy-persona", {
+        body: { personaId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Deployment initiated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deploy persona",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -180,6 +259,9 @@ const PersonaCreator = () => {
     }
   };
 
+  const createdPersonas = personas.filter(p => p.status === 'ready');
+  const deployedPersonas = personas.filter(p => p.status === 'deployed');
+
   return (
     <div className="min-h-screen bg-black p-4">
       <div className="max-w-4xl mx-auto">
@@ -215,6 +297,7 @@ const PersonaCreator = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Creation Form */}
           <div className="space-y-4">
             <Input
               placeholder="Persona Name"
@@ -286,6 +369,7 @@ const PersonaCreator = () => {
             </Button>
           </div>
 
+          {/* Preview */}
           <div className="space-y-4">
             {isWebcamActive && (
               <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
@@ -301,6 +385,72 @@ const PersonaCreator = () => {
             
             <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
               <Avatar3D isAnimating={avatarAnimating} />
+            </div>
+          </div>
+        </div>
+
+        {/* Personas List */}
+        <div className="mt-12 space-y-8">
+          {/* Created Personas */}
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-4">Created Personas</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {createdPersonas.map((persona) => (
+                <Card key={persona.id} className="bg-gray-800 text-white">
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>{persona.name}</CardTitle>
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <span className="text-sm text-gray-400">Created</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-300 mb-4">{persona.description}</p>
+                    <Button
+                      onClick={() => handleDeploy(persona.id)}
+                      disabled={isDeploying}
+                      className="w-full"
+                    >
+                      {isDeploying ? (
+                        <>
+                          <ServerIcon className="mr-2 h-4 w-4 animate-pulse" />
+                          Deploying...
+                        </>
+                      ) : (
+                        <>
+                          <ServerIcon className="mr-2 h-4 w-4" />
+                          Deploy Persona
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Deployed Personas */}
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-4">Deployed Personas</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {deployedPersonas.map((persona) => (
+                <Card key={persona.id} className="bg-gray-800 text-white">
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>{persona.name}</CardTitle>
+                      <div className="flex items-center space-x-2">
+                        <PlayCircle className="h-5 w-5 text-blue-500" />
+                        <span className="text-sm text-gray-400">Deployed</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-300">{persona.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         </div>
