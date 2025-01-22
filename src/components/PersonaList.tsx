@@ -9,7 +9,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Edit2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Persona {
   id: string;
@@ -22,6 +31,9 @@ interface Persona {
 const PersonaList = () => {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+  const [newDescription, setNewDescription] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -76,6 +88,51 @@ const PersonaList = () => {
       supabase.removeChannel(channel);
     };
   }, [toast]);
+
+  const handleEdit = (persona: Persona) => {
+    setEditingPersona(persona);
+    setNewDescription(persona.description);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingPersona) return;
+
+    setIsUpdating(true);
+    try {
+      // First update the description
+      const { error: updateError } = await supabase
+        .from('personas')
+        .update({ 
+          description: newDescription,
+          status: 'ready' // Reset status to ready for redeployment
+        })
+        .eq('id', editingPersona.id);
+
+      if (updateError) throw updateError;
+
+      // Then trigger redeployment
+      const { error: deployError } = await supabase.functions.invoke("deploy-persona", {
+        body: { personaId: editingPersona.id }
+      });
+
+      if (deployError) throw deployError;
+
+      toast({
+        title: "Success",
+        description: "Persona updated and redeployment initiated",
+      });
+
+      setEditingPersona(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -138,12 +195,13 @@ const PersonaList = () => {
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {deployedPersonas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center">
+                <TableCell colSpan={5} className="text-center">
                   No deployed personas yet
                 </TableCell>
               </TableRow>
@@ -160,6 +218,46 @@ const PersonaList = () => {
                   </TableCell>
                   <TableCell>
                     {new Date(persona.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(persona)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Edit Persona Description</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <Textarea
+                            value={newDescription}
+                            onChange={(e) => setNewDescription(e.target.value)}
+                            placeholder="Enter new description"
+                            className="min-h-[100px]"
+                          />
+                          <Button 
+                            onClick={handleUpdate}
+                            disabled={isUpdating}
+                            className="w-full"
+                          >
+                            {isUpdating ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Updating...
+                              </>
+                            ) : (
+                              'Update & Redeploy'
+                            )}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </TableCell>
                 </TableRow>
               ))
