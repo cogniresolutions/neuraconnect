@@ -7,7 +7,17 @@ if (!OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY is required");
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     const { message } = await req.json();
 
@@ -16,7 +26,7 @@ serve(async (req) => {
         JSON.stringify({ error: "Message is required" }),
         { 
           status: 400,
-          headers: { "Content-Type": "application/json" }
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
@@ -28,7 +38,7 @@ serve(async (req) => {
     const openai = new OpenAIApi(configuration);
 
     const completion = await openai.createChatCompletion({
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
@@ -43,6 +53,11 @@ serve(async (req) => {
       temperature: 0.7,
     });
 
+    // Add proper error handling and response validation
+    if (!completion.data || !completion.data.choices || !completion.data.choices[0]) {
+      throw new Error("Invalid response from OpenAI");
+    }
+
     const response = completion.data.choices[0].message?.content;
 
     if (!response) {
@@ -53,10 +68,8 @@ serve(async (req) => {
       JSON.stringify({ response }),
       { 
         headers: { 
+          ...corsHeaders,
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST",
-          "Access-Control-Allow-Headers": "Content-Type",
         }
       },
     );
@@ -70,10 +83,8 @@ serve(async (req) => {
       { 
         status: 500,
         headers: { 
+          ...corsHeaders,
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST",
-          "Access-Control-Allow-Headers": "Content-Type",
         }
       },
     );
