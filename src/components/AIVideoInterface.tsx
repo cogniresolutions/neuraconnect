@@ -133,7 +133,10 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   const stopVideo = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      // Stop all tracks in the stream
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
       streamRef.current = null;
     }
     if (videoRef.current) {
@@ -142,11 +145,11 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     setIsVideoEnabled(false);
   };
 
-  const toggleVideo = () => {
+  const toggleVideo = async () => {
     if (isVideoEnabled) {
       stopVideo();
     } else {
-      startVideo();
+      await startVideo();
     }
   };
 
@@ -163,6 +166,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       if (analysisInterval) {
         clearInterval(analysisInterval);
       }
+      // Ensure camera is stopped when component unmounts
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
