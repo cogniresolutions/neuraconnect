@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PersonaFormData {
@@ -15,6 +15,7 @@ interface PersonaFormData {
 
 const PersonaCreator = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
   const [formData, setFormData] = useState<PersonaFormData>({
     name: "",
     description: "",
@@ -35,8 +36,24 @@ const PersonaCreator = () => {
     setIsLoading(true);
 
     try {
+      const { data: personaData, error: personaError } = await supabase
+        .from('personas')
+        .insert([
+          {
+            name: formData.name,
+            description: formData.description,
+            voice_style: formData.voiceStyle,
+            personality: formData.personality,
+            status: 'draft'
+          }
+        ])
+        .select()
+        .single();
+
+      if (personaError) throw personaError;
+
       const { data, error } = await supabase.functions.invoke("create-persona", {
-        body: { ...formData }
+        body: { ...formData, personaId: personaData.id }
       });
 
       if (error) throw error;
@@ -62,6 +79,31 @@ const PersonaCreator = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeploy = async () => {
+    setIsDeploying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("deploy-persona", {
+        body: { personaId: formData.name } // Using name as temp ID for demo
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Deployment Started",
+        description: "Your persona is being deployed. This may take a few minutes.",
+      });
+    } catch (error) {
+      console.error("Error deploying persona:", error);
+      toast({
+        title: "Error",
+        description: "Failed to deploy persona. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -117,23 +159,44 @@ const PersonaCreator = () => {
           />
         </div>
 
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating Persona...
-            </>
-          ) : (
-            <>
-              <Upload className="mr-2 h-4 w-4" />
-              Create Persona
-            </>
-          )}
-        </Button>
+        <div className="flex gap-4">
+          <Button
+            type="submit"
+            className="flex-1"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Persona...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Create Persona
+              </>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            onClick={handleDeploy}
+            className="flex-1"
+            disabled={isDeploying || !formData.name}
+          >
+            {isDeploying ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deploying...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Deploy Persona
+              </>
+            )}
+          </Button>
+        </div>
       </form>
     </div>
   );

@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { name, description, voiceStyle, personality } = await req.json();
+    const { name, description, voiceStyle, personality, personaId } = await req.json();
 
     // First, generate a personality profile using GPT-4
     const personalityResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -51,11 +51,14 @@ serve(async (req) => {
     const personalityData = await personalityResponse.json();
     const generatedProfile = personalityData.choices[0].message.content;
 
-    // For now, we'll just return the generated profile
-    // In a full implementation, you'd want to:
-    // 1. Store this in a database
-    // 2. Generate or process avatar/video content
-    // 3. Set up deployment configurations
+    // Update the persona record with the generated profile
+    const { data: client } = await supabase.from('personas')
+      .update({ 
+        personality: generatedProfile,
+        status: 'ready'
+      })
+      .eq('id', personaId)
+      .select();
 
     return new Response(
       JSON.stringify({

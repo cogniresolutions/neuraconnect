@@ -214,6 +214,53 @@ export type Database = {
         }
         Relationships: []
       }
+      personas: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          personality: string | null
+          status: string | null
+          updated_at: string
+          user_id: string | null
+          voice_style: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          personality?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string | null
+          voice_style?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          personality?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string | null
+          voice_style?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
