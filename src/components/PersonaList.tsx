@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle, XCircle, Loader2, Edit2 } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Edit2, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -34,6 +45,7 @@ const PersonaList = () => {
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
   const [newDescription, setNewDescription] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -90,6 +102,33 @@ const PersonaList = () => {
   const handleEdit = (persona: Persona) => {
     setEditingPersona(persona);
     setNewDescription(persona.description);
+  };
+
+  const handleDelete = async (personaId: string) => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', personaId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Persona deleted successfully",
+      });
+
+      // Persona will be removed from the list automatically due to the realtime subscription
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleUpdate = async () => {
@@ -158,44 +197,83 @@ const PersonaList = () => {
         {new Date(persona.created_at).toLocaleDateString()}
       </TableCell>
       <TableCell>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleEdit(persona)}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Persona Description</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <Textarea
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Enter new description"
-                className="min-h-[100px]"
-              />
-              <Button 
-                onClick={handleUpdate}
-                disabled={isUpdating}
-                className="w-full"
+        <div className="flex gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleEdit(persona)}
               >
-                {isUpdating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  persona.status === 'deployed' ? 'Update & Redeploy' : 'Update'
-                )}
+                <Edit2 className="h-4 w-4" />
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Persona Description</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <Textarea
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Enter new description"
+                  className="min-h-[100px]"
+                />
+                <Button 
+                  onClick={handleUpdate}
+                  disabled={isUpdating}
+                  className="w-full"
+                >
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    persona.status === 'deployed' ? 'Update & Redeploy' : 'Update'
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-red-500 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Persona</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this persona? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => handleDelete(persona.id)}
+                  className="bg-red-500 hover:bg-red-600"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </TableCell>
     </TableRow>
   );
