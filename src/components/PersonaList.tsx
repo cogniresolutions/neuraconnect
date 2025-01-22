@@ -26,6 +26,7 @@ import {
   Edit2,
   Trash2,
   ServerIcon,
+  List,
 } from "lucide-react";
 
 type Persona = {
@@ -42,6 +43,7 @@ export const PersonaList = () => {
   const [isDeploying, setIsDeploying] = useState(false);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showAllPersonas, setShowAllPersonas] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -164,23 +166,42 @@ export const PersonaList = () => {
 
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
+  const displayedPersonas = showAllPersonas ? personas : createdPersonas;
 
   return (
     <div className="space-y-8">
+      {/* Toggle Button for All Personas */}
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowAllPersonas(!showAllPersonas)}
+          className="bg-gray-700 hover:bg-gray-600"
+        >
+          <List className="h-4 w-4 mr-2" />
+          {showAllPersonas ? "Show Created Only" : "Show All Personas"}
+        </Button>
+      </div>
+
       {/* Created Personas Section */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <CheckCircle2 className="h-5 w-5 text-green-500" />
-          <h2 className="text-xl font-semibold text-white">Created Personas</h2>
+          <h2 className="text-xl font-semibold text-white">
+            {showAllPersonas ? "All Personas" : "Created Personas"}
+          </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {createdPersonas.map((persona) => (
+          {displayedPersonas.map((persona) => (
             <Card key={persona.id} className="bg-gray-800 border-gray-700">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-white">{persona.name}</CardTitle>
-                  <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                    Ready
+                  <Badge variant="outline" className={`${
+                    persona.status === 'ready' ? 'bg-green-500/10 text-green-500' : 
+                    persona.status === 'deployed' ? 'bg-blue-500/10 text-blue-500' :
+                    'bg-gray-500/10 text-gray-500'
+                  }`}>
+                    {persona.status.charAt(0).toUpperCase() + persona.status.slice(1)}
                   </Badge>
                 </div>
                 <CardDescription className="text-gray-400">
@@ -239,21 +260,23 @@ export const PersonaList = () => {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   
-                  <Button
-                    onClick={() => handleDeploy(persona)}
-                    disabled={isDeploying}
-                    size="sm"
-                    className="ml-auto bg-blue-600 hover:bg-blue-700"
-                  >
-                    {isDeploying ? (
-                      <ServerIcon className="h-4 w-4 animate-pulse" />
-                    ) : (
-                      <>
-                        <ServerIcon className="h-4 w-4 mr-2" />
-                        Deploy
-                      </>
-                    )}
-                  </Button>
+                  {persona.status === 'ready' && (
+                    <Button
+                      onClick={() => handleDeploy(persona)}
+                      disabled={isDeploying}
+                      size="sm"
+                      className="ml-auto bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isDeploying ? (
+                        <ServerIcon className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <>
+                          <ServerIcon className="h-4 w-4 mr-2" />
+                          Deploy
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -262,29 +285,44 @@ export const PersonaList = () => {
       </div>
 
       {/* Deployed Personas Section */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <PlayCircle className="h-5 w-5 text-blue-500" />
-          <h2 className="text-xl font-semibold text-white">Deployed Personas</h2>
+      {!showAllPersonas && deployedPersonas.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <PlayCircle className="h-5 w-5 text-blue-500" />
+            <h2 className="text-xl font-semibold text-white">Deployed Personas</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {deployedPersonas.map((persona) => (
+              <Card key={persona.id} className="bg-gray-800 border-gray-700">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-white">{persona.name}</CardTitle>
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-500">
+                      Deployed
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-gray-400">
+                    {persona.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                      onClick={() => handleDelete(persona.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {deployedPersonas.map((persona) => (
-            <Card key={persona.id} className="bg-gray-800 border-gray-700">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-white">{persona.name}</CardTitle>
-                  <Badge variant="outline" className="bg-blue-500/10 text-blue-500">
-                    Deployed
-                  </Badge>
-                </div>
-                <CardDescription className="text-gray-400">
-                  {persona.description}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 };
