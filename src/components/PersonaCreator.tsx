@@ -1,34 +1,11 @@
-<lov-code>
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle, ServerIcon, PlayCircle, Trash2, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Avatar3D from "./Avatar3D";
-import { VALID_VOICES } from "@/constants/voices";
-import { validatePersonaDescription, getSuggestedDescription } from "@/utils/personaValidation";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { PersonaForm } from "./persona/PersonaForm";
+import { PersonaPreview } from "./persona/PersonaPreview";
+import { PersonaList } from "./persona/PersonaList";
+import { PersonaActions } from "./persona/PersonaActions";
 
 interface Persona {
   id: string;
@@ -56,7 +33,6 @@ interface Persona {
 const PersonaCreator = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [avatarAnimating, setAvatarAnimating] = useState(false);
@@ -66,12 +42,6 @@ const PersonaCreator = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
-
-  const [validationResult, setValidationResult] = useState({
-    isValid: true,
-    issues: [] as string[],
-    suggestions: [] as string[],
-  });
 
   useEffect(() => {
     const checkAuthAndFetchPersonas = async () => {
@@ -95,7 +65,6 @@ const PersonaCreator = () => {
         return;
       }
 
-      // Cast the emotion_settings to the correct type
       const typedPersonas = (personasData || []).map(persona => ({
         ...persona,
         emotion_settings: persona.emotion_settings as { sensitivity: number; response_delay: number }
@@ -126,35 +95,7 @@ const PersonaCreator = () => {
     };
   }, [navigate, toast]);
 
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newDescription = e.target.value;
-    setDescription(newDescription);
-    const result = validatePersonaDescription(newDescription);
-    setValidationResult(result);
-  };
-
-  const handleSuggestImprovement = () => {
-    const improvedDescription = getSuggestedDescription(description);
-    setDescription(improvedDescription);
-    const result = validatePersonaDescription(improvedDescription);
-    setValidationResult(result);
-    toast({
-      title: "Description Updated",
-      description: "The description has been improved with suggested changes.",
-    });
-  };
-
   const handleCreatePersona = async () => {
-    const validationResult = validatePersonaDescription(description);
-    if (!validationResult.isValid) {
-      toast({
-        title: "Validation Error",
-        description: "Please address the validation issues before creating the persona.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsCreating(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -252,12 +193,10 @@ const PersonaCreator = () => {
     }
   };
 
-  const handleEdit = async (persona: Persona) => {
+  const handleEdit = (persona: Persona) => {
     setName(persona.name);
     setDescription(persona.description || '');
     setVoiceStyle(persona.voice_style || 'alloy');
-    const result = validatePersonaDescription(persona.description || '');
-    setValidationResult(result);
     toast({
       title: "Persona loaded for editing",
       description: "You can now make changes to the persona.",
@@ -282,18 +221,10 @@ const PersonaCreator = () => {
     try {
       if (!isWebcamActive) {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setIsWebcamActive(true);
-          setIsAnalyzing(true);
-          setAvatarAnimating(true);
-        }
+        setIsWebcamActive(true);
+        setIsAnalyzing(true);
+        setAvatarAnimating(true);
       } else {
-        const stream = videoRef.current?.srcObject as MediaStream;
-        stream?.getTracks().forEach(track => track.stop());
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
         setIsWebcamActive(false);
         setIsAnalyzing(false);
         setAvatarAnimating(false);
@@ -308,9 +239,6 @@ const PersonaCreator = () => {
     }
   };
 
-  const createdPersonas = personas.filter(p => p.status === 'ready');
-  const deployedPersonas = personas.filter(p => p.status === 'deployed');
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black p-6">
       <div className="max-w-6xl mx-auto">
@@ -322,43 +250,44 @@ const PersonaCreator = () => {
             <p className="text-gray-400 mt-2">Design and customize your AI companion</p>
           </div>
           <div className="flex gap-4">
-            <Button
-              variant="outline"
-              className="bg-white/10 text-white border-purple-400/30 hover:bg-white/20 transition-all duration-300"
-              onClick={toggleWebcam}
-            >
-              {isWebcamActive ? (
-                <>
-                  <CameraOff className="mr-2 h-4 w-4" />
-                  Disable Camera
-                </>
-              ) : (
-                <>
-                  <Camera className="mr-2 h-4 w-4" />
-                  Enable Camera
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-red-500/20 text-white border-red-400/30 hover:bg-red-500/30 transition-all duration-300"
-              onClick={handleSignOut}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Button>
+            <PersonaActions onSignOut={handleSignOut} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Creation Form */}
           <div className="space-y-6">
-            <Card className="border-0 bg-white/5 backdrop-blur-lg shadow-xl">
-              <CardContent className="p-6 space-y-6">
-                <Input
-                  placeholder="Persona Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-white/10 border-purple-400/30 text-white placeholder:text-gray-400"
-                />
-               
+            <PersonaForm
+              name={name}
+              setName={setName}
+              description={description}
+              setDescription={setDescription}
+              voiceStyle={voiceStyle}
+              setVoiceStyle={setVoiceStyle}
+              onSubmit={handleCreatePersona}
+              isCreating={isCreating}
+            />
+          </div>
+          <div className="space-y-6">
+            <PersonaPreview
+              isWebcamActive={isWebcamActive}
+              toggleWebcam={toggleWebcam}
+              avatarAnimating={avatarAnimating}
+            />
+          </div>
+        </div>
+
+        <div className="mt-12">
+          <PersonaList
+            personas={personas}
+            onDeploy={handleDeploy}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+            isDeploying={isDeploying}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PersonaCreator;
