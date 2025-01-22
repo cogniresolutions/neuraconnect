@@ -35,10 +35,17 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     try {
+      const redirectURL = `${window.location.origin}/auth`;
+      console.log("Redirect URL:", redirectURL);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + "/auth",
+          redirectTo: redirectURL,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
       
@@ -52,7 +59,7 @@ const Auth = () => {
       console.error("Sign in error caught:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to sign in with Google",
         variant: "destructive",
       });
     }
