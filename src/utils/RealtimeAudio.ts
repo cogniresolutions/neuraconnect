@@ -86,8 +86,6 @@ export class RealtimeChat {
         }
       });
 
-      console.log('Edge function response:', response);
-
       if (error) {
         console.error('Edge function error:', error);
         throw new Error(`Failed to get WebSocket URL: ${error.message}`);

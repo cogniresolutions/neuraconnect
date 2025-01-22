@@ -31,6 +31,10 @@ serve(async (req) => {
     const { persona } = await req.json();
     console.log('Received request for persona:', persona);
 
+    if (!persona || !persona.name) {
+      throw new Error('Invalid persona data');
+    }
+
     const voice = validateVoice(persona.voice_style);
     console.log('Using voice:', voice);
 
@@ -60,7 +64,7 @@ serve(async (req) => {
         statusText: response.statusText,
         error: errorText
       });
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -69,32 +73,23 @@ serve(async (req) => {
     // Check if we have a valid session ID and client secret
     if (!data.id || !data.client_secret?.value) {
       console.error('Invalid response from OpenAI:', data);
-      throw new Error(`No valid session data received from OpenAI. Full response: ${JSON.stringify(data)}`);
+      throw new Error('No valid session data received from OpenAI');
     }
 
     // Construct WebSocket URL using session ID and client secret
     const wsUrl = `wss://api.openai.com/v1/realtime/sessions/${data.id}/ws?client_secret=${data.client_secret.value}`;
     console.log('Constructed WebSocket URL:', wsUrl);
 
-    // Return both the WebSocket URL and the full session data
     return new Response(
-      JSON.stringify({ 
-        url: wsUrl,
-        session: data
-      }), 
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ url: wsUrl, session: data }), 
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in realtime-chat function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ error: error.message }), 
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
