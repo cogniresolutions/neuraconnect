@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import PersonaList from "@/components/PersonaList";
+import { PersonaList } from "@/components/PersonaList";
 import { Building2, Plus, UserCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
