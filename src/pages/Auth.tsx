@@ -12,13 +12,15 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // Check if user is already authenticated
     supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session);
       if (session) {
-        navigate("/create-persona");
+        navigate("/");
       }
     });
 
+    // Check for authentication errors in URL
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
     const errorDescription = params.get('error_description');
