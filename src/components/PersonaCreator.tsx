@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle, ServerIcon, PlayCircle, Trash2 } from "lucide-react";
+import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle, ServerIcon, PlayCircle, Trash2, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Avatar3D from "./Avatar3D";
 import { VALID_VOICES } from "@/constants/voices";
@@ -230,6 +230,18 @@ const PersonaCreator = () => {
     }
   };
 
+  const handleEdit = async (persona: Persona) => {
+    setName(persona.name);
+    setDescription(persona.description || '');
+    setVoiceStyle(persona.voice_style || 'alloy');
+    const result = validatePersonaDescription(persona.description || '');
+    setValidationResult(result);
+    toast({
+      title: "Persona loaded for editing",
+      description: "You can now make changes to the persona.",
+    });
+  };
+
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -439,6 +451,20 @@ const PersonaCreator = () => {
                     <p className="text-gray-300 mb-4 line-clamp-3">{persona.description}</p>
                     <div className="flex gap-2">
                       <Button
+                        onClick={() => handleEdit(persona)}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="bg-red-500/20 border-red-400/30 hover:bg-red-500/30 text-white"
+                        onClick={() => handleDelete(persona.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button
                         onClick={() => handleDeploy(persona.id)}
                         disabled={isDeploying}
                         className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
@@ -454,13 +480,6 @@ const PersonaCreator = () => {
                             Deploy
                           </>
                         )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="bg-red-500/20 border-red-400/30 hover:bg-red-500/30 text-white"
-                        onClick={() => handleDelete(persona.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </CardContent>
