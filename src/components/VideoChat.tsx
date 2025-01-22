@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import PersonaSelector from "./PersonaSelector";
 
 interface VideoOverlayProps {
   personaImage?: string;
@@ -48,25 +47,21 @@ const VideoChat = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Fetch selected persona from Supabase
-  const { data: selectedPersona } = useQuery({
-    queryKey: ['selected-persona', selectedPersonaId],
+  // Fetch active persona from Supabase
+  const { data: persona } = useQuery({
+    queryKey: ['active-persona'],
     queryFn: async () => {
-      if (!selectedPersonaId) return null;
-      
       const { data, error } = await supabase
         .from('personas')
         .select('*')
-        .eq('id', selectedPersonaId)
-        .single();
+        .eq('status', 'deployed')
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedPersonaId,
   });
 
   useEffect(() => {
@@ -160,22 +155,11 @@ const VideoChat = () => {
     startVideo();
   };
 
-  const handlePersonaSelect = (personaId: string | null) => {
-    setSelectedPersonaId(personaId);
-    if (!personaId) {
-      setIsPersonaActive(false);
-      toast({
-        title: "Persona Deactivated",
-        description: "Switched to regular video mode",
-      });
-    }
-  };
-
   const togglePersona = () => {
-    if (!selectedPersona && !isPersonaActive) {
+    if (!persona && !isPersonaActive) {
       toast({
-        title: "No Persona Selected",
-        description: "Please select a persona first before activating.",
+        title: "No Persona Available",
+        description: "Please deploy a persona first before activating.",
         variant: "destructive",
       });
       return;
@@ -213,7 +197,7 @@ const VideoChat = () => {
           )}
         />
         <VideoOverlay 
-          personaImage={selectedPersona?.avatar_url} 
+          personaImage={persona?.avatar_url} 
           isActive={isPersonaActive}
           isAnimating={isAnimating}
         />
@@ -230,54 +214,51 @@ const VideoChat = () => {
           </div>
         )}
       </div>
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex flex-col gap-4 w-full max-w-xs">
-        <PersonaSelector onPersonaSelect={handlePersonaSelect} />
-        <div className="flex justify-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleVideo}
-            className={cn(
-              "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-              !isVideoOn && "bg-red-500/50 hover:bg-red-500/70"
-            )}
-          >
-            {isVideoOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleAudio}
-            className={cn(
-              "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-              !isAudioOn && "bg-red-500/50 hover:bg-red-500/70"
-            )}
-          >
-            {isAudioOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={togglePersona}
-            className={cn(
-              "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-              isPersonaActive && "bg-green-500/50 hover:bg-green-500/70"
-            )}
-          >
-            <User className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleAnalysis}
-            className={cn(
-              "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-              isAnalyzing && "bg-green-500/50 hover:bg-green-500/70"
-            )}
-          >
-            <Camera className="h-4 w-4" />
-          </Button>
-        </div>
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleVideo}
+          className={cn(
+            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
+            !isVideoOn && "bg-red-500/50 hover:bg-red-500/70"
+          )}
+        >
+          {isVideoOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleAudio}
+          className={cn(
+            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
+            !isAudioOn && "bg-red-500/50 hover:bg-red-500/70"
+          )}
+        >
+          {isAudioOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={togglePersona}
+          className={cn(
+            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
+            isPersonaActive && "bg-green-500/50 hover:bg-green-500/70"
+          )}
+        >
+          <User className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleAnalysis}
+          className={cn(
+            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
+            isAnalyzing && "bg-green-500/50 hover:bg-green-500/70"
+          )}
+        >
+          <Camera className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
