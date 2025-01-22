@@ -67,7 +67,6 @@ const PersonaList = () => {
 
     fetchPersonas();
 
-    // Set up real-time subscription
     const channel = supabase
       .channel('schema-db-changes')
       .on(
@@ -78,7 +77,6 @@ const PersonaList = () => {
           table: 'personas'
         },
         (payload) => {
-          // Refresh the personas list when changes occur
           fetchPersonas();
         }
       )
@@ -99,27 +97,28 @@ const PersonaList = () => {
 
     setIsUpdating(true);
     try {
-      // First update the description
+      // Update the description
       const { error: updateError } = await supabase
         .from('personas')
-        .update({ 
-          description: newDescription,
-          status: 'ready' // Reset status to ready for redeployment
-        })
+        .update({ description: newDescription })
         .eq('id', editingPersona.id);
 
       if (updateError) throw updateError;
 
-      // Then trigger redeployment
-      const { error: deployError } = await supabase.functions.invoke("deploy-persona", {
-        body: { personaId: editingPersona.id }
-      });
+      // If the persona was already deployed, trigger redeployment
+      if (editingPersona.status === 'deployed') {
+        const { error: deployError } = await supabase.functions.invoke("deploy-persona", {
+          body: { personaId: editingPersona.id }
+        });
 
-      if (deployError) throw deployError;
+        if (deployError) throw deployError;
+      }
 
       toast({
         title: "Success",
-        description: "Persona updated and redeployment initiated",
+        description: editingPersona.status === 'deployed' 
+          ? "Persona updated and redeployment initiated"
+          : "Persona updated successfully",
       });
 
       setEditingPersona(null);
@@ -145,6 +144,62 @@ const PersonaList = () => {
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
 
+  const PersonaTableRow = ({ persona }: { persona: Persona }) => (
+    <TableRow key={persona.id}>
+      <TableCell>{persona.name}</TableCell>
+      <TableCell>{persona.description}</TableCell>
+      <TableCell>
+        <div className="flex items-center">
+          <CheckCircle className={`h-4 w-4 mr-2 ${persona.status === 'deployed' ? 'text-blue-500' : 'text-green-500'}`} />
+          {persona.status === 'deployed' ? 'Deployed' : 'Created'}
+        </div>
+      </TableCell>
+      <TableCell>
+        {new Date(persona.created_at).toLocaleDateString()}
+      </TableCell>
+      <TableCell>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleEdit(persona)}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Persona Description</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Textarea
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="Enter new description"
+                className="min-h-[100px]"
+              />
+              <Button 
+                onClick={handleUpdate}
+                disabled={isUpdating}
+                className="w-full"
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  persona.status === 'deployed' ? 'Update & Redeploy' : 'Update'
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </TableCell>
+    </TableRow>
+  );
+
   return (
     <div className="space-y-8">
       <div>
@@ -156,30 +211,19 @@ const PersonaList = () => {
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {createdPersonas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center">
+                <TableCell colSpan={5} className="text-center">
                   No created personas yet
                 </TableCell>
               </TableRow>
             ) : (
               createdPersonas.map((persona) => (
-                <TableRow key={persona.id}>
-                  <TableCell>{persona.name}</TableCell>
-                  <TableCell>{persona.description}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      Created
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(persona.created_at).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
+                <PersonaTableRow key={persona.id} persona={persona} />
               ))
             )}
           </TableBody>
@@ -207,59 +251,7 @@ const PersonaList = () => {
               </TableRow>
             ) : (
               deployedPersonas.map((persona) => (
-                <TableRow key={persona.id}>
-                  <TableCell>{persona.name}</TableCell>
-                  <TableCell>{persona.description}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
-                      Deployed
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(persona.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(persona)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit Persona Description</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <Textarea
-                            value={newDescription}
-                            onChange={(e) => setNewDescription(e.target.value)}
-                            placeholder="Enter new description"
-                            className="min-h-[100px]"
-                          />
-                          <Button 
-                            onClick={handleUpdate}
-                            disabled={isUpdating}
-                            className="w-full"
-                          >
-                            {isUpdating ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Updating...
-                              </>
-                            ) : (
-                              'Update & Redeploy'
-                            )}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
+                <PersonaTableRow key={persona.id} persona={persona} />
               ))
             )}
           </TableBody>
