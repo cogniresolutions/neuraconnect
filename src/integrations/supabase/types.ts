@@ -332,28 +332,40 @@ export type Database = {
           conversation_id: string
           created_at: string
           id: string
+          is_active: boolean | null
           last_checked_at: string
+          participants: Json | null
+          session_type: string | null
           status: string
           updated_at: string
           user_id: string | null
+          video_call_id: string | null
         }
         Insert: {
           conversation_id: string
           created_at?: string
           id?: string
+          is_active?: boolean | null
           last_checked_at?: string
+          participants?: Json | null
+          session_type?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
+          video_call_id?: string | null
         }
         Update: {
           conversation_id?: string
           created_at?: string
           id?: string
+          is_active?: boolean | null
           last_checked_at?: string
+          participants?: Json | null
+          session_type?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
+          video_call_id?: string | null
         }
         Relationships: [
           {
