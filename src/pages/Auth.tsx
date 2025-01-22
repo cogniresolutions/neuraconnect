@@ -19,7 +19,7 @@ const Auth = () => {
           title: "Success",
           description: "Successfully logged in!",
         });
-        navigate("/"); // Changed from /create-persona to /
+        navigate("/"); // Redirect to main page with video chat
       }
     });
 
