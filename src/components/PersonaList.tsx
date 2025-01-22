@@ -46,6 +46,7 @@ const PersonaList = () => {
   const [newDescription, setNewDescription] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -128,6 +129,78 @@ const PersonaList = () => {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const validatePersonaForDeployment = (persona: Persona) => {
+    if (!persona.description || persona.description.trim().length < 10) {
+      return "Description must be at least 10 characters long";
+    }
+    
+    // Check for potentially problematic content
+    const lowercaseDesc = persona.description.toLowerCase();
+    const forbiddenTerms = ['harmful', 'illegal', 'malicious', 'offensive'];
+    for (const term of forbiddenTerms) {
+      if (lowercaseDesc.includes(term)) {
+        return `Description contains inappropriate content: ${term}`;
+      }
+    }
+
+    return null; // No validation errors
+  };
+
+  const handleDeploy = async (personaId: string) => {
+    const persona = personas.find(p => p.id === personaId);
+    if (!persona) {
+      toast({
+        title: "Error",
+        description: "Persona not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Only allow deployment of created personas
+    if (persona.status !== 'ready') {
+      toast({
+        title: "Error",
+        description: "Only created personas can be deployed",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate persona before deployment
+    const validationError = validatePersonaForDeployment(persona);
+    if (validationError) {
+      toast({
+        title: "Validation Error",
+        description: validationError,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDeploying(true);
+    try {
+      const { error } = await supabase.functions.invoke("deploy-persona", {
+        body: { personaId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Deployment initiated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deploy persona",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -240,6 +313,22 @@ const PersonaList = () => {
               </div>
             </DialogContent>
           </Dialog>
+
+          {persona.status === 'ready' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-blue-500 hover:text-blue-600"
+              onClick={() => handleDeploy(persona.id)}
+              disabled={isDeploying}
+            >
+              {isDeploying ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+            </Button>
+          )}
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
