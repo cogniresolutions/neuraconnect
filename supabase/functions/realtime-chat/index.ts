@@ -36,15 +36,15 @@ serve(async (req) => {
     const instructions = formatInstructions(persona);
     console.log('Formatted instructions:', instructions);
 
-    // Request a session from OpenAI using the correct endpoint
-    const response = await fetch('https://api.openai.com/v1/audio/chat/sessions', {
+    // Request a session from OpenAI using the realtime API endpoint
+    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o-realtime-preview-2024-12-17",
         voice: voice,
         instructions: instructions
       }),
@@ -70,7 +70,7 @@ serve(async (req) => {
     }
 
     // Construct WebSocket URL using session ID and client secret
-    const wsUrl = `wss://api.openai.com/v1/audio/chat/sessions/${data.id}/ws?client_secret=${data.client_secret.value}`;
+    const wsUrl = `wss://api.openai.com/v1/realtime/sessions/${data.id}/ws?client_secret=${data.client_secret.value}`;
     console.log('Constructed WebSocket URL:', wsUrl);
 
     // Return both the WebSocket URL and the full session data
