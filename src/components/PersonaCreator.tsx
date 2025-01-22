@@ -40,6 +40,18 @@ const PersonaCreator = () => {
     suggestions: [] as string[],
   });
 
+  useEffect(() => {
+    // Check if user is authenticated
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/auth');
+      }
+    };
+    
+    checkAuth();
+  }, [navigate]);
+
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newDescription = e.target.value;
     setDescription(newDescription);
@@ -71,14 +83,21 @@ const PersonaCreator = () => {
 
     setIsCreating(true);
     try {
-      // First, create the persona record
+      // Get the current user's ID
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("You must be logged in to create a persona");
+      }
+
+      // First, create the persona record with the user_id
       const { data: persona, error: createError } = await supabase
         .from('personas')
         .insert({
           name,
           description,
           voice_style: voiceStyle,
-          status: 'ready'
+          status: 'ready',
+          user_id: session.user.id  // Set the user_id here
         })
         .select()
         .single();
