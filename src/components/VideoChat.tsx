@@ -63,7 +63,6 @@ const VideoChat = () => {
 
   const handleSpeakingChange = (speaking: boolean) => {
     setIsSpeaking(speaking);
-    // Additional logic for when the speaking state changes can be added here
   };
 
   if (isLoading) {
@@ -110,6 +109,7 @@ const VideoChat = () => {
           <Avatar3D 
             modelUrl={persona?.avatar_model_url} 
             isAnimating={isSpeaking}
+            language={persona?.preferred_language || 'en'}
           />
         </div>
       </div>

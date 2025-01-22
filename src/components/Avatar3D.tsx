@@ -12,9 +12,10 @@ interface Avatar3DProps {
     surprise?: number;
     anger?: number;
   };
+  language?: string;
 }
 
-const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProps) => {
+const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {}, language = 'en' }: Avatar3DProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -22,6 +23,32 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
   const modelRef = useRef<THREE.Mesh | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Language-specific expression modifiers
+  const getLanguageExpressionModifier = (lang: string) => {
+    const modifiers = {
+      en: { // English - neutral
+        happiness: 1,
+        sadness: 1,
+        surprise: 1,
+        anger: 1
+      },
+      ja: { // Japanese - more subtle expressions
+        happiness: 0.7,
+        sadness: 0.8,
+        surprise: 0.6,
+        anger: 0.7
+      },
+      it: { // Italian - more expressive
+        happiness: 1.3,
+        sadness: 1.1,
+        surprise: 1.4,
+        anger: 1.2
+      },
+      // Add more languages as needed
+    };
+    return modifiers[lang as keyof typeof modifiers] || modifiers.en;
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -122,11 +149,15 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
         modelRef.current.rotation.y += 0.01;
       }
 
-      // Apply emotion-based animations
+      // Apply emotion-based animations with language modifiers
       if (modelRef.current && emotions && modelRef.current.morphTargetInfluences) {
-        // Example of emotion-based animation
-        const emotionStrength = emotions.happiness || 0;
-        modelRef.current.morphTargetInfluences[0] = emotionStrength;
+        const languageModifiers = getLanguageExpressionModifier(language);
+        Object.entries(emotions).forEach(([emotion, value], index) => {
+          if (typeof value === 'number' && languageModifiers[emotion as keyof typeof languageModifiers]) {
+            const modifier = languageModifiers[emotion as keyof typeof languageModifiers];
+            modelRef.current!.morphTargetInfluences[index] = value * modifier;
+          }
+        });
       }
 
       renderer.render(scene, camera);
@@ -148,7 +179,7 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
       containerRef.current?.removeChild(renderer.domElement);
       renderer.dispose();
     };
-  }, [modelUrl, isAnimating, emotions]);
+  }, [modelUrl, isAnimating, emotions, language]);
 
   return (
     <div className="relative w-full h-full min-h-[300px] rounded-lg">
