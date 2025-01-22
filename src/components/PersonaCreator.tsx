@@ -28,7 +28,7 @@ const PersonaCreator = () => {
   const [formData, setFormData] = useState<PersonaFormData>({
     name: "",
     description: "",
-    voiceStyle: "alloy",
+    voiceStyle: "alloy", // Set default voice
     personality: "",
     skills: [],
     topics: [],
@@ -164,6 +164,7 @@ const PersonaCreator = () => {
         variant: "default",
       });
 
+      // Reset form with valid default voice
       setFormData({
         name: "",
         description: "",
