@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PersonaList } from "@/components/PersonaList";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -66,11 +67,11 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <div className="bg-chatgpt-sidebar p-8 rounded-lg shadow-lg w-full max-w-md space-y-6">
-        <h1 className="text-2xl font-bold mb-8 text-white text-center">Welcome to Persona Creator</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black p-4">
+      <div className="bg-chatgpt-sidebar p-8 rounded-lg shadow-lg w-full max-w-4xl space-y-8">
+        <h1 className="text-3xl font-bold text-white text-center">Welcome to Persona Creator</h1>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           <Button
             type="button"
             variant="outline"
@@ -80,11 +81,13 @@ const Auth = () => {
             <Globe className="mr-2 h-4 w-4" />
             Continue with Google
           </Button>
+
+          <p className="text-sm text-gray-400 text-center">
+            Sign in to create and manage your personas
+          </p>
         </div>
 
-        <p className="text-sm text-gray-400 text-center mt-4">
-          Sign in to create and manage your personas
-        </p>
+        <PersonaList />
       </div>
     </div>
   );
