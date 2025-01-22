@@ -26,16 +26,17 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
-    // Construct SSML with proper voice name format
+    // Construct SSML with proper voice name format for Azure
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="en-US-${voice}">
+        <voice name="en-US-${voice}Neural">
           ${text}
         </voice>
       </speak>
-    `
+    `.trim()
 
     console.log('Making request to Azure with endpoint:', endpoint)
+    console.log('Using voice:', `en-US-${voice}Neural`)
     console.log('SSML payload:', ssml)
 
     const response = await fetch(`${endpoint}/cognitiveservices/v1`, {
@@ -54,7 +55,9 @@ serve(async (req) => {
       console.error('Azure TTS Error Response:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText
+        body: errorText,
+        endpoint,
+        headers: Object.fromEntries(response.headers.entries())
       })
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
     }
@@ -65,7 +68,7 @@ serve(async (req) => {
     const arrayBuffer = await response.arrayBuffer()
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
 
-    console.log('Successfully converted audio to base64')
+    console.log('Successfully converted audio to base64, length:', base64Audio.length)
 
     return new Response(
       JSON.stringify({ audioContent: base64Audio }),
@@ -78,7 +81,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        details: error instanceof Error ? error.stack : undefined
+        details: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
       }),
       {
         status: 400,
