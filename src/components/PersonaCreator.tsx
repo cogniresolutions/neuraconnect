@@ -44,9 +44,12 @@ interface Persona {
   topics?: string[];
   model_config?: any;
   avatar_model_url?: string | null;
-  emotion_settings?: any;
+  emotion_settings?: {
+    sensitivity: number;
+    response_delay: number;
+  };
   environment_analysis?: boolean;
-  facial_expressions?: any;
+  facial_expressions?: any[];
 }
 
 const PersonaCreator = () => {
