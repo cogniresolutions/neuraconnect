@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle, XCircle, Loader2, Edit2, Trash2 } from "lucide-react";
+import { CheckCircle, UserPlus, Loader2, Edit2, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -189,7 +189,11 @@ const PersonaList = () => {
       <TableCell>{persona.description}</TableCell>
       <TableCell>
         <div className="flex items-center">
-          <CheckCircle className={`h-4 w-4 mr-2 ${persona.status === 'deployed' ? 'text-blue-500' : 'text-green-500'}`} />
+          {persona.status === 'deployed' ? (
+            <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
+          ) : (
+            <UserPlus className="h-4 w-4 mr-2 text-green-500" />
+          )}
           {persona.status === 'deployed' ? 'Deployed' : 'Created'}
         </div>
       </TableCell>
