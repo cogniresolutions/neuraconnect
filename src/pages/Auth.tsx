@@ -11,6 +11,9 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // Clear any existing session data
+    localStorage.removeItem('supabase.auth.token');
+    
     // Check if user is already logged in
     supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session);
@@ -19,7 +22,8 @@ const Auth = () => {
           title: "Success",
           description: "Successfully logged in!",
         });
-        navigate("/"); // Redirect to main page with video chat
+        // Force a page reload after successful login to ensure fresh state
+        window.location.href = '/';
       }
     });
 
@@ -36,7 +40,7 @@ const Auth = () => {
         variant: "destructive",
       });
     }
-  }, [navigate, toast]);
+  }, [toast]);
 
   const handleGoogleSignIn = async () => {
     try {
