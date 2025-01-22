@@ -5,11 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Globe, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -22,11 +24,12 @@ const Auth = () => {
 
     // Check for authentication errors in URL
     const params = new URLSearchParams(window.location.search);
-    const error = params.get('error');
+    const errorParam = params.get('error');
     const errorDescription = params.get('error_description');
     
-    if (error) {
-      console.error("Auth error:", error, errorDescription);
+    if (errorParam) {
+      console.error("Auth error:", errorParam, errorDescription);
+      setError(errorDescription || "There was an error during authentication");
       toast({
         title: "Authentication Error",
         description: errorDescription || "There was an error during authentication",
@@ -38,6 +41,7 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const redirectURL = `${window.location.origin}/auth`;
       console.log("Redirect URL:", redirectURL);
 
@@ -60,6 +64,7 @@ const Auth = () => {
       }
     } catch (error: any) {
       console.error("Sign in error caught:", error);
+      setError(error.message || "Failed to sign in with Google");
       toast({
         title: "Error",
         description: error.message || "Failed to sign in with Google",
@@ -73,6 +78,13 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-900 via-gray-900 to-black p-4">
       <div className="w-full max-w-md space-y-8">
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>Authentication Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <Card className="border-0 bg-white/5 backdrop-blur-lg shadow-xl">
           <CardHeader className="space-y-6 pb-8">
             <div className="flex items-center justify-center w-20 h-20 mx-auto bg-purple-600/90 rounded-full shadow-lg transform hover:scale-105 transition-transform duration-300">
