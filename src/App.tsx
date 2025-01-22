@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import PersonaCreator from "./components/PersonaCreator";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,16 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route
+            path="/create-persona"
+            element={
+              <PrivateRoute>
+                <div className="min-h-screen bg-black text-white p-4">
+                  <PersonaCreator />
+                </div>
+              </PrivateRoute>
+            }
+          />
           <Route
             path="/"
             element={
