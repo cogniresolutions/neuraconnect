@@ -54,6 +54,10 @@ export class RealtimeChat {
 
   async init(persona: any) {
     try {
+      if (!persona) {
+        throw new Error('No persona provided');
+      }
+
       this.persona = persona;
       console.log('Initializing chat with persona:', persona);
 
@@ -62,34 +66,41 @@ export class RealtimeChat {
       
       // Get WebSocket URL from Edge Function
       console.log('Requesting WebSocket URL...');
-      const { data, error } = await supabase.functions.invoke('realtime-chat', {
+      const { data: response, error } = await supabase.functions.invoke('realtime-chat', {
         body: { 
           persona: {
-            name: persona.name,
-            description: persona.description,
-            personality: persona.personality,
+            name: persona.name || '',
+            description: persona.description || '',
+            personality: persona.personality || '',
             skills: persona.skills || [],
             topics: persona.topics || [],
-            model_config: persona.model_config,
-            voice_style: persona.voice_style
+            model_config: persona.model_config || { model: "gpt-4o-mini" },
+            voice_style: persona.voice_style || 'alloy'
           }
         }
       });
+
+      console.log('Edge function response:', response);
 
       if (error) {
         console.error('Edge function error:', error);
         throw new Error(`Failed to get WebSocket URL: ${error.message}`);
       }
 
-      if (!data || !data.url) {
-        console.error('Invalid response from edge function:', data);
+      if (!response) {
+        console.error('No response from edge function');
+        throw new Error('No response received from server');
+      }
+
+      if (!response.url) {
+        console.error('Invalid response from edge function:', response);
         throw new Error('No WebSocket URL received from server');
       }
 
-      console.log('Received WebSocket URL:', data.url);
+      console.log('Received WebSocket URL:', response.url);
       
       // Initialize WebSocket connection
-      this.ws = new WebSocket(data.url);
+      this.ws = new WebSocket(response.url);
       
       this.ws.onopen = () => {
         console.log('WebSocket connection established');
