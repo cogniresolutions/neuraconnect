@@ -1,10 +1,11 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Video, Mic, MicOff, VideoOff, User, Camera } from "lucide-react";
+import { Video, Mic, MicOff, VideoOff, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import PersonaSelector from "./PersonaSelector";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VideoOverlayProps {
   personaImage?: string;
