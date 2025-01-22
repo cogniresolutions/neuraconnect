@@ -58,8 +58,21 @@ export class RealtimeChat {
       await this.audioRecorder.start();
       
       // Connect to our Edge Function WebSocket
-      const { data: { url } } = await supabase.functions.invoke('realtime-chat');
-      this.ws = new WebSocket(url);
+      const { data, error } = await supabase.functions.invoke('realtime-chat', {
+        body: { persona: this.persona }
+      });
+
+      if (error) {
+        console.error('Error getting WebSocket URL:', error);
+        throw error;
+      }
+
+      if (!data?.url) {
+        throw new Error('No WebSocket URL received from Edge Function');
+      }
+
+      console.log('Connecting to WebSocket URL:', data.url);
+      this.ws = new WebSocket(data.url);
       
       this.ws.onopen = () => {
         console.log('WebSocket connection established');

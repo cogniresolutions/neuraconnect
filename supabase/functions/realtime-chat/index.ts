@@ -7,19 +7,9 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  const { headers } = req;
-  const upgradeHeader = headers.get("upgrade") || "";
-
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  if (upgradeHeader.toLowerCase() !== "websocket") {
-    return new Response("Expected WebSocket connection", { 
-      status: 400,
-      headers: corsHeaders
-    });
   }
 
   try {
@@ -28,73 +18,34 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not set');
     }
 
-    const { socket, response } = Deno.upgradeWebSocket(req);
-    
-    socket.onopen = () => {
-      console.log("WebSocket connection established");
-    };
+    const { persona } = await req.json();
 
-    socket.onmessage = async (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        console.log("Received message:", message);
+    // Request a session from OpenAI
+    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: persona.model_config?.model || "gpt-4o-mini",
+        voice: persona.voice_style || "alloy",
+        instructions: `You are ${persona.name}, ${persona.description}. 
+                      Your personality is: ${persona.personality}.
+                      Your skills include: ${persona.skills.join(', ')}.
+                      You are knowledgeable about: ${persona.topics.join(', ')}.`
+      }),
+    });
 
-        // Request completion from OpenAI
-        const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: message.systemPrompt || "You are a helpful AI assistant." },
-              { role: "user", content: message.text }
-            ],
-            stream: true,
-          }),
-        });
+    const data = await response.json();
+    console.log("Session created:", data);
 
-        if (!openAIResponse.ok) {
-          throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
-        }
-
-        const reader = openAIResponse.body?.getReader();
-        if (!reader) {
-          throw new Error("Failed to get response reader");
-        }
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = new TextDecoder().decode(value);
-          socket.send(JSON.stringify({ type: "chunk", data: chunk }));
-        }
-
-        socket.send(JSON.stringify({ type: "done" }));
-      } catch (error) {
-        console.error("Error processing message:", error);
-        socket.send(JSON.stringify({ 
-          type: "error", 
-          error: error instanceof Error ? error.message : "Unknown error" 
-        }));
-      }
-    };
-
-    socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
-
-    socket.onclose = () => {
-      console.log("WebSocket connection closed");
-    };
-
-    return response;
+    return new Response(JSON.stringify({ url: data.url }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    console.error("Error setting up WebSocket:", error);
-    return new Response(JSON.stringify({ error: "Failed to setup WebSocket connection" }), {
+    console.error("Error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
