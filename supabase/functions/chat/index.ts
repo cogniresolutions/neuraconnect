@@ -13,13 +13,18 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("Received request:", req.method);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: corsHeaders 
+    });
   }
 
   try {
     const { message } = await req.json();
+    console.log("Received message:", message);
 
     if (!message) {
       return new Response(
@@ -36,6 +41,7 @@ serve(async (req) => {
     });
 
     const openai = new OpenAIApi(configuration);
+    console.log("Making request to OpenAI...");
 
     const completion = await openai.createChatCompletion({
       model: "gpt-4o-mini",
@@ -53,40 +59,38 @@ serve(async (req) => {
       temperature: 0.7,
     });
 
-    // Add proper error handling and response validation
-    if (!completion.data || !completion.data.choices || !completion.data.choices[0]) {
+    console.log("OpenAI response received:", completion.data);
+
+    if (!completion.data?.choices?.[0]?.message?.content) {
       throw new Error("Invalid response from OpenAI");
     }
 
-    const response = completion.data.choices[0].message?.content;
-
-    if (!response) {
-      throw new Error("No response from OpenAI");
-    }
+    const response = completion.data.choices[0].message.content;
 
     return new Response(
       JSON.stringify({ response }),
       { 
         headers: { 
           ...corsHeaders,
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         }
-      },
+      }
     );
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error in chat function:", error);
     
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : "An unknown error occurred" 
+        error: error instanceof Error ? error.message : "An unknown error occurred",
+        details: error
       }),
       { 
         status: 500,
         headers: { 
           ...corsHeaders,
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         }
-      },
+      }
     );
   }
 });
