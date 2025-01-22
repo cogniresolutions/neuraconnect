@@ -32,9 +32,9 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
-    // Ensure the endpoint is properly formatted and use the correct API path
+    // Ensure the endpoint is properly formatted for the TTS service
     const baseEndpoint = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/tts/synthesis/speak`
 
     console.log('Using TTS endpoint:', ttsEndpoint.substring(0, 20) + '...')
 
@@ -45,7 +45,7 @@ serve(async (req) => {
     console.log('Using voice:', `en-US-${voice}Neural`)
     console.log('SSML payload:', ssml)
 
-    const response = await fetch(`${ttsEndpoint}/text-to-speech`, {
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': subscriptionKey,
