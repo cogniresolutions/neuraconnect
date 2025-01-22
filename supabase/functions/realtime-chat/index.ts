@@ -35,6 +35,15 @@ serve(async (req) => {
     }
 
     // Request a session from OpenAI
+    console.log('Sending request to OpenAI with payload:', {
+      model: persona.model_config?.model || "gpt-4o-mini",
+      voice: voice,
+      instructions: `You are ${persona.name}, ${persona.description || ''}. 
+                    Your personality is: ${persona.personality || ''}.
+                    Your skills include: ${(persona.skills || []).join(', ')}.
+                    You are knowledgeable about: ${(persona.topics || []).join(', ')}.`
+    });
+
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
@@ -53,8 +62,12 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      console.error('OpenAI API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}\n${errorText}`);
     }
 
     const data = await response.json();
