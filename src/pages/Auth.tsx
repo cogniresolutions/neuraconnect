@@ -53,6 +53,11 @@ const Auth = () => {
               className: {
                 container: 'auth-container',
                 button: 'auth-button',
+                anchor: 'hidden',
+                divider: 'hidden',
+                label: 'hidden',
+                input: 'hidden',
+                message: 'hidden',
               },
             }}
             providers={["google"]}
