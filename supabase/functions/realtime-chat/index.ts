@@ -16,41 +16,18 @@ serve(async (req) => {
   }
 
   try {
-    const { personaId } = await req.json();
-    console.log('Received request for persona:', personaId);
-
-    // Get persona details from database
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { data: persona, error } = await supabase
-      .from('personas')
-      .select('*')
-      .eq('id', personaId)
-      .single();
-
-    if (error || !persona) {
-      console.error('Error fetching persona:', error);
-      throw new Error('Failed to fetch persona details');
-    }
+    const { persona } = await req.json();
+    console.log('Received request for persona:', persona);
 
     // Validate and normalize voice parameter
     const voice = validateVoice(persona.voice_style);
     console.log('Using voice:', voice);
 
+    // Format instructions for the AI
+    const instructions = formatInstructions(persona);
+    console.log('Formatted instructions:', instructions);
+
     // Request a session from OpenAI
-    const instructions = `You are ${persona.name}, ${persona.description || ''}. 
-                        Your personality is: ${persona.personality || ''}.
-                        Your skills include: ${JSON.stringify(persona.skills || [])}
-                        Topics you're knowledgeable about: ${JSON.stringify(persona.topics || [])}`;
-
-    console.log('Sending request to OpenAI with payload:', {
-      model: "gpt-4o-realtime-preview-2024-12-17",
-      voice: voice,
-      instructions: instructions
-    });
-
     const response = await fetch('https://api.openai.com/v1/audio/chat/sessions', {
       method: 'POST',
       headers: {
@@ -75,16 +52,24 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log("Session created:", data);
+    console.log('OpenAI response:', JSON.stringify(data, null, 2));
 
-    if (!data.url) {
-      console.error('Invalid response from OpenAI:', data);
-      throw new Error('No WebSocket URL received from OpenAI. Check the logs for the full response.');
+    // Check if we have a valid session with a client secret
+    if (!data.client_secret?.value) {
+      console.error('Invalid response from OpenAI - missing client secret:', data);
+      throw new Error('No client secret received from OpenAI');
     }
 
-    return new Response(JSON.stringify({ url: data.url }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    // Return the WebSocket URL and session data
+    return new Response(
+      JSON.stringify({ 
+        url: `wss://api.openai.com/v1/audio/chat/sessions/${data.id}/ws?client_secret=${data.client_secret.value}`,
+        session: data
+      }), 
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error) {
     console.error('Error in realtime-chat function:', error);
@@ -104,4 +89,15 @@ function validateVoice(voice: string | null | undefined): ValidVoice {
     return 'alloy';
   }
   return voice as ValidVoice;
+}
+
+function formatInstructions(persona: any): string {
+  const instructions = [
+    `You are ${persona.name}, ${persona.description || ''}.`,
+    `Your personality is: ${persona.personality || ''}.`,
+    `Your skills include: ${JSON.stringify(persona.skills || [])}.`,
+    `You are knowledgeable about: ${JSON.stringify(persona.topics || [])}.`
+  ].join('\n');
+
+  return instructions;
 }
