@@ -5,11 +5,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Play, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const VALID_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'] as const;
+type ValidVoice = typeof VALID_VOICES[number];
 
 interface PersonaFormData {
   name: string;
   description: string;
-  voiceStyle: string;
+  voiceStyle: ValidVoice;
   personality: string;
   skills: string[];
   topics: string[];
@@ -24,7 +28,7 @@ const PersonaCreator = () => {
   const [formData, setFormData] = useState<PersonaFormData>({
     name: "",
     description: "",
-    voiceStyle: "",
+    voiceStyle: "alloy",
     personality: "",
     skills: [],
     topics: [],
@@ -36,6 +40,10 @@ const PersonaCreator = () => {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleVoiceChange = (value: ValidVoice) => {
+    setFormData(prev => ({ ...prev, voiceStyle: value }));
   };
 
   const addSkill = () => {
@@ -273,14 +281,21 @@ const PersonaCreator = () => {
 
         <div>
           <label className="block text-sm font-medium mb-2">Voice Style</label>
-          <Input
-            name="voiceStyle"
+          <Select
             value={formData.voiceStyle}
-            onChange={handleInputChange}
-            placeholder="e.g., Professional, Friendly, Energetic"
-            className="w-full bg-chatgpt-main"
-            required
-          />
+            onValueChange={handleVoiceChange}
+          >
+            <SelectTrigger className="w-full bg-chatgpt-main">
+              <SelectValue placeholder="Select a voice style" />
+            </SelectTrigger>
+            <SelectContent>
+              {VALID_VOICES.map((voice) => (
+                <SelectItem key={voice} value={voice}>
+                  {voice.charAt(0).toUpperCase() + voice.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
