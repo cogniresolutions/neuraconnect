@@ -47,6 +47,7 @@ const PersonaList = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -103,6 +104,7 @@ const PersonaList = () => {
   const handleEdit = (persona: Persona) => {
     setEditingPersona(persona);
     setNewDescription(persona.description);
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (personaId: string) => {
@@ -233,6 +235,7 @@ const PersonaList = () => {
           : "Persona updated successfully",
       });
 
+      setIsDialogOpen(false);
       setEditingPersona(null);
     } catch (error: any) {
       toast({
@@ -243,6 +246,12 @@ const PersonaList = () => {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+    setEditingPersona(null);
+    setNewDescription("");
   };
 
   if (isLoading) {
@@ -275,7 +284,7 @@ const PersonaList = () => {
       </TableCell>
       <TableCell>
         <div className="flex gap-2">
-          <Dialog>
+          <Dialog open={isDialogOpen && editingPersona?.id === persona.id} onOpenChange={(open) => !open && handleDialogClose()}>
             <DialogTrigger asChild>
               <Button
                 variant="ghost"
