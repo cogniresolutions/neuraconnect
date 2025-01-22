@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, CameraOff, LogOut } from "lucide-react";
+import { Camera, CameraOff, LogOut, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Avatar3D from "./Avatar3D";
+import { VALID_VOICES } from "@/constants/voices";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PersonaCreator = () => {
   const navigate = useNavigate();
@@ -13,6 +23,10 @@ const PersonaCreator = () => {
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [avatarAnimating, setAvatarAnimating] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [voiceStyle, setVoiceStyle] = useState<string>("alloy");
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     let analysisInterval: NodeJS.Timeout;
@@ -20,7 +34,7 @@ const PersonaCreator = () => {
     if (isAnalyzing && videoRef.current) {
       analysisInterval = setInterval(async () => {
         await analyzeEnvironment();
-      }, 5000); // Analyze every 5 seconds
+      }, 5000);
     }
 
     return () => {
@@ -96,6 +110,64 @@ const PersonaCreator = () => {
     }
   };
 
+  const handleCreatePersona = async () => {
+    if (!name || !description || !voiceStyle) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      // First, create the persona record
+      const { data: persona, error: createError } = await supabase
+        .from('personas')
+        .insert({
+          name,
+          description,
+          voice_style: voiceStyle,
+          status: 'ready'
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // Then, initiate the persona creation process
+      const { error: functionError } = await supabase.functions.invoke('create-persona', {
+        body: { 
+          name,
+          description,
+          voiceStyle,
+          personality: "friendly and helpful",
+          personaId: persona.id
+        }
+      });
+
+      if (functionError) throw functionError;
+
+      toast({
+        title: "Success",
+        description: "Persona created successfully",
+      });
+
+      // Navigate to the chat interface
+      navigate('/');
+    } catch (error: any) {
+      console.error('Error creating persona:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create persona",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -145,20 +217,57 @@ const PersonaCreator = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {isWebcamActive && (
+          <div className="space-y-4">
+            <Input
+              placeholder="Persona Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-gray-800 border-gray-700 text-white"
+            />
+            <Textarea
+              placeholder="Persona Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="bg-gray-800 border-gray-700 text-white min-h-[100px]"
+            />
+            <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+              <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
+                <SelectValue placeholder="Select a voice" />
+              </SelectTrigger>
+              <SelectContent>
+                {VALID_VOICES.map((voice) => (
+                  <SelectItem key={voice} value={voice}>
+                    {voice}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              className="w-full"
+              onClick={handleCreatePersona}
+              disabled={isCreating}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {isCreating ? "Creating..." : "Create Persona"}
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {isWebcamActive && (
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            
             <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
+              <Avatar3D isAnimating={avatarAnimating} />
             </div>
-          )}
-          
-          <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
-            <Avatar3D isAnimating={avatarAnimating} />
           </div>
         </div>
       </div>
