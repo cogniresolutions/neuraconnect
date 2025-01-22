@@ -3,11 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Play, Plus, X } from "lucide-react";
+import { Loader2, Upload, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { VALID_VOICES } from "@/constants/voices";
+import { VALID_SKILLS, VALID_TOPICS } from "@/constants/personaOptions";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const VALID_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'] as const;
 type ValidVoice = typeof VALID_VOICES[number];
 
 interface PersonaFormData {
@@ -23,12 +29,12 @@ const PersonaCreator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [currentPersonaId, setCurrentPersonaId] = useState<string | null>(null);
-  const [newSkill, setNewSkill] = useState("");
-  const [newTopic, setNewTopic] = useState("");
+  const [openSkills, setOpenSkills] = useState(false);
+  const [openTopics, setOpenTopics] = useState(false);
   const [formData, setFormData] = useState<PersonaFormData>({
     name: "",
     description: "",
-    voiceStyle: "alloy", // Set default voice
+    voiceStyle: "alloy",
     personality: "",
     skills: [],
     topics: [],
@@ -46,37 +52,21 @@ const PersonaCreator = () => {
     setFormData(prev => ({ ...prev, voiceStyle: value }));
   };
 
-  const addSkill = () => {
-    if (newSkill.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        skills: [...prev.skills, newSkill.trim()]
-      }));
-      setNewSkill("");
-    }
-  };
-
-  const removeSkill = (skillToRemove: string) => {
+  const toggleSkill = (skill: string) => {
     setFormData(prev => ({
       ...prev,
-      skills: prev.skills.filter(skill => skill !== skillToRemove)
+      skills: prev.skills.includes(skill)
+        ? prev.skills.filter(s => s !== skill)
+        : [...prev.skills, skill]
     }));
   };
 
-  const addTopic = () => {
-    if (newTopic.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        topics: [...prev.topics, newTopic.trim()]
-      }));
-      setNewTopic("");
-    }
-  };
-
-  const removeTopic = (topicToRemove: string) => {
+  const toggleTopic = (topic: string) => {
     setFormData(prev => ({
       ...prev,
-      topics: prev.topics.filter(topic => topic !== topicToRemove)
+      topics: prev.topics.includes(topic)
+        ? prev.topics.filter(t => t !== topic)
+        : [...prev.topics, topic]
     }));
   };
 
@@ -313,58 +303,100 @@ const PersonaCreator = () => {
 
         <div>
           <label className="block text-sm font-medium mb-2">Skills</label>
-          <div className="flex gap-2 mb-2">
-            <Input
-              value={newSkill}
-              onChange={(e) => setNewSkill(e.target.value)}
-              placeholder="Add a skill"
-              className="flex-1 bg-chatgpt-main"
-            />
-            <Button type="button" onClick={addSkill} variant="secondary">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
+          <Popover open={openSkills} onOpenChange={setOpenSkills}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openSkills}
+                className="w-full justify-between"
+              >
+                Select skills...
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search skills..." />
+                <CommandEmpty>No skill found.</CommandEmpty>
+                <CommandGroup>
+                  {VALID_SKILLS.map((skill) => (
+                    <CommandItem
+                      key={skill}
+                      onSelect={() => toggleSkill(skill)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          formData.skills.includes(skill) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {skill}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <div className="flex flex-wrap gap-2 mt-2">
             {formData.skills.map((skill) => (
-              <div key={skill} className="flex items-center gap-1 bg-primary/20 rounded-full px-3 py-1">
-                <span>{skill}</span>
-                <button
-                  type="button"
-                  onClick={() => removeSkill(skill)}
-                  className="text-primary hover:text-primary/80"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+              <Badge
+                key={skill}
+                variant="secondary"
+                className="text-sm"
+              >
+                {skill}
+              </Badge>
             ))}
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-2">Topics</label>
-          <div className="flex gap-2 mb-2">
-            <Input
-              value={newTopic}
-              onChange={(e) => setNewTopic(e.target.value)}
-              placeholder="Add a topic"
-              className="flex-1 bg-chatgpt-main"
-            />
-            <Button type="button" onClick={addTopic} variant="secondary">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
+          <Popover open={openTopics} onOpenChange={setOpenTopics}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openTopics}
+                className="w-full justify-between"
+              >
+                Select topics...
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search topics..." />
+                <CommandEmpty>No topic found.</CommandEmpty>
+                <CommandGroup>
+                  {VALID_TOPICS.map((topic) => (
+                    <CommandItem
+                      key={topic}
+                      onSelect={() => toggleTopic(topic)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          formData.topics.includes(topic) ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {topic}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <div className="flex flex-wrap gap-2 mt-2">
             {formData.topics.map((topic) => (
-              <div key={topic} className="flex items-center gap-1 bg-primary/20 rounded-full px-3 py-1">
-                <span>{topic}</span>
-                <button
-                  type="button"
-                  onClick={() => removeTopic(topic)}
-                  className="text-primary hover:text-primary/80"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+              <Badge
+                key={topic}
+                variant="secondary"
+                className="text-sm"
+              >
+                {topic}
+              </Badge>
             ))}
           </div>
         </div>
