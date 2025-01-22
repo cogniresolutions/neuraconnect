@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
