@@ -1,13 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const VALID_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'] as const;
-type ValidVoice = typeof VALID_VOICES[number];
+function validateVoice(voice: string): string {
+  const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+  return validVoices.includes(voice) ? voice : 'alloy';
+}
+
+function formatInstructions(persona: any): string {
+  return [
+    `You are ${persona.name}, ${persona.description || ''}.`,
+    `Your personality is: ${persona.personality || ''}.`,
+    `Your skills include: ${JSON.stringify(persona.skills || [])}.`,
+    `You are knowledgeable about: ${JSON.stringify(persona.topics || [])}.`
+  ].join('\n');
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -19,11 +30,9 @@ serve(async (req) => {
     const { persona } = await req.json();
     console.log('Received request for persona:', persona);
 
-    // Validate and normalize voice parameter
     const voice = validateVoice(persona.voice_style);
     console.log('Using voice:', voice);
 
-    // Format instructions for the AI
     const instructions = formatInstructions(persona);
     console.log('Formatted instructions:', instructions);
 
@@ -35,7 +44,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",  // Updated to use the correct model
+        model: "gpt-4o-mini",
         voice: voice,
         instructions: instructions
       }),
@@ -86,22 +95,3 @@ serve(async (req) => {
     );
   }
 });
-
-function validateVoice(voice: string | null | undefined): ValidVoice {
-  if (!voice || !VALID_VOICES.includes(voice as ValidVoice)) {
-    console.warn(`Invalid voice "${voice}" provided, defaulting to "alloy"`);
-    return 'alloy';
-  }
-  return voice as ValidVoice;
-}
-
-function formatInstructions(persona: any): string {
-  const instructions = [
-    `You are ${persona.name}, ${persona.description || ''}.`,
-    `Your personality is: ${persona.personality || ''}.`,
-    `Your skills include: ${JSON.stringify(persona.skills || [])}.`,
-    `You are knowledgeable about: ${JSON.stringify(persona.topics || [])}.`
-  ].join('\n');
-
-  return instructions;
-}
