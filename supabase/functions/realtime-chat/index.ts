@@ -16,7 +16,8 @@ function formatInstructions(persona: any): string {
     `You are ${persona.name}, ${persona.description || ''}.`,
     `Your personality is: ${persona.personality || ''}.`,
     `Your skills include: ${JSON.stringify(persona.skills || [])}.`,
-    `You are knowledgeable about: ${JSON.stringify(persona.topics || [])}.`
+    `You are knowledgeable about: ${JSON.stringify(persona.topics || [])}.`,
+    `Always stay in character and respond as ${persona.name}.`
   ].join('\n');
 }
 
@@ -46,7 +47,9 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
         voice: voice,
-        instructions: instructions
+        instructions: instructions,
+        voice_mode: "chat",
+        session_mode: "conversation"
       }),
     });
 
