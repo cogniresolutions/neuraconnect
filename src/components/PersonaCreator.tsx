@@ -167,7 +167,7 @@ const PersonaCreator = () => {
       setFormData({
         name: "",
         description: "",
-        voiceStyle: "alloy",  // Set to a valid default voice
+        voiceStyle: "alloy",
         personality: "",
         skills: [],
         topics: [],
@@ -283,7 +283,7 @@ const PersonaCreator = () => {
           <label className="block text-sm font-medium mb-2">Voice Style</label>
           <Select
             value={formData.voiceStyle}
-            onValueChange={handleVoiceChange}
+            onValueChange={(value: ValidVoice) => handleVoiceChange(value)}
           >
             <SelectTrigger className="w-full bg-chatgpt-main">
               <SelectValue placeholder="Select a voice style" />
