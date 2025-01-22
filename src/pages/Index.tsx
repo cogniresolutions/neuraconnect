@@ -2,6 +2,7 @@ import VideoChat from "@/components/VideoChat";
 import MessageList from "@/components/MessageList";
 import ChatInput from "@/components/ChatInput";
 import PersonaCreator from "@/components/PersonaCreator";
+import PersonaList from "@/components/PersonaList";
 import { useState } from "react";
 import { sendMessageToAI } from "@/lib/azure-openai";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,9 @@ const Index = () => {
           </div>
           <div className="hidden lg:flex flex-col items-center justify-start p-4 overflow-y-auto">
             <PersonaCreator />
+            <div className="w-full mt-8">
+              <PersonaList />
+            </div>
             <div className="mt-8">
               <VideoChat />
             </div>

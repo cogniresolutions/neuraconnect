@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +18,18 @@ serve(async (req) => {
   }
 
   try {
-    const { name, description, voiceStyle, personality } = await req.json();
+    console.log('Initializing Supabase client...');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { name, description, voiceStyle, personality, personaId } = await req.json();
+    console.log('Received request with data:', { name, description, voiceStyle, personality, personaId });
+
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
 
     // First, generate a personality profile using GPT-4
+    console.log('Calling OpenAI API...');
     const personalityResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -25,7 +37,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           {
             role: "system",
@@ -45,17 +57,33 @@ serve(async (req) => {
     });
 
     if (!personalityResponse.ok) {
-      throw new Error("Failed to generate personality profile");
+      const errorData = await personalityResponse.text();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`Failed to generate personality profile: ${errorData}`);
     }
 
     const personalityData = await personalityResponse.json();
+    console.log('OpenAI response received:', personalityData);
+    
     const generatedProfile = personalityData.choices[0].message.content;
 
-    // For now, we'll just return the generated profile
-    // In a full implementation, you'd want to:
-    // 1. Store this in a database
-    // 2. Generate or process avatar/video content
-    // 3. Set up deployment configurations
+    // Update the persona record with the generated profile
+    console.log('Updating persona in database...');
+    const { data: client, error: updateError } = await supabase
+      .from('personas')
+      .update({ 
+        personality: generatedProfile,
+        status: 'ready'
+      })
+      .eq('id', personaId)
+      .select();
+
+    if (updateError) {
+      console.error('Database update error:', updateError);
+      throw updateError;
+    }
+
+    console.log('Persona created successfully:', client);
 
     return new Response(
       JSON.stringify({
