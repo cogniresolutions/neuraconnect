@@ -14,7 +14,6 @@ const Auth = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user is already authenticated
     supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session);
       if (session) {
@@ -22,7 +21,6 @@ const Auth = () => {
       }
     });
 
-    // Check for authentication errors in URL
     const params = new URLSearchParams(window.location.search);
     const errorParam = params.get('error');
     const errorDescription = params.get('error_description');
@@ -92,10 +90,10 @@ const Auth = () => {
             </div>
             <div className="space-y-2 text-center">
               <CardTitle className="text-4xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-200 to-purple-400">
-                Welcome to NeuraConnect
+                Welcome Back
               </CardTitle>
               <CardDescription className="text-gray-300 text-lg">
-                Create and interact with your personalized AI companions
+                Sign in with Google to continue
               </CardDescription>
             </div>
           </CardHeader>
@@ -122,27 +120,10 @@ const Auth = () => {
               )}
             </Button>
 
-            <div className="space-y-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-purple-300/20" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-gray-900/80 px-4 text-purple-300 font-medium tracking-wider">
-                    Secure Authentication
-                  </span>
-                </div>
-              </div>
-              
-              <div className="space-y-4 text-center">
-                <p className="text-sm text-gray-400 px-8 leading-relaxed">
-                  By continuing, you agree to our Terms of Service and Privacy Policy. 
-                  Your data is protected with enterprise-grade security.
-                </p>
-                <p className="text-xs text-purple-300/70">
-                  Powered by NeuraConnect AI Technology
-                </p>
-              </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-400 px-8 leading-relaxed">
+                By continuing, you agree to our Terms of Service and Privacy Policy
+              </p>
             </div>
           </CardContent>
         </Card>
