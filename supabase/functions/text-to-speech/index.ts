@@ -21,6 +21,12 @@ serve(async (req) => {
     const endpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
     const subscriptionKey = Deno.env.get('AZURE_COGNITIVE_KEY')
     
+    console.log('Azure credentials check:', {
+      hasEndpoint: !!endpoint,
+      hasKey: !!subscriptionKey,
+      endpoint: endpoint?.substring(0, 20) + '...' // Log partial endpoint for security
+    })
+
     if (!endpoint || !subscriptionKey) {
       console.error('Azure credentials not found:', { endpoint: !!endpoint, key: !!subscriptionKey })
       throw new Error('Azure credentials not configured')
