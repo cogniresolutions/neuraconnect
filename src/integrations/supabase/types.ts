@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           created_at: string
           emotion_data: Json | null
+          environment_context: Json | null
           environment_data: Json | null
           id: string
           persona_id: string | null
@@ -21,6 +22,7 @@ export type Database = {
         Insert: {
           created_at?: string
           emotion_data?: Json | null
+          environment_context?: Json | null
           environment_data?: Json | null
           id?: string
           persona_id?: string | null
@@ -29,6 +31,7 @@ export type Database = {
         Update: {
           created_at?: string
           emotion_data?: Json | null
+          environment_context?: Json | null
           environment_data?: Json | null
           id?: string
           persona_id?: string | null
@@ -264,6 +267,7 @@ export type Database = {
           description: string | null
           emotion_settings: Json | null
           environment_analysis: boolean | null
+          facial_expressions: Json | null
           id: string
           model_config: Json | null
           name: string
@@ -282,6 +286,7 @@ export type Database = {
           description?: string | null
           emotion_settings?: Json | null
           environment_analysis?: boolean | null
+          facial_expressions?: Json | null
           id?: string
           model_config?: Json | null
           name: string
@@ -300,6 +305,7 @@ export type Database = {
           description?: string | null
           emotion_settings?: Json | null
           environment_analysis?: boolean | null
+          facial_expressions?: Json | null
           id?: string
           model_config?: Json | null
           name?: string

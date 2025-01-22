@@ -19,7 +19,7 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const modelRef = useRef<THREE.Object3D | null>(null);
+  const modelRef = useRef<THREE.Mesh | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -73,7 +73,7 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
             scene.remove(modelRef.current);
           }
 
-          const model = gltf.scene;
+          const model = gltf.scene.children[0] as THREE.Mesh;
           model.scale.set(2, 2, 2);
           scene.add(model);
           modelRef.current = model;
@@ -123,12 +123,10 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
       }
 
       // Apply emotion-based animations
-      if (modelRef.current && emotions) {
+      if (modelRef.current && emotions && modelRef.current.morphTargetInfluences) {
         // Example of emotion-based animation
         const emotionStrength = emotions.happiness || 0;
-        if (modelRef.current.morphTargetInfluences) {
-          modelRef.current.morphTargetInfluences[0] = emotionStrength;
-        }
+        modelRef.current.morphTargetInfluences[0] = emotionStrength;
       }
 
       renderer.render(scene, camera);
