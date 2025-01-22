@@ -35,6 +35,8 @@ serve(async (req) => {
       throw fetchError;
     }
 
+    console.log('Found persona:', persona);
+
     // Update deployment status
     const { error: updateError } = await supabase
       .from('personas')

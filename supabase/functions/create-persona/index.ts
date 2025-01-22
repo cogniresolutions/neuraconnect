@@ -22,8 +22,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     const { name, description, voiceStyle, personality, personaId } = await req.json();
+    console.log('Received request with data:', { name, description, voiceStyle, personality, personaId });
+
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
 
     // First, generate a personality profile using GPT-4
+    console.log('Calling OpenAI API...');
     const personalityResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -51,13 +57,18 @@ serve(async (req) => {
     });
 
     if (!personalityResponse.ok) {
-      throw new Error("Failed to generate personality profile");
+      const errorData = await personalityResponse.text();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`Failed to generate personality profile: ${errorData}`);
     }
 
     const personalityData = await personalityResponse.json();
+    console.log('OpenAI response received:', personalityData);
+    
     const generatedProfile = personalityData.choices[0].message.content;
 
     // Update the persona record with the generated profile
+    console.log('Updating persona in database...');
     const { data: client, error: updateError } = await supabase
       .from('personas')
       .update({ 
@@ -67,7 +78,12 @@ serve(async (req) => {
       .eq('id', personaId)
       .select();
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Database update error:', updateError);
+      throw updateError;
+    }
+
+    console.log('Persona created successfully:', client);
 
     return new Response(
       JSON.stringify({
