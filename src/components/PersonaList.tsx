@@ -27,7 +27,16 @@ import {
   Trash2,
   ServerIcon,
   List,
+  RefreshCw,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { VALID_VOICES } from "@/constants/voices";
 
 type Persona = {
   id: string;
@@ -98,13 +107,46 @@ export const PersonaList = () => {
       if (error) throw error;
 
       toast({
-        title: "Deployment Started",
-        description: `${persona.name} is being deployed`,
+        title: "Success",
+        description: "Deployment initiated successfully",
       });
     } catch (error: any) {
       toast({
-        title: "Deployment Failed",
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to deploy persona",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  const handleRedeploy = async (persona: Persona) => {
+    setIsDeploying(true);
+    try {
+      // First update status back to 'ready'
+      const { error: updateError } = await supabase
+        .from('personas')
+        .update({ status: 'ready' })
+        .eq('id', persona.id);
+
+      if (updateError) throw updateError;
+
+      // Then trigger deployment
+      const { error: deployError } = await supabase.functions.invoke('deploy-persona', {
+        body: { personaId: persona.id }
+      });
+
+      if (deployError) throw deployError;
+
+      toast({
+        title: "Success",
+        description: "Redeployment initiated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to redeploy persona",
         variant: "destructive",
       });
     } finally {
@@ -136,7 +178,7 @@ export const PersonaList = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to update persona",
         variant: "destructive",
       });
     }
@@ -158,7 +200,7 @@ export const PersonaList = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to delete persona",
         variant: "destructive",
       });
     }
@@ -170,7 +212,6 @@ export const PersonaList = () => {
 
   return (
     <div className="space-y-8">
-      {/* Toggle Button for All Personas */}
       <div className="flex justify-end mb-4">
         <Button
           variant="outline"
@@ -182,7 +223,6 @@ export const PersonaList = () => {
         </Button>
       </div>
 
-      {/* Created Personas Section */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -244,6 +284,21 @@ export const PersonaList = () => {
                           placeholder="Description"
                           className="bg-gray-700 border-gray-600"
                         />
+                        <Select 
+                          value={editingPersona?.voice_style} 
+                          onValueChange={(value) => setEditingPersona(prev => prev ? {...prev, voice_style: value} : null)}
+                        >
+                          <SelectTrigger className="bg-gray-700 border-gray-600">
+                            <SelectValue placeholder="Select voice style" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VALID_VOICES.map((voice) => (
+                              <SelectItem key={voice} value={voice}>
+                                {voice}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Button onClick={handleEdit} className="w-full">
                           Save Changes
                         </Button>
@@ -277,6 +332,24 @@ export const PersonaList = () => {
                       )}
                     </Button>
                   )}
+
+                  {persona.status === 'deployed' && (
+                    <Button
+                      onClick={() => handleRedeploy(persona)}
+                      disabled={isDeploying}
+                      size="sm"
+                      className="ml-auto bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isDeploying ? (
+                        <RefreshCw className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Redeploy
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -284,7 +357,6 @@ export const PersonaList = () => {
         </div>
       </div>
 
-      {/* Deployed Personas Section */}
       {!showAllPersonas && deployedPersonas.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4">
@@ -295,18 +367,19 @@ export const PersonaList = () => {
             {deployedPersonas.map((persona) => (
               <Card key={persona.id} className="bg-gray-800 border-gray-700">
                 <CardHeader>
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-center">
                     <CardTitle className="text-white">{persona.name}</CardTitle>
-                    <Badge variant="outline" className="bg-blue-500/10 text-blue-500">
-                      Deployed
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <PlayCircle className="h-5 w-5 text-blue-400" />
+                      <span className="text-sm text-gray-400">Deployed</span>
+                    </div>
                   </div>
-                  <CardDescription className="text-gray-400">
+                  <CardDescription className="text-gray-300">
                     {persona.description}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex justify-end mt-4">
+                  <div className="flex justify-end gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -315,6 +388,21 @@ export const PersonaList = () => {
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
+                    </Button>
+                    <Button
+                      onClick={() => handleRedeploy(persona)}
+                      disabled={isDeploying}
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isDeploying ? (
+                        <RefreshCw className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Redeploy
+                        </>
+                      )}
                     </Button>
                   </div>
                 </CardContent>
