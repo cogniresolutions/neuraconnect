@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { LogIn, Mail, Lock, Google } from "lucide-react";
+import { LogIn, Mail, Lock, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -154,7 +154,7 @@ const Auth = () => {
             className="w-full"
             onClick={handleGoogleSignIn}
           >
-            <Google className="mr-2 h-4 w-4" />
+            <Globe className="mr-2 h-4 w-4" />
             Google
           </Button>
         </form>
