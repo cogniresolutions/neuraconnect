@@ -12,6 +12,7 @@ serve(async (req) => {
 
   try {
     const { text, voice } = await req.json()
+    console.log('Received request:', { text, voice })
     
     if (!text) {
       throw new Error('Text is required')
@@ -21,17 +22,20 @@ serve(async (req) => {
     const subscriptionKey = Deno.env.get('AZURE_COGNITIVE_KEY')
     
     if (!endpoint || !subscriptionKey) {
+      console.error('Azure credentials not found:', { endpoint: !!endpoint, key: !!subscriptionKey })
       throw new Error('Azure credentials not configured')
     }
     
     // Construct SSML
     const ssml = `
       <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-        <voice name="${voice || 'en-US-JennyNeural'}">
+        <voice name="en-US-${voice}Neural">
           ${text}
         </voice>
       </speak>
     `
+
+    console.log('Making request to Azure with SSML:', ssml)
 
     const response = await fetch(`${endpoint}/cognitiveservices/v1`, {
       method: 'POST',
@@ -50,9 +54,13 @@ serve(async (req) => {
       throw new Error('Failed to generate speech')
     }
 
+    console.log('Successfully received audio response')
+
     // Convert audio buffer to base64
     const arrayBuffer = await response.arrayBuffer()
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+
+    console.log('Successfully converted audio to base64')
 
     return new Response(
       JSON.stringify({ audioContent: base64Audio }),
