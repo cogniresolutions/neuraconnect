@@ -49,7 +49,6 @@ serve(async (req) => {
       model: "gpt-4o-realtime-preview-2024-12-17",
       voice: voice,
       instructions: instructions,
-      voice_mode: "chat",
       session_mode: "conversation"
     };
 
