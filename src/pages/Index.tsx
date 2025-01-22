@@ -1,11 +1,12 @@
 import VideoChat from "@/components/VideoChat";
 import MessageList from "@/components/MessageList";
 import ChatInput from "@/components/ChatInput";
-import PersonaCreator from "@/components/PersonaCreator";
-import PersonaList from "@/components/PersonaList";
 import { useState } from "react";
 import { sendMessageToAI } from "@/lib/azure-openai";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 
 type Message = {
   role: 'user' | 'assistant';
@@ -49,13 +50,15 @@ const Index = () => {
             </div>
           </div>
           <div className="hidden lg:flex flex-col items-center justify-start p-4 overflow-y-auto">
-            <PersonaCreator />
-            <div className="w-full mt-8">
-              <PersonaList />
+            <div className="w-full flex justify-end mb-4">
+              <Link to="/create-persona">
+                <Button variant="outline" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create New Persona
+                </Button>
+              </Link>
             </div>
-            <div className="mt-8">
-              <VideoChat />
-            </div>
+            <VideoChat />
           </div>
         </div>
       </div>
