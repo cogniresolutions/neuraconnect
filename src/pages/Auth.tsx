@@ -11,44 +11,40 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Clear any existing session data
-    localStorage.removeItem('supabase.auth.token');
-    
-    // Check if user is already logged in
-    supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        console.log("Active session found:", session);
+        window.location.href = '/';
+      }
+    };
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session);
+      if (event === 'SIGNED_IN' && session) {
         toast({
           title: "Success",
           description: "Successfully logged in!",
         });
-        // Force a page reload after successful login to ensure fresh state
+        // Force a complete page reload to ensure fresh state
         window.location.href = '/';
       }
     });
 
-    // Check for any error parameters in the URL
-    const params = new URLSearchParams(window.location.search);
-    const error = params.get('error');
-    const errorDescription = params.get('error_description');
-    
-    if (error) {
-      console.error("Auth error:", error, errorDescription);
-      toast({
-        title: "Authentication Error",
-        description: errorDescription || "There was an error during authentication",
-        variant: "destructive",
-      });
-    }
+    return () => subscription.unsubscribe();
   }, [toast]);
 
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
       const redirectURL = `${window.location.origin}/auth`;
-      console.log("Redirect URL:", redirectURL);
+      console.log("Starting Google sign in with redirect URL:", redirectURL);
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: redirectURL,
@@ -58,8 +54,6 @@ const Auth = () => {
           },
         },
       });
-      
-      console.log("Sign in attempt:", { data, error });
       
       if (error) {
         console.error("Sign in error:", error);
@@ -78,7 +72,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
+    <div className="min-h-screen flex items-center justify-center bg-chatgpt-main">
       <div className="bg-chatgpt-sidebar p-8 rounded-lg shadow-lg w-full max-w-md text-center">
         <h1 className="text-2xl font-bold mb-8 text-white">Welcome to Persona Creator</h1>
         <Button
