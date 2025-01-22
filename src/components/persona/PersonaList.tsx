@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlayCircle, Trash2, Edit2 } from "lucide-react";
+import { PlayCircle, Trash2, Edit2, Phone } from "lucide-react";
 
 interface Persona {
   id: string;
@@ -19,6 +19,7 @@ interface PersonaListProps {
   onDeploy: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (persona: Persona) => void;
+  onSelect: (persona: Persona) => void;
   isDeploying: boolean;
 }
 
@@ -27,6 +28,7 @@ export const PersonaList = ({
   onDeploy,
   onDelete,
   onEdit,
+  onSelect,
   isDeploying,
 }: PersonaListProps) => {
   const createdPersonas = personas.filter(p => p.status === 'ready');
@@ -67,6 +69,14 @@ export const PersonaList = ({
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => onSelect(persona)}
+                        className="text-blue-400 border-blue-400/30"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => onDelete(persona.id)}
                         className="text-red-400 border-red-400/30"
                       >
@@ -94,6 +104,14 @@ export const PersonaList = ({
                       <p className="text-sm text-gray-400">{persona.description}</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onSelect(persona)}
+                        className="text-blue-400 border-blue-400/30"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"

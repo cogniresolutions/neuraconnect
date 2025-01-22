@@ -6,6 +6,7 @@ import { PersonaForm } from "./persona/PersonaForm";
 import { PersonaPreview } from "./persona/PersonaPreview";
 import { PersonaList } from "./persona/PersonaList";
 import { PersonaActions } from "./persona/PersonaActions";
+import VideoCallInterface from "./VideoCallInterface";
 
 interface Persona {
   id: string;
@@ -42,6 +43,8 @@ const PersonaCreator = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const [isCallActive, setIsCallActive] = useState(false);
 
   useEffect(() => {
     const checkAuthAndFetchPersonas = async () => {
@@ -239,6 +242,14 @@ const PersonaCreator = () => {
     }
   };
 
+  const handlePersonaSelect = (persona: Persona) => {
+    setSelectedPersona(persona);
+  };
+
+  const handleCallStateChange = (isActive: boolean) => {
+    setIsCallActive(isActive);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black p-6">
       <div className="max-w-6xl mx-auto">
@@ -282,9 +293,17 @@ const PersonaCreator = () => {
             onDeploy={handleDeploy}
             onDelete={handleDelete}
             onEdit={handleEdit}
+            onSelect={handlePersonaSelect}
             isDeploying={isDeploying}
           />
         </div>
+
+        {selectedPersona && (
+          <VideoCallInterface
+            persona={selectedPersona}
+            onCallStateChange={handleCallStateChange}
+          />
+        )}
       </div>
     </div>
   );
