@@ -38,19 +38,20 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white">
-      <div className="flex-1 overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-2 h-full">
-          <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-4">
+    <div className="min-h-screen bg-chatgpt-main">
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Chat Interface */}
+          <div className="bg-chatgpt-sidebar rounded-lg p-4">
+            <div className="h-[60vh] overflow-y-auto mb-4">
               <MessageList messages={messages} />
             </div>
-            <div className="p-4">
-              <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
-            </div>
+            <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
           </div>
-          <div className="hidden lg:flex flex-col items-center justify-start p-4 overflow-y-auto">
-            <div className="w-full flex justify-end mb-4">
+
+          {/* Right Column - Video Chat */}
+          <div className="space-y-4">
+            <div className="flex justify-end">
               <Link to="/create-persona">
                 <Button variant="outline" className="gap-2">
                   <Plus className="h-4 w-4" />
@@ -58,7 +59,9 @@ const Index = () => {
                 </Button>
               </Link>
             </div>
-            <VideoChat />
+            <div className="bg-chatgpt-sidebar rounded-lg p-4">
+              <VideoChat />
+            </div>
           </div>
         </div>
       </div>
