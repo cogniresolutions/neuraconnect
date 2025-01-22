@@ -9,28 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle, UserPlus, Loader2, Edit2, Trash2 } from "lucide-react";
+import { CheckCircle, UserPlus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 
 interface Persona {
   id: string;
@@ -43,14 +30,9 @@ interface Persona {
 const PersonaList = () => {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
   const [deployingPersona, setDeployingPersona] = useState<Persona | null>(null);
-  const [newDescription, setNewDescription] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeployDialogOpen, setIsDeployDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -104,37 +86,6 @@ const PersonaList = () => {
     };
   }, [toast]);
 
-  const handleEdit = (persona: Persona) => {
-    setEditingPersona(persona);
-    setNewDescription(persona.description);
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = async (personaId: string) => {
-    setIsDeleting(true);
-    try {
-      const { error } = await supabase
-        .from('personas')
-        .delete()
-        .eq('id', personaId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Persona deleted successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const validatePersonaForDeployment = (description: string) => {
     if (!description || description.trim().length < 10) {
       return "Description must be at least 10 characters long";
@@ -187,7 +138,7 @@ const PersonaList = () => {
         title: "Success",
         description: "Deployment initiated successfully",
       });
-      setIsDeployDialogOpen(false);
+      setIsDialogOpen(false);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -198,70 +149,6 @@ const PersonaList = () => {
       setIsDeploying(false);
       setDeployingPersona(null);
     }
-  };
-
-  const handleUpdate = async () => {
-    if (!editingPersona) return;
-
-    // Validate the new description before updating
-    const validationError = validatePersonaForDeployment(newDescription);
-    if (validationError) {
-      toast({
-        title: "Validation Error",
-        description: validationError,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUpdating(true);
-    try {
-      // Update the description
-      const { error: updateError } = await supabase
-        .from('personas')
-        .update({ description: newDescription })
-        .eq('id', editingPersona.id);
-
-      if (updateError) throw updateError;
-
-      // If the persona was already deployed, trigger redeployment
-      if (editingPersona.status === 'deployed') {
-        const { error: deployError } = await supabase.functions.invoke("deploy-persona", {
-          body: { personaId: editingPersona.id }
-        });
-
-        if (deployError) throw deployError;
-      }
-
-      toast({
-        title: "Success",
-        description: editingPersona.status === 'deployed' 
-          ? "Persona updated and redeployment initiated"
-          : "Persona updated successfully",
-      });
-
-      setIsDialogOpen(false);
-      setEditingPersona(null);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setEditingPersona(null);
-    setNewDescription("");
-  };
-
-  const handleDeployDialogClose = () => {
-    setIsDeployDialogOpen(false);
-    setDeployingPersona(null);
   };
 
   if (isLoading) {
@@ -275,122 +162,9 @@ const PersonaList = () => {
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
 
-  const PersonaTableRow = ({ persona }: { persona: Persona }) => (
-    <TableRow key={persona.id}>
-      <TableCell>{persona.name}</TableCell>
-      <TableCell>{persona.description}</TableCell>
-      <TableCell>
-        <div className="flex items-center">
-          {persona.status === 'deployed' ? (
-            <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
-          ) : (
-            <UserPlus className="h-4 w-4 mr-2 text-green-500" />
-          )}
-          {persona.status === 'deployed' ? 'Deployed' : 'Created'}
-        </div>
-      </TableCell>
-      <TableCell>
-        {new Date(persona.created_at).toLocaleDateString()}
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-2">
-          <Dialog open={isDialogOpen && editingPersona?.id === persona.id} onOpenChange={(open) => !open && handleDialogClose()}>
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleEdit(persona)}
-              >
-                <Edit2 className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit Persona Description</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <Textarea
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Enter new description"
-                  className="min-h-[100px]"
-                />
-                <Button 
-                  onClick={handleUpdate}
-                  disabled={isUpdating}
-                  className="w-full"
-                >
-                  {isUpdating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    persona.status === 'deployed' ? 'Update & Redeploy' : 'Update'
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {persona.status === 'ready' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-blue-500 hover:text-blue-600"
-              onClick={() => {
-                setDeployingPersona(persona);
-                setIsDeployDialogOpen(true);
-              }}
-            >
-              <UserPlus className="h-4 w-4" />
-            </Button>
-          )}
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-red-500 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Persona</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete this persona? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => handleDelete(persona.id)}
-                  className="bg-red-500 hover:bg-red-600"
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    'Delete'
-                  )}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-
   return (
     <div className="space-y-8">
-      <Dialog open={isDeployDialogOpen} onOpenChange={(open) => !open && handleDeployDialogClose()}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !open && setDeployingPersona(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Deploy Persona</DialogTitle>
@@ -451,7 +225,32 @@ const PersonaList = () => {
               </TableRow>
             ) : (
               createdPersonas.map((persona) => (
-                <PersonaTableRow key={persona.id} persona={persona} />
+                <TableRow key={persona.id}>
+                  <TableCell>{persona.name}</TableCell>
+                  <TableCell>{persona.description}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <UserPlus className="h-4 w-4 mr-2 text-green-500" />
+                      Created
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(persona.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-blue-500 hover:text-blue-600"
+                      onClick={() => {
+                        setDeployingPersona(persona);
+                        setIsDialogOpen(true);
+                      }}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))
             )}
           </TableBody>
@@ -467,19 +266,30 @@ const PersonaList = () => {
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created At</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {deployedPersonas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                <TableCell colSpan={4} className="text-center">
                   No deployed personas yet
                 </TableCell>
               </TableRow>
             ) : (
               deployedPersonas.map((persona) => (
-                <PersonaTableRow key={persona.id} persona={persona} />
+                <TableRow key={persona.id}>
+                  <TableCell>{persona.name}</TableCell>
+                  <TableCell>{persona.description}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
+                      Deployed
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(persona.created_at).toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
               ))
             )}
           </TableBody>

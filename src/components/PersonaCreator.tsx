@@ -122,7 +122,7 @@ const PersonaCreator = () => {
         description: "Persona created successfully",
       });
 
-      // Navigate to the chat interface
+      // Navigate to the home page after successful creation
       navigate('/');
     } catch (error: any) {
       console.error('Error creating persona:', error);
