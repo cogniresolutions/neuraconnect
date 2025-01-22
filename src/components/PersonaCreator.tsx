@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle, ServerIcon, PlayCircle } from "lucide-react";
+import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle, ServerIcon, PlayCircle, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Avatar3D from "./Avatar3D";
 import { VALID_VOICES } from "@/constants/voices";
@@ -58,7 +58,6 @@ const PersonaCreator = () => {
   });
 
   useEffect(() => {
-    // Check if user is authenticated and fetch personas
     const checkAuthAndFetchPersonas = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -66,7 +65,6 @@ const PersonaCreator = () => {
         return;
       }
       
-      // Fetch personas
       const { data: personasData, error } = await supabase
         .from('personas')
         .select('*')
@@ -86,7 +84,6 @@ const PersonaCreator = () => {
     
     checkAuthAndFetchPersonas();
 
-    // Set up real-time subscription for personas
     const channel = supabase
       .channel('schema-db-changes')
       .on(
@@ -138,13 +135,11 @@ const PersonaCreator = () => {
 
     setIsCreating(true);
     try {
-      // Get the current user's ID
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error("You must be logged in to create a persona");
       }
 
-      // First, create the persona record with the user_id
       const { data: persona, error: createError } = await supabase
         .from('personas')
         .insert({
@@ -152,14 +147,13 @@ const PersonaCreator = () => {
           description,
           voice_style: voiceStyle,
           status: 'ready',
-          user_id: session.user.id  // Set the user_id here
+          user_id: session.user.id
         })
         .select()
         .single();
 
       if (createError) throw createError;
 
-      // Then, initiate the persona creation process
       const { error: functionError } = await supabase.functions.invoke('create-persona', {
         body: { 
           name,
@@ -177,7 +171,6 @@ const PersonaCreator = () => {
         description: "Persona created successfully",
       });
 
-      // Navigate to the home page after successful creation
       navigate('/');
     } catch (error: any) {
       console.error('Error creating persona:', error);
@@ -212,6 +205,28 @@ const PersonaCreator = () => {
       });
     } finally {
       setIsDeploying(false);
+    }
+  };
+
+  const handleDelete = async (personaId: string) => {
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', personaId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Persona deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete persona",
+        variant: "destructive",
+      });
     }
   };
 
@@ -263,14 +278,19 @@ const PersonaCreator = () => {
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
 
   return (
-    <div className="min-h-screen bg-black p-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black p-6">
+      <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Create Your Persona</h1>
+          <div>
+            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-purple-400">
+              Create Your Persona
+            </h1>
+            <p className="text-gray-400 mt-2">Design and customize your AI companion</p>
+          </div>
           <div className="flex gap-4">
             <Button
               variant="outline"
-              className="bg-gray-700 text-white hover:bg-gray-600"
+              className="bg-white/10 text-white border-purple-400/30 hover:bg-white/20 transition-all duration-300"
               onClick={toggleWebcam}
             >
               {isWebcamActive ? (
@@ -287,7 +307,7 @@ const PersonaCreator = () => {
             </Button>
             <Button
               variant="outline"
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-red-500/20 text-white border-red-400/30 hover:bg-red-500/30 transition-all duration-300"
               onClick={handleSignOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
@@ -298,94 +318,101 @@ const PersonaCreator = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Creation Form */}
-          <div className="space-y-4">
-            <Input
-              placeholder="Persona Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white"
-            />
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Persona Description"
-                value={description}
-                onChange={handleDescriptionChange}
-                className="bg-gray-800 border-gray-700 text-white min-h-[100px]"
-              />
-              {!validationResult.isValid && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Validation Issues</AlertTitle>
-                  <AlertDescription>
-                    <ul className="list-disc pl-4">
-                      {validationResult.issues.map((issue, index) => (
-                        <li key={index}>{issue}</li>
-                      ))}
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-              )}
-              {validationResult.suggestions.length > 0 && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertTitle>Suggestions</AlertTitle>
-                  <AlertDescription>
-                    <ul className="list-disc pl-4">
-                      {validationResult.suggestions.map((suggestion, index) => (
-                        <li key={index}>{suggestion}</li>
-                      ))}
-                    </ul>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSuggestImprovement}
-                      className="mt-2"
-                    >
-                      Apply Suggestions
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-            <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-              <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                <SelectValue placeholder="Select a voice" />
-              </SelectTrigger>
-              <SelectContent>
-                {VALID_VOICES.map((voice) => (
-                  <SelectItem key={voice} value={voice}>
-                    {voice}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              className="w-full"
-              onClick={handleCreatePersona}
-              disabled={isCreating || !validationResult.isValid}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              {isCreating ? "Creating..." : "Create Persona"}
-            </Button>
+          <div className="space-y-6">
+            <Card className="border-0 bg-white/5 backdrop-blur-lg shadow-xl">
+              <CardContent className="p-6 space-y-6">
+                <Input
+                  placeholder="Persona Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="bg-white/10 border-purple-400/30 text-white placeholder:text-gray-400"
+                />
+                <div className="space-y-3">
+                  <Textarea
+                    placeholder="Persona Description"
+                    value={description}
+                    onChange={handleDescriptionChange}
+                    className="bg-white/10 border-purple-400/30 text-white min-h-[120px] placeholder:text-gray-400"
+                  />
+                  {!validationResult.isValid && (
+                    <Alert variant="destructive" className="bg-red-500/20 border-red-400/30">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Validation Issues</AlertTitle>
+                      <AlertDescription>
+                        <ul className="list-disc pl-4">
+                          {validationResult.issues.map((issue, index) => (
+                            <li key={index}>{issue}</li>
+                          ))}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {validationResult.suggestions.length > 0 && (
+                    <Alert className="bg-purple-500/20 border-purple-400/30">
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertTitle>Suggestions</AlertTitle>
+                      <AlertDescription>
+                        <ul className="list-disc pl-4">
+                          {validationResult.suggestions.map((suggestion, index) => (
+                            <li key={index}>{suggestion}</li>
+                          ))}
+                        </ul>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSuggestImprovement}
+                          className="mt-2 bg-purple-500/20 border-purple-400/30 hover:bg-purple-500/30"
+                        >
+                          Apply Suggestions
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+                <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+                  <SelectTrigger className="bg-white/10 border-purple-400/30 text-white">
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VALID_VOICES.map((voice) => (
+                      <SelectItem key={voice} value={voice}>
+                        {voice}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300"
+                  onClick={handleCreatePersona}
+                  disabled={isCreating || !validationResult.isValid}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isCreating ? "Creating..." : "Create Persona"}
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Preview */}
-          <div className="space-y-4">
-            {isWebcamActive && (
-              <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            
-            <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-900">
-              <Avatar3D isAnimating={avatarAnimating} />
-            </div>
+          <div className="space-y-6">
+            <Card className="border-0 bg-white/5 backdrop-blur-lg shadow-xl overflow-hidden">
+              <CardContent className="p-6">
+                {isWebcamActive && (
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black/50 mb-6">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black/50">
+                  <Avatar3D isAnimating={avatarAnimating} />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
@@ -393,38 +420,49 @@ const PersonaCreator = () => {
         <div className="mt-12 space-y-8">
           {/* Created Personas */}
           <div>
-            <h2 className="text-xl font-semibold text-white mb-4">Created Personas</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-purple-400 mb-6">
+              Created Personas
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {createdPersonas.map((persona) => (
-                <Card key={persona.id} className="bg-gray-800 text-white">
+                <Card key={persona.id} className="border-0 bg-white/5 backdrop-blur-lg shadow-xl hover:shadow-2xl transition-all duration-300">
                   <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle>{persona.name}</CardTitle>
+                      <CardTitle className="text-white">{persona.name}</CardTitle>
                       <div className="flex items-center space-x-2">
-                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <CheckCircle className="h-5 w-5 text-green-400" />
                         <span className="text-sm text-gray-400">Created</span>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-300 mb-4">{persona.description}</p>
-                    <Button
-                      onClick={() => handleDeploy(persona.id)}
-                      disabled={isDeploying}
-                      className="w-full"
-                    >
-                      {isDeploying ? (
-                        <>
-                          <ServerIcon className="mr-2 h-4 w-4 animate-pulse" />
-                          Deploying...
-                        </>
-                      ) : (
-                        <>
-                          <ServerIcon className="mr-2 h-4 w-4" />
-                          Deploy Persona
-                        </>
-                      )}
-                    </Button>
+                    <p className="text-gray-300 mb-4 line-clamp-3">{persona.description}</p>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleDeploy(persona.id)}
+                        disabled={isDeploying}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        {isDeploying ? (
+                          <>
+                            <ServerIcon className="mr-2 h-4 w-4 animate-pulse" />
+                            Deploying...
+                          </>
+                        ) : (
+                          <>
+                            <ServerIcon className="mr-2 h-4 w-4" />
+                            Deploy
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="bg-red-500/20 border-red-400/30 hover:bg-red-500/30 text-white"
+                        onClick={() => handleDelete(persona.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -433,21 +471,23 @@ const PersonaCreator = () => {
 
           {/* Deployed Personas */}
           <div>
-            <h2 className="text-xl font-semibold text-white mb-4">Deployed Personas</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-purple-400 mb-6">
+              Deployed Personas
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {deployedPersonas.map((persona) => (
-                <Card key={persona.id} className="bg-gray-800 text-white">
+                <Card key={persona.id} className="border-0 bg-white/5 backdrop-blur-lg shadow-xl hover:shadow-2xl transition-all duration-300">
                   <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle>{persona.name}</CardTitle>
+                      <CardTitle className="text-white">{persona.name}</CardTitle>
                       <div className="flex items-center space-x-2">
-                        <PlayCircle className="h-5 w-5 text-blue-500" />
+                        <PlayCircle className="h-5 w-5 text-blue-400" />
                         <span className="text-sm text-gray-400">Deployed</span>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-300">{persona.description}</p>
+                    <p className="text-gray-300 line-clamp-3">{persona.description}</p>
                   </CardContent>
                 </Card>
               ))}
