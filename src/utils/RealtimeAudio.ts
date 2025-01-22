@@ -1,21 +1,24 @@
-import { supabase } from "@/integrations/supabase/client";
-
 class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
 
   async start() {
     try {
+      console.log('Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Microphone access granted');
+      
       this.mediaRecorder = new MediaRecorder(stream);
       
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.audioChunks.push(event.data);
+          console.log('Audio chunk recorded, size:', event.data.size);
         }
       };
 
       this.mediaRecorder.start(1000); // Collect data every second
+      console.log('Started recording audio');
     } catch (error) {
       console.error('Error starting audio recording:', error);
       throw error;
@@ -24,6 +27,7 @@ class AudioRecorder {
 
   stop() {
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      console.log('Stopping audio recording');
       this.mediaRecorder.stop();
       const tracks = this.mediaRecorder.stream.getTracks();
       tracks.forEach(track => track.stop());
@@ -87,17 +91,12 @@ export class RealtimeChat {
         throw new Error(`Failed to get WebSocket URL: ${error.message}`);
       }
 
-      if (!response) {
-        console.error('No response from edge function');
-        throw new Error('No response received from server');
-      }
-
-      if (!response.url) {
+      if (!response?.url) {
         console.error('Invalid response from edge function:', response);
         throw new Error('No WebSocket URL received from server');
       }
 
-      console.log('Received WebSocket URL:', response.url);
+      console.log('Connecting to WebSocket:', response.url);
       
       // Initialize WebSocket connection
       this.ws = new WebSocket(response.url);
@@ -109,6 +108,7 @@ export class RealtimeChat {
       this.ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          console.log('Received WebSocket message:', message);
           this.messageHandler(message);
         } catch (error) {
           console.error('Error processing WebSocket message:', error);
@@ -131,6 +131,7 @@ export class RealtimeChat {
 
   disconnect() {
     if (this.ws) {
+      console.log('Closing WebSocket connection');
       this.ws.close();
       this.ws = null;
     }
@@ -144,6 +145,8 @@ export class RealtimeChat {
     }
 
     const audioChunks = this.audioRecorder.getAudioChunks();
+    console.log('Sending message with', audioChunks.length, 'audio chunks');
+    
     const message = {
       type: 'message',
       text,

@@ -16,21 +16,34 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   const chatRef = useRef<RealtimeChat | null>(null);
 
   const handleMessage = (event: any) => {
-    console.log('Received message:', event);
+    console.log('Received WebSocket message:', event);
     
     if (event.type === 'response.audio.delta') {
+      console.log('Received audio delta, persona is speaking');
       onSpeakingChange(true);
     } else if (event.type === 'response.audio.done') {
+      console.log('Audio response completed, persona stopped speaking');
       onSpeakingChange(false);
+    } else if (event.type === 'error') {
+      console.error('WebSocket error:', event.error);
+      toast({
+        title: "Connection Error",
+        description: event.error?.message || "An error occurred during the conversation",
+        variant: "destructive",
+      });
     }
   };
 
   const startConversation = async () => {
     try {
       setIsLoading(true);
+      console.log('Initializing chat with persona:', persona);
+      
       chatRef.current = new RealtimeChat(handleMessage);
       await chatRef.current.init(persona);
+      
       setIsConnected(true);
+      console.log('WebSocket connection established successfully');
       
       toast({
         title: "Connected",
@@ -49,6 +62,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   };
 
   const endConversation = () => {
+    console.log('Ending conversation and cleaning up WebSocket connection');
     chatRef.current?.disconnect();
     setIsConnected(false);
     onSpeakingChange(false);
@@ -56,7 +70,10 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   useEffect(() => {
     return () => {
-      chatRef.current?.disconnect();
+      if (chatRef.current) {
+        console.log('Component unmounting, cleaning up WebSocket connection');
+        chatRef.current.disconnect();
+      }
     };
   }, []);
 
