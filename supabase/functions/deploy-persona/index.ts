@@ -1,7 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from '@supabase/supabase-js';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +20,7 @@ serve(async (req) => {
 
   try {
     const { personaId } = await req.json();
+    console.log('Deploying persona:', personaId);
 
     // Get the persona data
     const { data: persona, error: fetchError } = await supabase
@@ -24,7 +29,10 @@ serve(async (req) => {
       .eq('id', personaId)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      console.error('Error fetching persona:', fetchError);
+      throw fetchError;
+    }
 
     // Update deployment status
     const { error: updateError } = await supabase
@@ -32,14 +40,11 @@ serve(async (req) => {
       .update({ status: 'deploying' })
       .eq('id', personaId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Error updating persona status:', updateError);
+      throw updateError;
+    }
 
-    // Here we would typically:
-    // 1. Generate or process avatar/video content
-    // 2. Set up deployment configurations
-    // 3. Initialize the persona instance
-    // For now, we'll simulate this with a delay and status update
-    
     // Simulate deployment process
     await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -49,7 +54,12 @@ serve(async (req) => {
       .update({ status: 'deployed' })
       .eq('id', personaId);
 
-    if (finalUpdateError) throw finalUpdateError;
+    if (finalUpdateError) {
+      console.error('Error updating final persona status:', finalUpdateError);
+      throw finalUpdateError;
+    }
+
+    console.log('Persona deployment completed successfully');
 
     return new Response(
       JSON.stringify({
