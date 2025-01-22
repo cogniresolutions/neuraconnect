@@ -59,8 +59,11 @@ export const PersonaForm = ({
   const handleTestVoice = async () => {
     try {
       setIsSpeaking(true);
-      const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
+      console.log('Starting voice test with:', { name, description, voiceStyle });
       
+      const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
+      console.log('Test text:', testText);
+
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: testText,
@@ -68,12 +71,28 @@ export const PersonaForm = ({
         }
       });
 
-      if (error) throw error;
+      console.log('Supabase response:', { data, error });
 
-      if (data?.audioContent) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
-        await audio.play();
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
       }
+
+      if (!data?.audioContent) {
+        console.error('No audio content in response');
+        throw new Error('No audio content received');
+      }
+
+      console.log('Creating audio element with content length:', data.audioContent.length);
+      const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+      
+      audio.onerror = (e) => {
+        console.error('Audio error:', e);
+        throw new Error('Failed to play audio');
+      };
+
+      await audio.play();
+      console.log('Audio played successfully');
 
     } catch (error: any) {
       console.error('Voice test error:', error);
@@ -136,7 +155,7 @@ export const PersonaForm = ({
           variant="outline"
           size="sm"
           onClick={handleTestVoice}
-          disabled={isSpeaking || !name || !description}
+          disabled={isSpeaking || !name || !description || !voiceStyle}
           className="w-full text-purple-400 border-purple-400/30"
         >
           {isSpeaking ? (
@@ -154,7 +173,7 @@ export const PersonaForm = ({
       </div>
       <Button
         onClick={onSubmit}
-        disabled={isCreating}
+        disabled={isCreating || !name || !description || !voiceStyle}
         className="w-full bg-purple-600 hover:bg-purple-700"
       >
         {isCreating ? "Creating..." : "Create Persona"}
