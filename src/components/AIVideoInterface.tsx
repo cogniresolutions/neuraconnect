@@ -22,6 +22,7 @@ interface AnalysisResult {
     tags?: string[];
     objects?: string[];
   };
+  language?: string;
 }
 
 const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeakingChange }) => {
@@ -49,13 +50,14 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     try {
       console.log('Starting video analysis...');
       
-      // Call both analysis functions
+      // Call analysis functions with enhanced emotion detection
       const [emotionResponse, environmentResponse] = await Promise.all([
         supabase.functions.invoke('analyze-emotion', {
           body: { 
             imageData,
             personaId: persona.id,
-            userId: (await supabase.auth.getUser()).data.user?.id
+            userId: (await supabase.auth.getUser()).data.user?.id,
+            language: persona.language || 'en'
           }
         }),
         supabase.functions.invoke('analyze-environment', {
@@ -70,11 +72,15 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       if (emotionResponse.error) throw emotionResponse.error;
       if (environmentResponse.error) throw environmentResponse.error;
       
-      console.log('Analysis results:', { emotion: emotionResponse.data, environment: environmentResponse.data });
+      console.log('Analysis results:', { 
+        emotion: emotionResponse.data, 
+        environment: environmentResponse.data 
+      });
       
       setLastAnalysis({
         emotions: emotionResponse.data?.emotions,
-        environment: environmentResponse.data?.environment
+        environment: environmentResponse.data?.environment,
+        language: persona.language || 'en'
       });
 
     } catch (error: any) {

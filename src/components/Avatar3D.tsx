@@ -12,9 +12,10 @@ interface Avatar3DProps {
     surprise?: number;
     anger?: number;
   };
+  language?: string;
 }
 
-const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProps) => {
+const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {}, language = 'en' }: Avatar3DProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -78,11 +79,18 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
           scene.add(model);
           modelRef.current = model;
 
-          // Set up animations
+          // Set up animations and facial expressions
           if (gltf.animations.length) {
             mixerRef.current = new THREE.AnimationMixer(model);
             gltf.animations.forEach((clip) => {
-              mixerRef.current?.clipAction(clip).play();
+              const action = mixerRef.current?.clipAction(clip);
+              if (action) {
+                // Adjust animation based on language
+                if (language !== 'en') {
+                  action.timeScale = language === 'ja' ? 1.2 : 1; // Example: faster for Japanese
+                }
+                action.play();
+              }
             });
           }
 
@@ -94,14 +102,6 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
           setIsLoading(false);
         }
       );
-    } else {
-      // Fallback to basic geometry
-      const geometry = new THREE.SphereGeometry(1, 32, 32);
-      const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
-      const sphere = new THREE.Mesh(geometry, material);
-      scene.add(sphere);
-      modelRef.current = sphere;
-      setIsLoading(false);
     }
 
     // Animation loop
@@ -122,11 +122,21 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
         modelRef.current.rotation.y += 0.01;
       }
 
-      // Apply emotion-based animations
+      // Apply emotion-based animations and facial expressions
       if (modelRef.current && emotions && modelRef.current.morphTargetInfluences) {
-        // Example of emotion-based animation
-        const emotionStrength = emotions.happiness || 0;
-        modelRef.current.morphTargetInfluences[0] = emotionStrength;
+        // Map emotions to morph targets
+        Object.entries(emotions).forEach(([emotion, value], index) => {
+          if (modelRef.current?.morphTargetInfluences) {
+            modelRef.current.morphTargetInfluences[index] = value || 0;
+          }
+        });
+
+        // Apply language-specific adjustments
+        if (language !== 'en' && modelRef.current.morphTargetInfluences[0]) {
+          // Example: Adjust expressions for different languages
+          const culturalFactor = language === 'ja' ? 0.8 : 1; // More subtle expressions for Japanese
+          modelRef.current.morphTargetInfluences[0] *= culturalFactor;
+        }
       }
 
       renderer.render(scene, camera);
@@ -148,7 +158,7 @@ const Avatar3D = ({ modelUrl, isAnimating = false, emotions = {} }: Avatar3DProp
       containerRef.current?.removeChild(renderer.domElement);
       renderer.dispose();
     };
-  }, [modelUrl, isAnimating, emotions]);
+  }, [modelUrl, isAnimating, emotions, language]);
 
   return (
     <div className="relative w-full h-full min-h-[300px] rounded-lg">

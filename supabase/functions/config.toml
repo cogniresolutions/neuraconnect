@@ -1,7 +1,4 @@
 project_id = "kzubwatryfgonzuzldej"
 
-[analyze-emotion]
-verify_jwt = true
-
-[analyze-environment]
+[manage-personas]
 verify_jwt = true

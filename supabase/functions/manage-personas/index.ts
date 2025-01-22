@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,17 +14,11 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client
+    console.log('Initializing Supabase client...');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Verify API key
-    const apiKey = req.headers.get('x-api-key');
-    if (!apiKey || apiKey !== Deno.env.get('PERSONA_API_KEY')) {
-      throw new Error('Invalid API key');
-    }
-
+    
     const { method, action, data } = await req.json();
     console.log('Received request:', { method, action, data });
 
@@ -31,7 +26,7 @@ serve(async (req) => {
 
     switch (method) {
       case 'POST':
-        // Create new persona
+        // Create new persona with enhanced attributes
         const { error: insertError, data: insertData } = await supabase
           .from('personas')
           .insert([{
@@ -40,7 +35,9 @@ serve(async (req) => {
             emotion_settings: {
               sensitivity: 0.5,
               response_delay: 1000
-            }
+            },
+            facial_expressions: [],
+            environment_analysis: true
           }])
           .select()
           .single();
@@ -50,7 +47,7 @@ serve(async (req) => {
         break;
 
       case 'GET':
-        // Retrieve personas
+        // Retrieve personas with all attributes
         const { error: selectError, data: selectData } = await supabase
           .from('personas')
           .select('*')
@@ -61,10 +58,14 @@ serve(async (req) => {
         break;
 
       case 'PUT':
-        // Update persona
+        // Update persona with enhanced attributes
         const { error: updateError, data: updateData } = await supabase
           .from('personas')
-          .update(data)
+          .update({
+            ...data,
+            facial_expressions: data.facial_expressions || [],
+            environment_analysis: data.environment_analysis !== undefined ? data.environment_analysis : true
+          })
           .eq('id', data.id)
           .select()
           .single();
