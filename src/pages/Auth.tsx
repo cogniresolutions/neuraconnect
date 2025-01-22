@@ -34,7 +34,7 @@ const Auth = () => {
         <div className="flex flex-col items-center">
           <Building2 className="h-12 w-12 text-[#9b87f5] mb-4" />
           <h2 className="text-3xl font-bold text-white">Welcome Back</h2>
-          <p className="mt-2 text-gray-400">Sign in to manage your AI personas</p>
+          <p className="mt-2 text-gray-400">Sign in with Google to continue</p>
         </div>
         
         <div className="bg-[#221F26] p-8 rounded-lg shadow-xl border border-gray-800">
@@ -53,10 +53,9 @@ const Auth = () => {
               className: {
                 container: 'auth-container',
                 button: 'auth-button',
-                input: 'auth-input',
               },
             }}
-            providers={[]}
+            providers={["google"]}
             redirectTo={window.location.origin}
           />
         </div>
@@ -77,18 +76,6 @@ const Auth = () => {
         }
         .auth-button:hover {
           background-color: #7E69AB;
-        }
-        .auth-input {
-          width: 100%;
-          padding: 0.75rem;
-          border-radius: 0.375rem;
-          background-color: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: white;
-        }
-        .auth-input:focus {
-          border-color: #9b87f5;
-          outline: none;
         }
       `}</style>
     </div>
