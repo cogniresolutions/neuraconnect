@@ -54,16 +54,20 @@ serve(async (req) => {
     const data = await response.json();
     console.log('OpenAI response:', JSON.stringify(data, null, 2));
 
-    // Check if we have a valid session with a client secret
-    if (!data.client_secret?.value) {
-      console.error('Invalid response from OpenAI - missing client secret:', data);
-      throw new Error('No client secret received from OpenAI');
+    // Check if we have a valid session ID and client secret
+    if (!data.id || !data.client_secret?.value) {
+      console.error('Invalid response from OpenAI:', data);
+      throw new Error(`No valid session data received from OpenAI. Full response: ${JSON.stringify(data)}`);
     }
 
-    // Return the WebSocket URL and session data
+    // Construct WebSocket URL using session ID and client secret
+    const wsUrl = `wss://api.openai.com/v1/audio/chat/sessions/${data.id}/ws?client_secret=${data.client_secret.value}`;
+    console.log('Constructed WebSocket URL:', wsUrl);
+
+    // Return both the WebSocket URL and the full session data
     return new Response(
       JSON.stringify({ 
-        url: `wss://api.openai.com/v1/audio/chat/sessions/${data.id}/ws?client_secret=${data.client_secret.value}`,
+        url: wsUrl,
         session: data
       }), 
       {
