@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Video, Mic, MicOff, VideoOff, User } from "lucide-react";
+import { Video, Mic, MicOff, VideoOff, User, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,12 @@ interface VideoOverlayProps {
   personaImage?: string;
   isActive: boolean;
   isAnimating: boolean;
+}
+
+interface AnalysisResult {
+  objects?: { object: string }[];
+  scenes?: { scenery: string }[];
+  tags?: { name: string }[];
 }
 
 const VideoOverlay: React.FC<VideoOverlayProps> = ({ personaImage, isActive, isAnimating }) => {
@@ -39,6 +45,8 @@ const VideoChat = () => {
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [isPersonaActive, setIsPersonaActive] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
   const { toast } = useToast();
 
   // Fetch active persona from Supabase
@@ -67,6 +75,22 @@ const VideoChat = () => {
     return () => clearInterval(animationInterval);
   }, []);
 
+  useEffect(() => {
+    let analysisInterval: NodeJS.Timeout;
+
+    if (isAnalyzing && videoRef.current) {
+      analysisInterval = setInterval(async () => {
+        await captureAndAnalyze();
+      }, 1000); // Analyze every second
+    }
+
+    return () => {
+      if (analysisInterval) {
+        clearInterval(analysisInterval);
+      }
+    };
+  }, [isAnalyzing]);
+
   const startVideo = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -80,6 +104,42 @@ const VideoChat = () => {
       toast({
         title: "Camera Error",
         description: "Unable to access camera or microphone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const captureAndAnalyze = async () => {
+    if (!videoRef.current) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return;
+    
+    ctx.drawImage(videoRef.current, 0, 0);
+    const imageData = canvas.toDataURL('image/jpeg');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-video', {
+        body: { imageData }
+      });
+
+      if (error) throw error;
+
+      setAnalysisResults(prev => [...prev.slice(-4), data]); // Keep last 5 results
+      
+      // Log analysis for debugging
+      console.log('Scene Analysis:', data);
+      
+    } catch (error) {
+      console.error('Analysis error:', error);
+      setIsAnalyzing(false);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to analyze video frame",
         variant: "destructive",
       });
     }
@@ -114,6 +174,16 @@ const VideoChat = () => {
     });
   };
 
+  const toggleAnalysis = () => {
+    setIsAnalyzing(!isAnalyzing);
+    toast({
+      title: isAnalyzing ? "Analysis Stopped" : "Analysis Started",
+      description: isAnalyzing 
+        ? "Video analysis has been stopped" 
+        : "Analyzing video feed every second",
+    });
+  };
+
   return (
     <div className="relative w-full max-w-2xl mx-auto">
       <div className="relative">
@@ -131,6 +201,18 @@ const VideoChat = () => {
           isActive={isPersonaActive}
           isAnimating={isAnimating}
         />
+        {analysisResults.length > 0 && (
+          <div className="absolute top-2 left-2 right-2 bg-black/50 p-2 rounded text-white text-sm">
+            {analysisResults[analysisResults.length - 1]?.scenes?.[0]?.scenery && (
+              <p>Scene: {analysisResults[analysisResults.length - 1].scenes[0].scenery}</p>
+            )}
+            {analysisResults[analysisResults.length - 1]?.objects?.slice(0, 3).map((obj, i) => (
+              <span key={i} className="mr-2">
+                {obj.object}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4">
         <Button
@@ -165,6 +247,17 @@ const VideoChat = () => {
           )}
         >
           <User className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleAnalysis}
+          className={cn(
+            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
+            isAnalyzing && "bg-green-500/50 hover:bg-green-500/70"
+          )}
+        >
+          <Camera className="h-4 w-4" />
         </Button>
       </div>
     </div>
