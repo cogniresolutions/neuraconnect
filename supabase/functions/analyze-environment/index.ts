@@ -22,8 +22,8 @@ serve(async (req) => {
       throw new Error('No image data provided')
     }
 
-    // Call Azure Cognitive Services Face API
-    const response = await fetch(`${AZURE_COGNITIVE_ENDPOINT}/face/v1.0/detect?returnFaceAttributes=emotion`, {
+    // Call Azure Cognitive Services Computer Vision API
+    const response = await fetch(`${AZURE_COGNITIVE_ENDPOINT}/vision/v3.2/analyze?visualFeatures=Objects,Tags,Description`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,13 +35,13 @@ serve(async (req) => {
     })
 
     const data = await response.json()
-    console.log('Emotion analysis response:', data)
+    console.log('Environment analysis response:', data)
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('Error in analyze-emotion function:', error)
+    console.error('Error in analyze-environment function:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
