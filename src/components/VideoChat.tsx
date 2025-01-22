@@ -13,6 +13,7 @@ const VideoChat = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [persona, setPersona] = useState<any>(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
     const loadPersona = async () => {
@@ -59,6 +60,11 @@ const VideoChat = () => {
     setIsVideoEnabled(!isVideoEnabled);
   };
 
+  const handleSpeakingChange = (speaking: boolean) => {
+    setIsSpeaking(speaking);
+    // You can add additional logic here when the speaking state changes
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -93,7 +99,10 @@ const VideoChat = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {isVideoEnabled && (
           <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
-            <AIVideoInterface persona={persona} />
+            <AIVideoInterface 
+              persona={persona} 
+              onSpeakingChange={handleSpeakingChange}
+            />
           </div>
         )}
       </div>
