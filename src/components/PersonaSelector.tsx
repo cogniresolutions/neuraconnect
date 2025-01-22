@@ -27,7 +27,7 @@ const PersonaSelector = ({ onPersonaSelect, selectedPersonaId }: PersonaSelector
       const { data, error } = await supabase
         .from('personas')
         .select('*')
-        .eq('status', 'ready');
+        .in('status', ['ready', 'deployed']);
       
       if (error) throw error;
       return data as Persona[];
