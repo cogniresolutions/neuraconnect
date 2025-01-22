@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, CameraOff, LogOut, Save } from "lucide-react";
+import { Camera, CameraOff, LogOut, Save, AlertTriangle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Avatar3D from "./Avatar3D";
 import { VALID_VOICES } from "@/constants/voices";
+import { validatePersonaDescription, getSuggestedDescription } from "@/utils/personaValidation";
 import {
   Select,
   SelectContent,
@@ -15,6 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 
 const PersonaCreator = () => {
   const navigate = useNavigate();
@@ -28,93 +34,36 @@ const PersonaCreator = () => {
   const [voiceStyle, setVoiceStyle] = useState<string>("alloy");
   const [isCreating, setIsCreating] = useState(false);
 
-  useEffect(() => {
-    let analysisInterval: NodeJS.Timeout;
+  const [validationResult, setValidationResult] = useState({
+    isValid: true,
+    issues: [] as string[],
+    suggestions: [] as string[],
+  });
 
-    if (isAnalyzing && videoRef.current) {
-      analysisInterval = setInterval(async () => {
-        await analyzeEnvironment();
-      }, 5000);
-    }
-
-    return () => {
-      if (analysisInterval) {
-        clearInterval(analysisInterval);
-      }
-    };
-  }, [isAnalyzing]);
-
-  const toggleWebcam = async () => {
-    try {
-      if (!isWebcamActive) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setIsWebcamActive(true);
-          setIsAnalyzing(true);
-          setAvatarAnimating(true);
-        }
-      } else {
-        const stream = videoRef.current?.srcObject as MediaStream;
-        stream?.getTracks().forEach(track => track.stop());
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-        setIsWebcamActive(false);
-        setIsAnalyzing(false);
-        setAvatarAnimating(false);
-      }
-    } catch (error: any) {
-      console.error("Webcam error:", error);
-      toast({
-        title: "Webcam Error",
-        description: error.message || "Failed to access webcam",
-        variant: "destructive",
-      });
-    }
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newDescription = e.target.value;
+    setDescription(newDescription);
+    const result = validatePersonaDescription(newDescription);
+    setValidationResult(result);
   };
 
-  const analyzeEnvironment = async () => {
-    if (!videoRef.current) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    ctx.drawImage(videoRef.current, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg');
-
-    try {
-      const { data, error } = await supabase.functions.invoke('analyze-video', {
-        body: { imageData }
-      });
-
-      if (error) throw error;
-      
-      console.log('Environment Analysis:', data);
-      
-      toast({
-        title: "Environment Analyzed",
-        description: "Scene analysis completed successfully",
-      });
-    } catch (error: any) {
-      console.error('Analysis error:', error);
-      toast({
-        title: "Analysis Error",
-        description: error.message || "Failed to analyze environment",
-        variant: "destructive",
-      });
-    }
+  const handleSuggestImprovement = () => {
+    const improvedDescription = getSuggestedDescription(description);
+    setDescription(improvedDescription);
+    const result = validatePersonaDescription(improvedDescription);
+    setValidationResult(result);
+    toast({
+      title: "Description Updated",
+      description: "The description has been improved with suggested changes.",
+    });
   };
 
   const handleCreatePersona = async () => {
-    if (!name || !description || !voiceStyle) {
+    const validationResult = validatePersonaDescription(description);
+    if (!validationResult.isValid) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please address the validation issues before creating the persona.",
         variant: "destructive",
       });
       return;
@@ -182,6 +131,36 @@ const PersonaCreator = () => {
     }
   };
 
+  const toggleWebcam = async () => {
+    try {
+      if (!isWebcamActive) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setIsWebcamActive(true);
+          setIsAnalyzing(true);
+          setAvatarAnimating(true);
+        }
+      } else {
+        const stream = videoRef.current?.srcObject as MediaStream;
+        stream?.getTracks().forEach(track => track.stop());
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+        setIsWebcamActive(false);
+        setIsAnalyzing(false);
+        setAvatarAnimating(false);
+      }
+    } catch (error: any) {
+      console.error("Webcam error:", error);
+      toast({
+        title: "Webcam Error",
+        description: error.message || "Failed to access webcam",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black p-4">
       <div className="max-w-4xl mx-auto">
@@ -224,12 +203,48 @@ const PersonaCreator = () => {
               onChange={(e) => setName(e.target.value)}
               className="bg-gray-800 border-gray-700 text-white"
             />
-            <Textarea
-              placeholder="Persona Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white min-h-[100px]"
-            />
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Persona Description"
+                value={description}
+                onChange={handleDescriptionChange}
+                className="bg-gray-800 border-gray-700 text-white min-h-[100px]"
+              />
+              {!validationResult.isValid && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Validation Issues</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-4">
+                      {validationResult.issues.map((issue, index) => (
+                        <li key={index}>{issue}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {validationResult.suggestions.length > 0 && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertTitle>Suggestions</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-4">
+                      {validationResult.suggestions.map((suggestion, index) => (
+                        <li key={index}>{suggestion}</li>
+                      ))}
+                    </ul>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSuggestImprovement}
+                      className="mt-2"
+                    >
+                      Apply Suggestions
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
             <Select value={voiceStyle} onValueChange={setVoiceStyle}>
               <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                 <SelectValue placeholder="Select a voice" />
@@ -245,7 +260,7 @@ const PersonaCreator = () => {
             <Button
               className="w-full"
               onClick={handleCreatePersona}
-              disabled={isCreating}
+              disabled={isCreating || !validationResult.isValid}
             >
               <Save className="mr-2 h-4 w-4" />
               {isCreating ? "Creating..." : "Create Persona"}
