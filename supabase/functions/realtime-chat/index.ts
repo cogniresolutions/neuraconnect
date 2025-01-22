@@ -12,13 +12,17 @@ function validateVoice(voice: string): string {
 }
 
 function formatInstructions(persona: any): string {
-  return [
-    `You are ${persona.name}, ${persona.description || ''}.`,
-    `Your personality is: ${persona.personality || ''}.`,
-    `Your skills include: ${JSON.stringify(persona.skills || [])}.`,
-    `You are knowledgeable about: ${JSON.stringify(persona.topics || [])}.`,
+  const instructions = [
+    `You are ${persona.name}.`,
+    persona.description ? `Description: ${persona.description}` : '',
+    persona.personality ? `Personality: ${persona.personality}` : '',
+    persona.skills?.length > 0 ? `Skills: ${persona.skills.join(', ')}` : '',
+    persona.topics?.length > 0 ? `Topics: ${persona.topics.join(', ')}` : '',
     `Always stay in character and respond as ${persona.name}.`
-  ].join('\n');
+  ].filter(Boolean).join('\n');
+
+  console.log('Formatted instructions:', instructions);
+  return instructions;
 }
 
 serve(async (req) => {
@@ -39,7 +43,17 @@ serve(async (req) => {
     console.log('Using voice:', voice);
 
     const instructions = formatInstructions(persona);
-    console.log('Formatted instructions:', instructions);
+    console.log('Using instructions:', instructions);
+
+    const requestBody = {
+      model: "gpt-4o-realtime-preview-2024-12-17",
+      voice: voice,
+      instructions: instructions,
+      voice_mode: "chat",
+      session_mode: "conversation"
+    };
+
+    console.log('OpenAI request payload:', JSON.stringify(requestBody, null, 2));
 
     // Request a session from OpenAI using the realtime API endpoint
     const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
@@ -48,13 +62,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: voice,
-        instructions: instructions,
-        voice_mode: "chat",
-        session_mode: "conversation"
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
