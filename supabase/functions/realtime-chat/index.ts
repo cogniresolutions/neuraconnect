@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const VALID_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'];
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -25,6 +27,13 @@ serve(async (req) => {
       throw new Error('No persona data provided');
     }
 
+    // Validate and normalize voice parameter
+    let voice = persona.voice_style || 'alloy';
+    if (!VALID_VOICES.includes(voice)) {
+      console.warn(`Invalid voice "${voice}" provided, defaulting to "alloy"`);
+      voice = 'alloy';
+    }
+
     // Request a session from OpenAI
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -34,7 +43,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: persona.model_config?.model || "gpt-4o-mini",
-        voice: persona.voice_style || "alloy",
+        voice: voice,
         instructions: `You are ${persona.name}, ${persona.description || ''}. 
                       Your personality is: ${persona.personality || ''}.
                       Your skills include: ${(persona.skills || []).join(', ')}.
