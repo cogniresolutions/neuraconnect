@@ -214,53 +214,6 @@ export type Database = {
         }
         Relationships: []
       }
-      personas: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          personality: string | null
-          status: string | null
-          updated_at: string
-          user_id: string | null
-          voice_style: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          personality?: string | null
-          status?: string | null
-          updated_at?: string
-          user_id?: string | null
-          voice_style?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          personality?: string | null
-          status?: string | null
-          updated_at?: string
-          user_id?: string | null
-          voice_style?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "personas_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -332,40 +285,28 @@ export type Database = {
           conversation_id: string
           created_at: string
           id: string
-          is_active: boolean | null
           last_checked_at: string
-          participants: Json | null
-          session_type: string | null
           status: string
           updated_at: string
           user_id: string | null
-          video_call_id: string | null
         }
         Insert: {
           conversation_id: string
           created_at?: string
           id?: string
-          is_active?: boolean | null
           last_checked_at?: string
-          participants?: Json | null
-          session_type?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
-          video_call_id?: string | null
         }
         Update: {
           conversation_id?: string
           created_at?: string
           id?: string
-          is_active?: boolean | null
           last_checked_at?: string
-          participants?: Json | null
-          session_type?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
-          video_call_id?: string | null
         }
         Relationships: [
           {

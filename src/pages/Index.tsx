@@ -1,12 +1,10 @@
 import VideoChat from "@/components/VideoChat";
 import MessageList from "@/components/MessageList";
 import ChatInput from "@/components/ChatInput";
+import PersonaCreator from "@/components/PersonaCreator";
 import { useState } from "react";
 import { sendMessageToAI } from "@/lib/azure-openai";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { Link } from "react-router-dom";
 
 type Message = {
   role: 'user' | 'assistant';
@@ -38,28 +36,20 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-chatgpt-main">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Chat Interface */}
-          <div className="bg-chatgpt-sidebar rounded-lg p-4">
-            <div className="h-[60vh] overflow-y-auto mb-4">
+    <div className="flex flex-col h-screen bg-black text-white">
+      <div className="flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 h-full">
+          <div className="flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto p-4">
               <MessageList messages={messages} />
             </div>
-            <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
-          </div>
-
-          {/* Right Column - Video Chat */}
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <Link to="/create-persona">
-                <Button variant="outline" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create New Persona
-                </Button>
-              </Link>
+            <div className="p-4">
+              <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
             </div>
-            <div className="bg-chatgpt-sidebar rounded-lg p-4">
+          </div>
+          <div className="hidden lg:flex flex-col items-center justify-start p-4 overflow-y-auto">
+            <PersonaCreator />
+            <div className="mt-8">
               <VideoChat />
             </div>
           </div>

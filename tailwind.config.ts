@@ -18,17 +18,6 @@ export default {
       },
     },
     extend: {
-      keyframes: {
-        "subtle-movement": {
-          "0%, 100%": { transform: "translate(0, 0)" },
-          "25%": { transform: "translate(2px, 2px)" },
-          "50%": { transform: "translate(-2px, 2px)" },
-          "75%": { transform: "translate(-2px, -2px)" },
-        },
-      },
-      animation: {
-        "subtle-movement": "subtle-movement 4s ease-in-out infinite",
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
