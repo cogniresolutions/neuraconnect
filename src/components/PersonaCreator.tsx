@@ -16,6 +16,7 @@ interface PersonaFormData {
 const PersonaCreator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [currentPersonaId, setCurrentPersonaId] = useState<string | null>(null);
   const [formData, setFormData] = useState<PersonaFormData>({
     name: "",
     description: "",
@@ -67,6 +68,9 @@ const PersonaCreator = () => {
 
       if (personaError) throw personaError;
 
+      // Store the persona ID for deployment
+      setCurrentPersonaId(personaData.id);
+
       const { data, error } = await supabase.functions.invoke("create-persona", {
         body: { ...formData, personaId: personaData.id }
       });
@@ -98,6 +102,15 @@ const PersonaCreator = () => {
   };
 
   const handleDeploy = async () => {
+    if (!currentPersonaId) {
+      toast({
+        title: "Error",
+        description: "Please create a persona first before deploying.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsDeploying(true);
     try {
       // Get the current user's session
@@ -115,7 +128,7 @@ const PersonaCreator = () => {
       }
 
       const { data, error } = await supabase.functions.invoke("deploy-persona", {
-        body: { personaId: formData.name } // Using name as temp ID for demo
+        body: { personaId: currentPersonaId }
       });
 
       if (error) throw error;
@@ -211,7 +224,7 @@ const PersonaCreator = () => {
             type="button"
             onClick={handleDeploy}
             className="flex-1"
-            disabled={isDeploying || !formData.name}
+            disabled={isDeploying || !currentPersonaId}
           >
             {isDeploying ? (
               <>
