@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Play } from "lucide-react";
+import { Loader2, Upload, Play, CheckCircle, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PersonaFormData {
@@ -32,24 +32,43 @@ const PersonaCreator = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const formatError = (error: any): string => {
+    if (typeof error === "string") return error;
+    if (error?.message) return error.message;
+    if (error?.error_description) return error.error_description;
+    return "An unexpected error occurred";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Get the current user's session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) throw sessionError;
-      
-      if (!session) {
+      if (sessionError) {
         toast({
-          title: "Error",
-          description: "You must be logged in to create a persona.",
+          title: "Authentication Error",
+          description: formatError(sessionError),
           variant: "destructive",
         });
         return;
       }
+      
+      if (!session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to create a persona",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Show creating notification
+      toast({
+        title: "Creating Persona",
+        description: "Please wait while we create your persona...",
+      });
 
       const { data: personaData, error: personaError } = await supabase
         .from('personas')
@@ -66,20 +85,34 @@ const PersonaCreator = () => {
         .select()
         .single();
 
-      if (personaError) throw personaError;
+      if (personaError) {
+        toast({
+          title: "Creation Failed",
+          description: formatError(personaError),
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Store the persona ID for deployment
       setCurrentPersonaId(personaData.id);
 
       const { data, error } = await supabase.functions.invoke("create-persona", {
         body: { ...formData, personaId: personaData.id }
       });
 
-      if (error) throw error;
+      if (error) {
+        toast({
+          title: "Creation Error",
+          description: formatError(error),
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
-        title: "Success!",
-        description: "Your persona has been created successfully.",
+        title: "Success",
+        description: "Your persona has been created successfully",
+        variant: "default",
       });
 
       // Reset form
@@ -93,7 +126,7 @@ const PersonaCreator = () => {
       console.error("Error creating persona:", error);
       toast({
         title: "Error",
-        description: "Failed to create persona. Please try again.",
+        description: formatError(error),
         variant: "destructive",
       });
     } finally {
@@ -104,8 +137,8 @@ const PersonaCreator = () => {
   const handleDeploy = async () => {
     if (!currentPersonaId) {
       toast({
-        title: "Error",
-        description: "Please create a persona first before deploying.",
+        title: "Deployment Error",
+        description: "Please create a persona first before deploying",
         variant: "destructive",
       });
       return;
@@ -113,35 +146,54 @@ const PersonaCreator = () => {
 
     setIsDeploying(true);
     try {
-      // Get the current user's session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        toast({
+          title: "Authentication Error",
+          description: formatError(sessionError),
+          variant: "destructive",
+        });
+        return;
+      }
       
       if (!session) {
         toast({
-          title: "Error",
-          description: "You must be logged in to deploy a persona.",
+          title: "Authentication Required",
+          description: "Please sign in to deploy a persona",
           variant: "destructive",
         });
         return;
       }
 
+      // Show deploying notification
+      toast({
+        title: "Deploying Persona",
+        description: "Please wait while we deploy your persona...",
+      });
+
       const { data, error } = await supabase.functions.invoke("deploy-persona", {
         body: { personaId: currentPersonaId }
       });
 
-      if (error) throw error;
+      if (error) {
+        toast({
+          title: "Deployment Failed",
+          description: formatError(error),
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
-        title: "Deployment Started",
-        description: "Your persona is being deployed. This may take a few minutes.",
+        title: "Success",
+        description: "Your persona has been deployed successfully",
       });
     } catch (error) {
       console.error("Error deploying persona:", error);
       toast({
-        title: "Error",
-        description: "Failed to deploy persona. Please try again.",
+        title: "Deployment Error",
+        description: formatError(error),
         variant: "destructive",
       });
     } finally {
