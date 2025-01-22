@@ -230,8 +230,14 @@ const VideoChat = () => {
           </div>
         )}
       </div>
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex flex-col gap-4 w-full max-w-xs">
-        <PersonaSelector onPersonaSelect={handlePersonaSelect} />
+      
+      {/* Persona Controls Section */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex flex-col gap-4 w-full max-w-xs bg-black/30 backdrop-blur-sm p-4 rounded-lg">
+        <div className="w-full">
+          <label className="text-white text-sm mb-2 block">Select Persona</label>
+          <PersonaSelector onPersonaSelect={handlePersonaSelect} />
+        </div>
+        
         <div className="flex justify-center gap-4">
           <Button
             variant="outline"
