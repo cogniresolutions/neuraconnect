@@ -1,13 +1,27 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import PersonaList from "@/components/PersonaList";
 import { Building2, Plus, UserCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { PersonaList } from "@/components/persona/PersonaList";
+import { useQuery } from "@tanstack/react-query";
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const { data: personas, isLoading } = useQuery({
+    queryKey: ['personas'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const handleSignOut = async () => {
     try {
@@ -21,6 +35,53 @@ const Index = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeploy = async (id: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('deploy-persona', {
+        body: { personaId: id }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Persona deployment started",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deploy persona",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Persona deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete persona",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEdit = (persona: any) => {
+    navigate(`/create-persona?id=${persona.id}`);
   };
 
   return (
@@ -63,7 +124,13 @@ const Index = () => {
 
         {/* Personas List */}
         <div className="rounded-lg border border-gray-800 bg-[#221F26] p-6">
-          <PersonaList />
+          <PersonaList
+            personas={personas || []}
+            isLoading={isLoading}
+            onDeploy={handleDeploy}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+          />
         </div>
       </main>
     </div>
