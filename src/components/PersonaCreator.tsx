@@ -31,11 +31,22 @@ import {
 
 interface Persona {
   id: string;
+  user_id?: string;
   name: string;
-  description: string;
+  description: string | null;
+  voice_style?: string | null;
+  personality?: string | null;
+  avatar_url?: string | null;
   status: string;
   created_at: string;
-  voice_style?: string;
+  updated_at: string;
+  skills?: any;
+  topics?: string[];
+  model_config?: any;
+  avatar_model_url?: string | null;
+  emotion_settings?: any;
+  environment_analysis?: boolean;
+  facial_expressions?: any;
 }
 
 const PersonaCreator = () => {
