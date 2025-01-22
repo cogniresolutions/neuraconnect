@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { Configuration, OpenAIApi } from "https://esm.sh/openai@3.3.0";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -41,36 +40,45 @@ serve(async (req) => {
       );
     }
 
-    const configuration = new Configuration({
-      apiKey: OPENAI_API_KEY,
-    });
-
-    const openai = new OpenAIApi(configuration);
     console.log("Making request to OpenAI...");
 
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4",  // Fixed model name
-      messages: [
-        {
-          role: "system",
-          content: "You are a lovable and empathetic virtual assistant named Loveable. You provide thoughtful, warm, and context-aware interactions. Your personality is friendly, kind, and curious."
-        },
-        {
-          role: "user",
-          content: message
-        }
-      ],
-      max_tokens: 800,
-      temperature: 0.7,
+    const completion = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are a lovable and empathetic virtual assistant named Loveable. You provide thoughtful, warm, and context-aware interactions. Your personality is friendly, kind, and curious."
+          },
+          {
+            role: "user",
+            content: message
+          }
+        ],
+        max_tokens: 800,
+        temperature: 0.7,
+      }),
     });
 
-    console.log("OpenAI response received");
+    if (!completion.ok) {
+      const error = await completion.text();
+      console.error("OpenAI API error:", error);
+      throw new Error(`OpenAI API error: ${error}`);
+    }
 
-    if (!completion.data?.choices?.[0]?.message?.content) {
+    const data = await completion.json();
+    console.log("OpenAI response received:", data);
+
+    if (!data.choices?.[0]?.message?.content) {
       throw new Error("Invalid response from OpenAI");
     }
 
-    const response = completion.data.choices[0].message.content;
+    const response = data.choices[0].message.content;
 
     return new Response(
       JSON.stringify({ response }),
