@@ -3,9 +3,23 @@ import { Configuration, OpenAIApi } from "https://esm.sh/openai@3.3.0";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
+if (!OPENAI_API_KEY) {
+  throw new Error("OPENAI_API_KEY is required");
+}
+
 serve(async (req) => {
   try {
     const { message } = await req.json();
+
+    if (!message) {
+      return new Response(
+        JSON.stringify({ error: "Message is required" }),
+        { 
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
 
     const configuration = new Configuration({
       apiKey: OPENAI_API_KEY,
@@ -29,18 +43,38 @@ serve(async (req) => {
       temperature: 0.7,
     });
 
+    const response = completion.data.choices[0].message?.content;
+
+    if (!response) {
+      throw new Error("No response from OpenAI");
+    }
+
     return new Response(
-      JSON.stringify({ response: completion.data.choices[0].message?.content }),
-      {
-        headers: { "Content-Type": "application/json" },
+      JSON.stringify({ response }),
+      { 
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
       },
     );
   } catch (error) {
+    console.error("Error:", error);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "An unknown error occurred" 
+      }),
+      { 
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST",
+          "Access-Control-Allow-Headers": "Content-Type",
+        }
       },
     );
   }
