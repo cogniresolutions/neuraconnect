@@ -32,14 +32,20 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
+    // Ensure the endpoint is properly formatted
+    const baseEndpoint = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/speak`
+
+    console.log('Using TTS endpoint:', ttsEndpoint.substring(0, 20) + '...')
+
     // Construct SSML with proper voice name format for Azure
     const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-${voice}Neural">${text}</voice></speak>`
 
-    console.log('Making request to Azure with endpoint:', endpoint)
+    console.log('Making request to Azure')
     console.log('Using voice:', `en-US-${voice}Neural`)
     console.log('SSML payload:', ssml)
 
-    const response = await fetch(`${endpoint}/cognitiveservices/v1`, {
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': subscriptionKey,
@@ -56,7 +62,7 @@ serve(async (req) => {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
-        endpoint,
+        endpoint: ttsEndpoint.substring(0, 20) + '...',
         headers: Object.fromEntries(response.headers.entries())
       })
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
