@@ -10,14 +10,30 @@ interface AIVideoInterfaceProps {
   onSpeakingChange: (speaking: boolean) => void;
 }
 
+interface AnalysisResult {
+  emotions?: {
+    happiness?: number;
+    sadness?: number;
+    surprise?: number;
+    anger?: number;
+  };
+  environment?: {
+    description?: string;
+    tags?: string[];
+    objects?: string[];
+  };
+}
+
 const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeakingChange }) => {
   const { toast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult>({});
   const chatRef = useRef<RealtimeChat | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const analysisIntervalRef = useRef<NodeJS.Timeout>();
 
   const analyzeVideo = async (videoElement: HTMLVideoElement) => {
     const canvas = document.createElement('canvas');
@@ -31,26 +47,43 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     const imageData = canvas.toDataURL('image/jpeg');
 
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-video', {
-        body: { 
-          imageData,
-          personaId: persona.id,
-          userId: (await supabase.auth.getUser()).data.user?.id
-        }
-      });
+      console.log('Starting video analysis...');
+      
+      // Call both analysis functions
+      const [emotionResponse, environmentResponse] = await Promise.all([
+        supabase.functions.invoke('analyze-emotion', {
+          body: { 
+            imageData,
+            personaId: persona.id,
+            userId: (await supabase.auth.getUser()).data.user?.id
+          }
+        }),
+        supabase.functions.invoke('analyze-environment', {
+          body: { 
+            imageData,
+            personaId: persona.id,
+            userId: (await supabase.auth.getUser()).data.user?.id
+          }
+        })
+      ]);
 
-      if (error) throw error;
+      if (emotionResponse.error) throw emotionResponse.error;
+      if (environmentResponse.error) throw environmentResponse.error;
       
-      console.log('Analysis results:', data);
+      console.log('Analysis results:', { emotion: emotionResponse.data, environment: environmentResponse.data });
       
-      // Update avatar emotions based on analysis
-      if (data.emotions && data.emotions[0]?.faceAttributes?.emotion) {
-        const emotions = data.emotions[0].faceAttributes.emotion;
-        // You can pass these emotions to your Avatar3D component
-      }
+      setLastAnalysis({
+        emotions: emotionResponse.data?.emotions,
+        environment: environmentResponse.data?.environment
+      });
 
     } catch (error: any) {
       console.error('Analysis error:', error);
+      toast({
+        title: "Analysis Error",
+        description: error.message || "Failed to analyze video",
+        variant: "destructive",
+      });
     }
   };
 
@@ -89,7 +122,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         description: `${persona.name} is ready to chat`,
       });
 
-      // Start video if enabled
       if (isVideoEnabled) {
         await startVideo();
       }
@@ -111,6 +143,10 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     stopVideo();
     setIsConnected(false);
     onSpeakingChange(false);
+    
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+    }
   };
 
   const startVideo = async () => {
@@ -120,6 +156,13 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsVideoEnabled(true);
+        
+        // Start analysis interval
+        analysisIntervalRef.current = setInterval(() => {
+          if (videoRef.current) {
+            analyzeVideo(videoRef.current);
+          }
+        }, 5000); // Analyze every 5 seconds
       }
     } catch (error: any) {
       console.error('Video error:', error);
@@ -133,7 +176,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   const stopVideo = () => {
     if (streamRef.current) {
-      // Stop all tracks in the stream
       streamRef.current.getTracks().forEach(track => {
         track.stop();
       });
@@ -143,6 +185,10 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       videoRef.current.srcObject = null;
     }
     setIsVideoEnabled(false);
+    
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+    }
   };
 
   const toggleVideo = async () => {
@@ -154,24 +200,11 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   };
 
   useEffect(() => {
-    let analysisInterval: NodeJS.Timeout;
-
-    if (isVideoEnabled && videoRef.current) {
-      analysisInterval = setInterval(() => {
-        analyzeVideo(videoRef.current!);
-      }, 5000); // Analyze every 5 seconds
-    }
-
     return () => {
-      if (analysisInterval) {
-        clearInterval(analysisInterval);
-      }
-      // Ensure camera is stopped when component unmounts
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      // Cleanup on component unmount
+      endConversation();
     };
-  }, [isVideoEnabled]);
+  }, []);
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
@@ -184,6 +217,12 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
             muted
             className="w-full h-full object-cover"
           />
+          {lastAnalysis.emotions && (
+            <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded">
+              Emotion: {Object.entries(lastAnalysis.emotions)
+                .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0]}
+            </div>
+          )}
         </div>
       )}
       <div className="flex gap-2">
