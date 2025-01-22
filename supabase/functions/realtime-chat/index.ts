@@ -36,7 +36,7 @@ serve(async (req) => {
     const instructions = formatInstructions(persona);
     console.log('Formatted instructions:', instructions);
 
-    // Request a session from OpenAI
+    // Request a session from OpenAI using the correct endpoint
     const response = await fetch('https://api.openai.com/v1/audio/chat/sessions', {
       method: 'POST',
       headers: {
