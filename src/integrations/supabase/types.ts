@@ -220,9 +220,12 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          model_config: Json | null
           name: string
           personality: string | null
+          skills: Json | null
           status: string | null
+          topics: string[] | null
           updated_at: string
           user_id: string | null
           voice_style: string | null
@@ -232,9 +235,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          model_config?: Json | null
           name: string
           personality?: string | null
+          skills?: Json | null
           status?: string | null
+          topics?: string[] | null
           updated_at?: string
           user_id?: string | null
           voice_style?: string | null
@@ -244,9 +250,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          model_config?: Json | null
           name?: string
           personality?: string | null
+          skills?: Json | null
           status?: string | null
+          topics?: string[] | null
           updated_at?: string
           user_id?: string | null
           voice_style?: string | null

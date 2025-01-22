@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Play, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Upload, Play, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PersonaFormData {
@@ -11,17 +11,23 @@ interface PersonaFormData {
   description: string;
   voiceStyle: string;
   personality: string;
+  skills: string[];
+  topics: string[];
 }
 
 const PersonaCreator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [currentPersonaId, setCurrentPersonaId] = useState<string | null>(null);
+  const [newSkill, setNewSkill] = useState("");
+  const [newTopic, setNewTopic] = useState("");
   const [formData, setFormData] = useState<PersonaFormData>({
     name: "",
     description: "",
     voiceStyle: "",
     personality: "",
+    skills: [],
+    topics: [],
   });
   const { toast } = useToast();
 
@@ -30,6 +36,40 @@ const PersonaCreator = () => {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const addSkill = () => {
+    if (newSkill.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        skills: [...prev.skills, newSkill.trim()]
+      }));
+      setNewSkill("");
+    }
+  };
+
+  const removeSkill = (skillToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: prev.skills.filter(skill => skill !== skillToRemove)
+    }));
+  };
+
+  const addTopic = () => {
+    if (newTopic.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        topics: [...prev.topics, newTopic.trim()]
+      }));
+      setNewTopic("");
+    }
+  };
+
+  const removeTopic = (topicToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      topics: prev.topics.filter(topic => topic !== topicToRemove)
+    }));
   };
 
   const formatError = (error: any): string => {
@@ -64,7 +104,6 @@ const PersonaCreator = () => {
         return;
       }
 
-      // Show creating notification
       toast({
         title: "Creating Persona",
         description: "Please wait while we create your persona...",
@@ -78,6 +117,8 @@ const PersonaCreator = () => {
             description: formData.description,
             voice_style: formData.voiceStyle,
             personality: formData.personality,
+            skills: formData.skills,
+            topics: formData.topics,
             status: 'draft',
             user_id: session.user.id
           }
@@ -115,12 +156,13 @@ const PersonaCreator = () => {
         variant: "default",
       });
 
-      // Reset form
       setFormData({
         name: "",
         description: "",
         voiceStyle: "",
         personality: "",
+        skills: [],
+        topics: [],
       });
     } catch (error) {
       console.error("Error creating persona:", error);
@@ -251,6 +293,64 @@ const PersonaCreator = () => {
             className="w-full bg-chatgpt-main min-h-[100px]"
             required
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Skills</label>
+          <div className="flex gap-2 mb-2">
+            <Input
+              value={newSkill}
+              onChange={(e) => setNewSkill(e.target.value)}
+              placeholder="Add a skill"
+              className="flex-1 bg-chatgpt-main"
+            />
+            <Button type="button" onClick={addSkill} variant="secondary">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {formData.skills.map((skill) => (
+              <div key={skill} className="flex items-center gap-1 bg-primary/20 rounded-full px-3 py-1">
+                <span>{skill}</span>
+                <button
+                  type="button"
+                  onClick={() => removeSkill(skill)}
+                  className="text-primary hover:text-primary/80"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Topics</label>
+          <div className="flex gap-2 mb-2">
+            <Input
+              value={newTopic}
+              onChange={(e) => setNewTopic(e.target.value)}
+              placeholder="Add a topic"
+              className="flex-1 bg-chatgpt-main"
+            />
+            <Button type="button" onClick={addTopic} variant="secondary">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {formData.topics.map((topic) => (
+              <div key={topic} className="flex items-center gap-1 bg-primary/20 rounded-full px-3 py-1">
+                <span>{topic}</span>
+                <button
+                  type="button"
+                  onClick={() => removeTopic(topic)}
+                  className="text-primary hover:text-primary/80"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="flex gap-4">

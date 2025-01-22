@@ -5,6 +5,7 @@ import { Video, Mic, MicOff, VideoOff, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import PersonaSelector from "./PersonaSelector";
+import AIVideoInterface from "./AIVideoInterface";
 import { supabase } from "@/integrations/supabase/client";
 
 interface VideoOverlayProps {
@@ -58,7 +59,6 @@ const VideoChat = () => {
 
   useEffect(() => {
     startVideo();
-    // Start subtle animation loop
     const animationInterval = setInterval(() => {
       setIsAnimating(true);
       setTimeout(() => setIsAnimating(false), 2000);
@@ -73,7 +73,7 @@ const VideoChat = () => {
     if (isAnalyzing && videoRef.current) {
       analysisInterval = setInterval(async () => {
         await captureAndAnalyze();
-      }, 1000); // Analyze every second
+      }, 1000);
     }
 
     return () => {
@@ -121,9 +121,8 @@ const VideoChat = () => {
 
       if (error) throw error;
 
-      setAnalysisResults(prev => [...prev.slice(-4), data]); // Keep last 5 results
+      setAnalysisResults(prev => [...prev.slice(-4), data]);
       
-      // Log analysis for debugging
       console.log('Scene Analysis:', data);
       
     } catch (error) {
@@ -145,25 +144,6 @@ const VideoChat = () => {
   const toggleAudio = () => {
     setIsAudioOn(!isAudioOn);
     startVideo();
-  };
-
-  const togglePersona = () => {
-    if (!selectedPersona && !isPersonaActive) {
-      toast({
-        title: "No Persona Selected",
-        description: "Please select a persona first before activating.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsPersonaActive(!isPersonaActive);
-    toast({
-      title: isPersonaActive ? "Persona Deactivated" : "Persona Activated",
-      description: isPersonaActive 
-        ? "Switched to regular video mode" 
-        : "AI persona overlay is now active",
-    });
   };
 
   const handlePersonaSelect = (persona: Persona | null) => {
@@ -233,18 +213,13 @@ const VideoChat = () => {
         >
           {isAudioOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
         </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={togglePersona}
-          className={cn(
-            "bg-white/10 backdrop-blur-sm hover:bg-white/20",
-            isPersonaActive && "bg-green-500/50 hover:bg-green-500/70"
-          )}
-        >
-          <User className="h-4 w-4" />
-        </Button>
       </div>
+      {selectedPersona && (
+        <AIVideoInterface
+          persona={selectedPersona}
+          onSpeakingChange={setIsPersonaActive}
+        />
+      )}
     </div>
   );
 };
