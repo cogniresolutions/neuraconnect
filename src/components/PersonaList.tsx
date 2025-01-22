@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, PlayCircle, Edit2, ServerIcon } from "lucide-react";
 
 type Persona = {
@@ -103,7 +104,6 @@ export const PersonaList = () => {
   };
 
   const handleEdit = async (persona: Persona) => {
-    // Navigate to edit page or open edit modal
     toast({
       title: "Edit Persona",
       description: "Edit functionality coming soon",
@@ -113,29 +113,49 @@ export const PersonaList = () => {
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
 
+  const StatusBadge = ({ status }: { status: string }) => {
+    if (status === 'deployed') {
+      return (
+        <Badge className="bg-blue-500 hover:bg-blue-600 flex items-center gap-1">
+          <PlayCircle className="h-3 w-3" />
+          Deployed
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-green-500 hover:bg-green-600 flex items-center gap-1">
+        <CheckCircle2 className="h-3 w-3" />
+        Ready
+      </Badge>
+    );
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-6 bg-black rounded-lg">
       {/* Created Personas Table */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Created Personas</h2>
-        <div className="rounded-md border">
+        <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5 text-green-500" />
+          Created Personas
+        </h2>
+        <div className="rounded-md border border-gray-800">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Description</TableHead>
-                <TableHead>Actions</TableHead>
+              <TableRow className="border-gray-800 hover:bg-gray-900">
+                <TableHead className="text-gray-400">Status</TableHead>
+                <TableHead className="text-gray-400">Name</TableHead>
+                <TableHead className="text-gray-400 hidden md:table-cell">Description</TableHead>
+                <TableHead className="text-gray-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {createdPersonas.map((persona) => (
-                <TableRow key={persona.id}>
+                <TableRow key={persona.id} className="border-gray-800 hover:bg-gray-900">
                   <TableCell>
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <StatusBadge status={persona.status} />
                   </TableCell>
-                  <TableCell className="font-medium">{persona.name}</TableCell>
-                  <TableCell className="hidden md:table-cell max-w-md truncate">
+                  <TableCell className="font-medium text-white">{persona.name}</TableCell>
+                  <TableCell className="hidden md:table-cell text-gray-400 max-w-md truncate">
                     {persona.description}
                   </TableCell>
                   <TableCell>
@@ -144,6 +164,7 @@ export const PersonaList = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(persona)}
+                        className="bg-gray-800 hover:bg-gray-700"
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
@@ -151,6 +172,7 @@ export const PersonaList = () => {
                         onClick={() => handleDeploy(persona)}
                         disabled={isDeploying}
                         size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
                       >
                         {isDeploying ? (
                           <ServerIcon className="h-4 w-4 animate-pulse" />
@@ -170,28 +192,31 @@ export const PersonaList = () => {
 
       {/* Deployed Personas Table */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Deployed Personas</h2>
-        <div className="rounded-md border">
+        <h2 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+          <PlayCircle className="h-5 w-5 text-blue-500" />
+          Deployed Personas
+        </h2>
+        <div className="rounded-md border border-gray-800">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Description</TableHead>
-                <TableHead>Last Updated</TableHead>
+              <TableRow className="border-gray-800 hover:bg-gray-900">
+                <TableHead className="text-gray-400">Status</TableHead>
+                <TableHead className="text-gray-400">Name</TableHead>
+                <TableHead className="text-gray-400 hidden md:table-cell">Description</TableHead>
+                <TableHead className="text-gray-400">Last Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {deployedPersonas.map((persona) => (
-                <TableRow key={persona.id}>
+                <TableRow key={persona.id} className="border-gray-800 hover:bg-gray-900">
                   <TableCell>
-                    <PlayCircle className="h-5 w-5 text-blue-500" />
+                    <StatusBadge status={persona.status} />
                   </TableCell>
-                  <TableCell className="font-medium">{persona.name}</TableCell>
-                  <TableCell className="hidden md:table-cell max-w-md truncate">
+                  <TableCell className="font-medium text-white">{persona.name}</TableCell>
+                  <TableCell className="hidden md:table-cell text-gray-400 max-w-md truncate">
                     {persona.description}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-gray-400">
                     {new Date(persona.updated_at).toLocaleDateString()}
                   </TableCell>
                 </TableRow>
