@@ -6,8 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const VALID_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'];
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -28,6 +26,7 @@ serve(async (req) => {
     }
 
     // Validate and normalize voice parameter
+    const VALID_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'];
     let voice = persona.voice_style || 'alloy';
     if (!VALID_VOICES.includes(voice)) {
       console.warn(`Invalid voice "${voice}" provided, defaulting to "alloy"`);
@@ -36,7 +35,7 @@ serve(async (req) => {
 
     // Request a session from OpenAI
     console.log('Sending request to OpenAI with payload:', {
-      model: persona.model_config?.model || "gpt-4o-mini",
+      model: "gpt-4o-realtime-preview-2024-12-17",
       voice: voice,
       instructions: `You are ${persona.name}, ${persona.description || ''}. 
                     Your personality is: ${persona.personality || ''}.
@@ -51,7 +50,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: persona.model_config?.model || "gpt-4o-mini",
+        model: "gpt-4o-realtime-preview-2024-12-17",
         voice: voice,
         instructions: `You are ${persona.name}, ${persona.description || ''}. 
                       Your personality is: ${persona.personality || ''}.
@@ -74,7 +73,8 @@ serve(async (req) => {
     console.log("Session created:", data);
 
     if (!data.url) {
-      throw new Error('No WebSocket URL received from OpenAI');
+      console.error('Invalid response from OpenAI:', data);
+      throw new Error('No WebSocket URL received from OpenAI. Full response: ' + JSON.stringify(data));
     }
 
     return new Response(JSON.stringify({ url: data.url }), {
