@@ -167,7 +167,7 @@ const PersonaCreator = () => {
       setFormData({
         name: "",
         description: "",
-        voiceStyle: "",
+        voiceStyle: "alloy",  // Set to a valid default voice
         personality: "",
         skills: [],
         topics: [],
