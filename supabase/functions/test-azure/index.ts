@@ -55,10 +55,11 @@ async function testAzureSpeech() {
   }
 
   try {
-    // Speech services requires a specific endpoint format
+    // Use the TTS endpoint format
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    console.log('Testing Speech Services with URL:', baseUrl)
+    console.log('Testing Speech Services with URL:', `${baseUrl}cognitiveservices/voices/list`)
     
+    // Test TTS endpoint by getting available voices
     const response = await fetch(`${baseUrl}cognitiveservices/voices/list`, {
       method: 'GET',
       headers: {
