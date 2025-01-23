@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Phone, PhoneOff } from 'lucide-react';
 import Avatar3D from './Avatar3D';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
+import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 
 interface VideoCallInterfaceProps {
@@ -25,6 +26,58 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const { speak } = useTextToSpeech();
+  const { transcribe } = useSpeechToText();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+
+  const startRecording = () => {
+    if (!streamRef.current) return;
+
+    const mediaRecorder = new MediaRecorder(streamRef.current);
+    const chunks: Blob[] = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunks.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      
+      reader.onloadend = async () => {
+        try {
+          const base64Audio = (reader.result as string).split(',')[1];
+          const transcription = await transcribe(base64Audio);
+          
+          if (chatRef.current) {
+            chatRef.current.sendMessage(transcription);
+          }
+        } catch (error) {
+          console.error('Error processing audio:', error);
+          toast({
+            title: "Transcription Error",
+            description: "Failed to process speech",
+            variant: "destructive",
+          });
+        }
+      };
+
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
 
   const initializeAudio = async (stream: MediaStream) => {
     try {
@@ -288,6 +341,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 muted
                 className="w-full h-full object-cover"
               />
+              {isRecording && (
+                <div className="absolute top-2 right-2 flex items-center gap-2 bg-red-500 px-2 py-1 rounded-full text-white text-xs">
+                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  Recording
+                </div>
+              )}
             </div>
             <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
               <Avatar3D
@@ -320,13 +379,22 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             )}
           </Button>
         ) : (
-          <Button
-            onClick={endCall}
-            variant="destructive"
-          >
-            <PhoneOff className="mr-2 h-4 w-4" />
-            End Call
-          </Button>
+          <>
+            <Button
+              onClick={isRecording ? stopRecording : startRecording}
+              variant={isRecording ? "destructive" : "default"}
+              className="mr-2"
+            >
+              {isRecording ? 'Stop Recording' : 'Start Recording'}
+            </Button>
+            <Button
+              onClick={endCall}
+              variant="destructive"
+            >
+              <PhoneOff className="mr-2 h-4 w-4" />
+              End Call
+            </Button>
+          </>
         )}
       </div>
     </div>
