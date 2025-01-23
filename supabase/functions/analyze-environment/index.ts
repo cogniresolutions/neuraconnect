@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 const AZURE_COGNITIVE_ENDPOINT = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
-const AZURE_API_KEY = Deno.env.get('AZURE_API_KEY')
+const AZURE_API_KEY = Deno.env.get('AZURE_COGNITIVE_KEY')
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,6 +16,41 @@ serve(async (req) => {
   }
 
   try {
+    const { test } = await req.json()
+
+    // If this is a test request, we'll just verify the credentials
+    if (test) {
+      console.log('Testing Azure Cognitive Services connection...')
+      
+      if (!AZURE_COGNITIVE_ENDPOINT || !AZURE_API_KEY) {
+        throw new Error('Azure credentials are not properly configured')
+      }
+
+      // Make a simple test request to Azure's analyze endpoint
+      const testResponse = await fetch(`${AZURE_COGNITIVE_ENDPOINT}/vision/v3.2/analyze?visualFeatures=Tags`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Ocp-Apim-Subscription-Key': AZURE_API_KEY,
+        },
+        body: JSON.stringify({
+          url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
+        })
+      })
+
+      if (!testResponse.ok) {
+        const errorData = await testResponse.text()
+        console.error('Azure test failed:', testResponse.status, errorData)
+        throw new Error(`Azure connection test failed: ${testResponse.status} ${errorData}`)
+      }
+
+      console.log('Azure Cognitive Services test successful!')
+      return new Response(
+        JSON.stringify({ success: true, message: 'Azure Cognitive Services connection successful' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { image_data, user_id, persona_id } = await req.json()
 
     if (!image_data) {
@@ -67,7 +102,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error:', error.message)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        details: 'Please check your Azure Cognitive Services configuration'
+      }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
