@@ -36,6 +36,7 @@ serve(async (req) => {
     switch (action) {
       case 'start': {
         console.log('Starting new video call session...');
+        
         // Verify persona exists and is accessible to the user
         const { data: persona, error: personaError } = await supabase
           .from('personas')
@@ -48,15 +49,25 @@ serve(async (req) => {
           throw new Error('Invalid persona or access denied');
         }
 
-        // Generate a unique conversation ID and validate it's not null
-        const conversationId = crypto.randomUUID();
-        if (!conversationId) {
-          console.error('Failed to generate conversation ID');
-          throw new Error('Failed to generate conversation ID');
+        // Check for processed training video
+        const { data: trainingVideo, error: videoError } = await supabase
+          .from('training_videos')
+          .select('*')
+          .eq('persona_id', personaId)
+          .eq('processing_status', 'completed')
+          .limit(1)
+          .single();
+
+        if (videoError || !trainingVideo) {
+          console.error('No processed training video found:', videoError);
+          throw new Error('No processed training video available');
         }
+
+        // Generate conversation ID
+        const conversationId = crypto.randomUUID();
         console.log('Generated conversation ID:', conversationId);
 
-        // Prepare session data with all required fields
+        // Create session
         const sessionData = {
           user_id: userId,
           conversation_id: conversationId,

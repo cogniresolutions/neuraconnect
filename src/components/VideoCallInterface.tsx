@@ -38,17 +38,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     const loadTrainingVideo = async () => {
       try {
         setIsLoadingVideo(true);
-        const { data: { user } } = await supabase.auth.getUser();
+        console.log('Loading training video for persona:', persona.id);
         
-        if (!user) {
-          toast({
-            title: "Authentication Required",
-            description: "Please sign in to start a video call",
-            variant: "destructive",
-          });
-          return;
-        }
-
         const { data: videos, error } = await supabase
           .from('training_videos')
           .select('*')
@@ -63,21 +54,22 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
 
         if (!videos) {
+          console.warn('No processed training videos found for persona:', persona.id);
           toast({
-            title: "No Training Video",
-            description: "This persona doesn't have any processed training videos yet",
+            title: "Training Video Required",
+            description: "Please upload and process a training video before starting a call.",
             variant: "destructive",
           });
           return;
         }
 
-        setTrainingVideo(videos);
         console.log('Training video loaded successfully:', videos);
+        setTrainingVideo(videos);
       } catch (error: any) {
         console.error('Error loading training video:', error);
         toast({
           title: "Error",
-          description: "Failed to load persona video: " + error.message,
+          description: "Failed to load training video: " + error.message,
           variant: "destructive",
         });
       } finally {
@@ -290,8 +282,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       if (!trainingVideo) {
-        console.error('No training video available');
-        throw new Error('No processed training video available');
+        console.error('No processed training video available');
+        toast({
+          title: "Training Video Required",
+          description: "Please upload and process a training video before starting a call.",
+          variant: "destructive",
+        });
+        return;
       }
 
       console.log('Starting call initialization sequence...');
@@ -502,6 +499,3 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       </div>
     </div>
   );
-};
-
-export default VideoCallInterface;
