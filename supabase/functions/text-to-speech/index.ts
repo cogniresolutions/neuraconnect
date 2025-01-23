@@ -36,10 +36,9 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Step 3: Construct the correct endpoint URL
-    // The endpoint should be in the format: https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
+    // Step 3: Construct the correct endpoint URL according to Azure docs
     const endpoint = new URL(azureSpeechEndpoint);
-    const ttsEndpoint = `https://${endpoint.host}/cognitiveservices/v1`;
+    const ttsEndpoint = `${endpoint.origin}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Step 4: Format voice name according to Azure standards
