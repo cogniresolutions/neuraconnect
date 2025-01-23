@@ -38,12 +38,17 @@ const Auth = () => {
       if (event === 'SIGNED_IN') {
         if (session?.provider_token) {
           // Handle Google sign-in specific logic if needed
-          console.log('Signed in with Google');
+          console.log('Signed in with Google', session.user?.user_metadata);
+          toast({
+            title: "Welcome!",
+            description: `Signed in with Google as ${session.user?.email}`,
+          });
+        } else {
+          toast({
+            title: "Welcome!",
+            description: "You have successfully signed in.",
+          });
         }
-        toast({
-          title: "Welcome!",
-          description: "You have successfully signed in.",
-        });
         navigate('/');
       } else if (event === 'SIGNED_OUT') {
         toast({
