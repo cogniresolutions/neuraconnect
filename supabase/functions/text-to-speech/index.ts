@@ -38,8 +38,9 @@ serve(async (req) => {
     }
 
     // Step 3: Ensure we're using the correct TTS endpoint
-    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '').replace('stt.speech', 'tts.speech');
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
+    const baseUrl = new URL(azureSpeechEndpoint);
+    baseUrl.hostname = baseUrl.hostname.replace('stt.speech', 'tts.speech');
+    const ttsEndpoint = `${baseUrl.toString()}cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Step 4: Map voice name to Azure format
@@ -94,7 +95,7 @@ serve(async (req) => {
     console.log('Successfully received audio response');
     const arrayBuffer = await response.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    const base64Audio = btoa(String.fromCharCode.apply(null, uint8Array));
+    const base64Audio = btoa(String.fromCharCode(...uint8Array));
 
     console.log('Successfully converted audio to base64, length:', base64Audio.length);
 
