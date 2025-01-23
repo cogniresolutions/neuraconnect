@@ -23,8 +23,7 @@ serve(async (req) => {
     
     console.log('Azure credentials check:', {
       hasEndpoint: !!endpoint,
-      hasKey: !!subscriptionKey,
-      endpoint: endpoint?.substring(0, 20) + '...' // Log partial endpoint for security
+      hasKey: !!subscriptionKey
     })
 
     if (!endpoint || !subscriptionKey) {
@@ -32,24 +31,20 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
-    // Remove trailing slash and ensure correct format
-    // The endpoint should be: https://{region}.tts.speech.microsoft.com
-    const baseEndpoint = endpoint.replace(/\/+$/, '').replace(/\/cognitiveservices\/v1.*$/, '')
-    
-    // Construct the full TTS endpoint following Azure's format
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`
+    // Ensure the endpoint is in the correct format
+    const baseUrl = endpoint.trim().replace(/\/+$/, '')
+    console.log('Base URL:', baseUrl)
 
-    console.log('Using TTS endpoint:', ttsEndpoint)
-
-    // Construct SSML with proper voice name format for Azure
-    const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-${voice}Neural">${text}</voice></speak>`
+    // Construct SSML
+    const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+      <voice name="en-US-${voice}Neural">${text}</voice>
+    </speak>`
 
     console.log('Making request to Azure')
     console.log('Using voice:', `en-US-${voice}Neural`)
     console.log('SSML payload:', ssml)
-    console.log('Full endpoint:', ttsEndpoint)
 
-    const response = await fetch(ttsEndpoint, {
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': subscriptionKey,
@@ -66,7 +61,7 @@ serve(async (req) => {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
-        endpoint: ttsEndpoint,
+        endpoint: baseUrl,
         headers: Object.fromEntries(response.headers.entries())
       }
       console.error('Azure TTS Error Response:', JSON.stringify(errorDetails, null, 2))
