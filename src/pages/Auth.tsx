@@ -12,8 +12,23 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const clearSessions = async () => {
+      try {
+        const { error } = await supabase.auth.signOut({ scope: 'global' });
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error clearing sessions:', error);
+        toast({
+          title: "Error",
+          description: "Failed to clear existing sessions. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
     const checkUser = async () => {
       try {
+        await clearSessions(); // Clear all sessions first
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         if (session) {
