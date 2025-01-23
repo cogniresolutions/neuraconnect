@@ -138,7 +138,7 @@ const Auth = () => {
                 },
               },
             }}
-            providers={[]}
+            providers={['google']}
             theme="dark"
           />
         </div>
