@@ -21,6 +21,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
@@ -43,7 +44,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
       // Enable hardware acceleration when available
       video.style.transform = 'translateZ(0)';
       
-      setIsLoaded(true);
+      setIsVideoReady(true);
       onReady?.();
     } catch (error) {
       console.error('Error loading video:', error);
@@ -70,7 +71,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !isLoaded || !expressionSegments) return;
+    if (!video || !isVideoReady || !expressionSegments) return;
 
     const playSegment = async () => {
       if (isPlaying) {
@@ -96,7 +97,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
     };
 
     playSegment();
-  }, [isPlaying, currentEmotion, expressionSegments, isLoaded, toast]);
+  }, [isPlaying, currentEmotion, expressionSegments, isVideoReady, toast]);
 
   return (
     <div className="relative w-full h-full">
