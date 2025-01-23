@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Globe, Lock, ArrowRight, Loader2, Brain } from "lucide-react";
+import { Globe, Lock, ArrowRight, Loader2, Brain, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,6 +12,7 @@ const Auth = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isTestingAzure, setIsTestingAzure] = useState(false);
+  const [azureTestSuccess, setAzureTestSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,12 +85,14 @@ const Auth = () => {
       if (error) throw error;
 
       console.log("Azure test response:", data);
+      setAzureTestSuccess(true);
       toast({
         title: "Azure Services Test",
         description: "Successfully connected to Azure AI Services!",
       });
     } catch (error: any) {
       console.error("Azure test error:", error);
+      setAzureTestSuccess(false);
       toast({
         title: "Azure Services Test Failed",
         description: error.message || "Failed to connect to Azure services",
@@ -150,7 +153,7 @@ const Auth = () => {
             <Button
               type="button"
               variant="outline"
-              className="w-full bg-blue-500/10 text-white border-blue-400/30 hover:bg-blue-500/20 group relative overflow-hidden transition-all duration-300 h-12 text-sm"
+              className={`w-full ${azureTestSuccess ? 'bg-green-500/10 border-green-400/30' : 'bg-blue-500/10 border-blue-400/30'} text-white hover:bg-blue-500/20 group relative overflow-hidden transition-all duration-300 h-12 text-sm`}
               onClick={testAzureServices}
               disabled={isTestingAzure}
             >
@@ -158,6 +161,11 @@ const Auth = () => {
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Testing Azure Services...
+                </>
+              ) : azureTestSuccess ? (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
+                  Azure Services Connected Successfully
                 </>
               ) : (
                 <>
