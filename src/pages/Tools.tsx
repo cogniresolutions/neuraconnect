@@ -1,33 +1,10 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import AzureTest from '@/components/AzureTest';
+import AzureVoiceTest from '@/components/AzureVoiceTest';
 
 export default function Tools() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-      console.log("User authenticated in Tools page:", session.user.id);
-    };
-
-    checkAuth();
-  }, [navigate]);
-
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-8">Tools</h1>
-      <div className="space-y-8">
-        <section>
-          <h2 className="text-xl font-semibold mb-4">Azure Services Test</h2>
-          <AzureTest />
-        </section>
-      </div>
+    <div className="container mx-auto p-4 space-y-6">
+      <h1 className="text-3xl font-bold mb-6">Tools</h1>
+      <AzureVoiceTest />
     </div>
   );
 }
