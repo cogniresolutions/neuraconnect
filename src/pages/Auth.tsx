@@ -36,6 +36,10 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth event:', event);
       if (event === 'SIGNED_IN') {
+        if (session?.provider_token) {
+          // Handle Google sign-in specific logic if needed
+          console.log('Signed in with Google');
+        }
         toast({
           title: "Welcome!",
           description: "You have successfully signed in.",
