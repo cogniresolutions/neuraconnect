@@ -39,6 +39,11 @@ serve(async (req) => {
       visionKeyLength: visionKey?.length
     })
 
+    if (!cognitiveEndpoint || !cognitiveKey || !speechEndpoint || !speechKey || !visionEndpoint || !visionKey) {
+      console.error('❌ Missing required Azure credentials')
+      throw new Error('Missing required Azure credentials')
+    }
+
     const results = []
 
     // Test Cognitive Services
@@ -50,7 +55,7 @@ serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Ocp-Apim-Subscription-Key': cognitiveKey || ''
+          'Ocp-Apim-Subscription-Key': cognitiveKey
         },
         body: JSON.stringify({
           url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
@@ -89,7 +94,7 @@ serve(async (req) => {
       const speechResponse = await fetch(`${speechEndpoint}/cognitiveservices/voices/list`, {
         method: 'GET',
         headers: {
-          'Ocp-Apim-Subscription-Key': speechKey || ''
+          'Ocp-Apim-Subscription-Key': speechKey
         }
       })
 
@@ -126,7 +131,7 @@ serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Ocp-Apim-Subscription-Key': visionKey || ''
+          'Ocp-Apim-Subscription-Key': visionKey
         },
         body: JSON.stringify({
           url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
