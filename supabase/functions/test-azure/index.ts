@@ -5,53 +5,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+console.log('Azure Test Function loaded');
+
 serve(async (req) => {
-  // Use Deno.stdout.write to ensure logs are captured
-  await Deno.stdout.write(new TextEncoder().encode("🚀 Azure Test Function Started\n"))
+  console.log('Request received:', req.method);
   
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 200
+    });
+  }
+
   try {
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-      await Deno.stdout.write(new TextEncoder().encode("Handling CORS preflight request\n"))
-      return new Response(null, { 
-        headers: corsHeaders,
-        status: 200
-      })
-    }
+    console.log('Parsing request body...');
+    const body = await req.json();
+    console.log('Request body:', body);
 
-    // Parse request body
-    const body = await req.json().catch(async (error) => {
-      await Deno.stdout.write(new TextEncoder().encode(`Failed to parse request body: ${error}\n`))
-      throw new Error('Invalid request body')
-    })
-    await Deno.stdout.write(new TextEncoder().encode(`Request body: ${JSON.stringify(body)}\n`))
+    // Get Azure credentials
+    const cognitiveEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT');
+    const cognitiveKey = Deno.env.get('AZURE_COGNITIVE_KEY');
+    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
+    const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
+    const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT');
+    const visionKey = Deno.env.get('AZURE_VISION_KEY');
 
-    // Get Azure credentials from environment
-    const cognitiveEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
-    const cognitiveKey = Deno.env.get('AZURE_COGNITIVE_KEY')
-    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')
-    const speechKey = Deno.env.get('AZURE_SPEECH_KEY')
-    const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT')
-    const visionKey = Deno.env.get('AZURE_VISION_KEY')
-
-    await Deno.stdout.write(new TextEncoder().encode("📝 Environment Variables Check:\n"))
-    await Deno.stdout.write(new TextEncoder().encode(JSON.stringify({
+    console.log('Checking Azure credentials...');
+    console.log({
       hasCognitiveEndpoint: !!cognitiveEndpoint,
-      cognitiveEndpointLength: cognitiveEndpoint?.length,
       hasCognitiveKey: !!cognitiveKey,
-      cognitiveKeyLength: cognitiveKey?.length,
       hasSpeechEndpoint: !!speechEndpoint,
-      speechEndpointLength: speechEndpoint?.length,
       hasSpeechKey: !!speechKey,
-      speechKeyLength: speechKey?.length,
       hasVisionEndpoint: !!visionEndpoint,
-      visionEndpointLength: visionEndpoint?.length,
-      hasVisionKey: !!visionKey,
-      visionKeyLength: visionKey?.length
-    }, null, 2) + "\n"))
+      hasVisionKey: !!visionKey
+    });
 
     if (!cognitiveEndpoint || !cognitiveKey || !speechEndpoint || !speechKey || !visionEndpoint || !visionKey) {
-      await Deno.stdout.write(new TextEncoder().encode("❌ Missing required Azure credentials\n"))
+      console.error('Missing required Azure credentials');
       return new Response(
         JSON.stringify({
           error: 'Missing required Azure credentials',
@@ -61,15 +53,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400
         }
-      )
+      );
     }
 
-    const results = []
+    const results = [];
 
     // Test Cognitive Services
     try {
-      await Deno.stdout.write(new TextEncoder().encode("🧠 Testing Cognitive Services...\n"))
-      
+      console.log('Testing Cognitive Services...');
       const cognitiveResponse = await fetch(`${cognitiveEndpoint}/vision/v3.2/analyze?visualFeatures=Description`, {
         method: 'POST',
         headers: {
@@ -79,61 +70,59 @@ serve(async (req) => {
         body: JSON.stringify({
           url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
         })
-      })
+      });
 
-      await Deno.stdout.write(new TextEncoder().encode(`Cognitive Services Response: ${cognitiveResponse.status}\n`))
-      const cognitiveText = await cognitiveResponse.text()
-      await Deno.stdout.write(new TextEncoder().encode(`Cognitive Services Response Body: ${cognitiveText}\n`))
+      console.log('Cognitive Services response status:', cognitiveResponse.status);
+      const cognitiveData = await cognitiveResponse.text();
+      console.log('Cognitive Services response:', cognitiveData);
 
       results.push({
         service: 'Cognitive Services',
         status: cognitiveResponse.ok ? 'success' : 'error',
         statusCode: cognitiveResponse.status,
-        error: cognitiveResponse.ok ? undefined : cognitiveText
-      })
+        error: cognitiveResponse.ok ? undefined : cognitiveData
+      });
     } catch (error) {
-      await Deno.stdout.write(new TextEncoder().encode(`❌ Cognitive Services Error: ${error}\n`))
+      console.error('Cognitive Services error:', error);
       results.push({
         service: 'Cognitive Services',
         status: 'error',
         error: error.message
-      })
+      });
     }
 
     // Test Speech Services
     try {
-      await Deno.stdout.write(new TextEncoder().encode("🗣️ Testing Speech Services...\n"))
-      
+      console.log('Testing Speech Services...');
       const speechResponse = await fetch(`${speechEndpoint}/cognitiveservices/voices/list`, {
         method: 'GET',
         headers: {
           'Ocp-Apim-Subscription-Key': speechKey
         }
-      })
+      });
 
-      await Deno.stdout.write(new TextEncoder().encode(`Speech Services Response: ${speechResponse.status}\n`))
-      const speechText = await speechResponse.text()
-      await Deno.stdout.write(new TextEncoder().encode(`Speech Services Response Body: ${speechText}\n`))
+      console.log('Speech Services response status:', speechResponse.status);
+      const speechData = await speechResponse.text();
+      console.log('Speech Services response:', speechData);
 
       results.push({
         service: 'Speech Services',
         status: speechResponse.ok ? 'success' : 'error',
         statusCode: speechResponse.status,
-        error: speechResponse.ok ? undefined : speechText
-      })
+        error: speechResponse.ok ? undefined : speechData
+      });
     } catch (error) {
-      await Deno.stdout.write(new TextEncoder().encode(`❌ Speech Services Error: ${error}\n`))
+      console.error('Speech Services error:', error);
       results.push({
         service: 'Speech Services',
         status: 'error',
         error: error.message
-      })
+      });
     }
 
     // Test Vision Services
     try {
-      await Deno.stdout.write(new TextEncoder().encode("👁️ Testing Vision Services...\n"))
-      
+      console.log('Testing Vision Services...');
       const visionResponse = await fetch(`${visionEndpoint}/computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`, {
         method: 'POST',
         headers: {
@@ -143,46 +132,46 @@ serve(async (req) => {
         body: JSON.stringify({
           url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
         })
-      })
+      });
 
-      await Deno.stdout.write(new TextEncoder().encode(`Vision Services Response: ${visionResponse.status}\n`))
-      const visionText = await visionResponse.text()
-      await Deno.stdout.write(new TextEncoder().encode(`Vision Services Response Body: ${visionText}\n`))
+      console.log('Vision Services response status:', visionResponse.status);
+      const visionData = await visionResponse.text();
+      console.log('Vision Services response:', visionData);
 
       results.push({
         service: 'Vision Services',
         status: visionResponse.ok ? 'success' : 'error',
         statusCode: visionResponse.status,
-        error: visionResponse.ok ? undefined : visionText
-      })
+        error: visionResponse.ok ? undefined : visionData
+      });
     } catch (error) {
-      await Deno.stdout.write(new TextEncoder().encode(`❌ Vision Services Error: ${error}\n`))
+      console.error('Vision Services error:', error);
       results.push({
         service: 'Vision Services',
         status: 'error',
         error: error.message
-      })
+      });
     }
 
-    await Deno.stdout.write(new TextEncoder().encode(`✅ Final Test Results: ${JSON.stringify(results, null, 2)}\n`))
+    console.log('All tests completed. Results:', results);
     return new Response(
       JSON.stringify({ results }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
       }
-    )
+    );
   } catch (error) {
-    await Deno.stdout.write(new TextEncoder().encode(`❌ Fatal Error in Azure test function: ${error}\n`))
+    console.error('Fatal error in Azure test function:', error);
     return new Response(
       JSON.stringify({
-        error: error.message,
-        details: error.toString()
+        error: 'Internal server error',
+        details: error.message
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       }
-    )
+    );
   }
-})
+});
