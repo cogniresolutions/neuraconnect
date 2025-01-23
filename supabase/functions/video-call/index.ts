@@ -7,25 +7,31 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('Received video call request');
+  
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Processing video call request...');
+    console.log('Initializing Supabase client');
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { personaId, userId, action, personaConfig } = await req.json();
+    const requestBody = await req.json();
+    console.log('Request body:', requestBody);
+    
+    const { personaId, userId, action, personaConfig } = requestBody;
 
     if (!personaId || !userId) {
       console.error('Missing required parameters:', { personaId, userId });
       throw new Error('Missing required parameters');
     }
 
-    console.log('Request details:', { action, personaId, userId });
+    console.log('Processing request:', { action, personaId, userId });
 
     switch (action) {
       case 'start': {
@@ -77,7 +83,7 @@ serve(async (req) => {
           throw sessionError;
         }
 
-        console.log('Video call session created:', session);
+        console.log('Video call session created successfully:', session);
 
         return new Response(
           JSON.stringify({ 
@@ -118,6 +124,7 @@ serve(async (req) => {
       }
 
       default:
+        console.error('Invalid action requested:', action);
         throw new Error('Invalid action');
     }
   } catch (error) {

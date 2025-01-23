@@ -285,10 +285,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       console.log('Current user:', user);
       
       if (!user) {
+        console.error('No authenticated user found');
         throw new Error('Authentication required');
       }
 
       if (!trainingVideo) {
+        console.error('No training video available');
         throw new Error('No processed training video available');
       }
 
@@ -304,6 +306,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       const chatInitialized = await initializeChat();
       
       if (!chatInitialized) {
+        console.error('Chat initialization failed');
         throw new Error('Failed to initialize chat');
       }
 
