@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Phone, PhoneOff } from 'lucide-react';
+import { Loader2, Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import AIPersonaVideo from './AIPersonaVideo';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { useSpeechToText } from '@/hooks/use-speech-to-text';
@@ -22,6 +22,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [currentEmotion, setCurrentEmotion] = useState('neutral');
   const [trainingVideo, setTrainingVideo] = useState<any>(null);
+  const [isCameraEnabled, setIsCameraEnabled] = useState(false);
+  const [isMicEnabled, setIsMicEnabled] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -29,8 +31,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const chatRef = useRef<RealtimeChat | null>(null);
   const { speak } = useTextToSpeech();
   const { transcribe } = useSpeechToText();
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     const loadTrainingVideo = async () => {
@@ -45,7 +45,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
         if (error) throw error;
         setTrainingVideo(videos);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading training video:', error);
         toast({
           title: "Error",
@@ -60,66 +60,78 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   }, [persona?.id, toast]);
 
-  const startRecording = () => {
-    if (!streamRef.current) return;
-
-    const mediaRecorder = new MediaRecorder(streamRef.current);
-    const chunks: Blob[] = [];
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunks.push(e.data);
-      }
-    };
-
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      const reader = new FileReader();
-      
-      reader.onloadend = async () => {
-        try {
-          const base64Audio = (reader.result as string).split(',')[1];
-          const transcription = await transcribe(base64Audio);
-          await handleTranscriptionComplete(transcription);
-        } catch (error) {
-          console.error('Error processing audio:', error);
-          toast({
-            title: "Transcription Error",
-            description: "Failed to process speech",
-            variant: "destructive",
-          });
+  const toggleCamera = async () => {
+    try {
+      if (isCameraEnabled) {
+        if (streamRef.current) {
+          streamRef.current.getVideoTracks().forEach(track => track.stop());
+          setIsCameraEnabled(false);
         }
-      };
-
-      reader.readAsDataURL(blob);
-    };
-
-    mediaRecorderRef.current = mediaRecorder;
-    mediaRecorder.start();
-    setIsRecording(true);
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+      } else {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          streamRef.current = stream;
+          setIsCameraEnabled(true);
+        }
+      }
+    } catch (error: any) {
+      console.error('Camera toggle error:', error);
+      toast({
+        title: "Camera Error",
+        description: error.message || "Failed to toggle camera",
+        variant: "destructive",
+      });
     }
   };
 
-  const initializeAudio = async (stream: MediaStream) => {
+  const toggleMicrophone = async () => {
     try {
-      audioContextRef.current = new AudioContext();
-      audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-      audioSourceRef.current.connect(audioContextRef.current.destination);
+      if (isMicEnabled) {
+        if (streamRef.current) {
+          streamRef.current.getAudioTracks().forEach(track => track.stop());
+          setIsMicEnabled(false);
+        }
+      } else {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        setIsMicEnabled(true);
+        
+        // Initialize audio context
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+        audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+      }
+    } catch (error: any) {
+      console.error('Microphone toggle error:', error);
+      toast({
+        title: "Microphone Error",
+        description: error.message || "Failed to toggle microphone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const initializeAudio = async () => {
+    try {
+      if (!isMicEnabled) {
+        await toggleMicrophone();
+      }
       
-      console.log('Audio initialized successfully');
+      if (!streamRef.current) {
+        throw new Error('No audio stream available');
+      }
 
       await speakWelcomeMessage();
       await initializeChat();
-
-      startAudioProcessing(stream);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing audio:', error);
+      toast({
+        title: "Audio Error",
+        description: error.message || "Failed to initialize audio",
+        variant: "destructive",
+      });
       throw error;
     }
   };
@@ -205,28 +217,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const startCall = async () => {
     try {
       setIsLoading(true);
-      console.log('Starting call with persona:', persona);
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.error('No authenticated user found');
         throw new Error('User not authenticated');
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: true 
-      });
-      
-      console.log('Media stream obtained:', stream.id);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-      }
+      await initializeAudio();
 
-      await initializeAudio(stream);
-
-      console.log('Invoking video-call function...');
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
           personaId: persona.id,
@@ -240,12 +238,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
-      if (error) {
-        console.error('Error from video-call function:', error);
-        throw error;
-      }
-
-      console.log('Video call function response:', data);
+      if (error) throw error;
 
       setIsCallActive(true);
       onCallStateChange(true);
@@ -256,13 +249,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       console.error('Error starting call:', error);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      cleanupMedia();
       toast({
         title: "Call Error",
         description: error.message || "Failed to start call",
@@ -273,39 +260,38 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const cleanupMedia = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (audioSourceRef.current) {
+      audioSourceRef.current.disconnect();
+      audioSourceRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    setIsCameraEnabled(false);
+    setIsMicEnabled(false);
+  };
+
   const endCall = async () => {
     try {
-      console.log('Ending call...');
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
-          console.log('Stopping track:', track.kind);
-          track.stop();
-        });
-        streamRef.current = null;
-      }
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-
-      if (audioSourceRef.current) {
-        audioSourceRef.current.disconnect();
-        audioSourceRef.current = null;
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
       if (chatRef.current) {
         chatRef.current.disconnect();
         chatRef.current = null;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      cleanupMedia();
 
-      console.log('Invoking video-call end function...');
       const { error } = await supabase.functions.invoke('video-call', {
         body: { 
           personaId: persona.id,
@@ -354,12 +340,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 muted
                 className="w-full h-full object-cover"
               />
-              {isRecording && (
-                <div className="absolute top-2 right-2 flex items-center gap-2 bg-red-500 px-2 py-1 rounded-full text-white text-xs">
-                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  Recording
-                </div>
-              )}
             </div>
             <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
               {trainingVideo ? (
@@ -379,6 +359,42 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         )}
       </div>
       <div className="flex gap-2">
+        <Button
+          onClick={toggleCamera}
+          variant="secondary"
+          className="bg-gray-700 hover:bg-gray-600"
+          disabled={isLoading}
+        >
+          {isCameraEnabled ? (
+            <>
+              <VideoOff className="mr-2 h-4 w-4" />
+              Disable Camera
+            </>
+          ) : (
+            <>
+              <Video className="mr-2 h-4 w-4" />
+              Enable Camera
+            </>
+          )}
+        </Button>
+        <Button
+          onClick={toggleMicrophone}
+          variant="secondary"
+          className="bg-gray-700 hover:bg-gray-600"
+          disabled={isLoading}
+        >
+          {isMicEnabled ? (
+            <>
+              <MicOff className="mr-2 h-4 w-4" />
+              Mute
+            </>
+          ) : (
+            <>
+              <Mic className="mr-2 h-4 w-4" />
+              Unmute
+            </>
+          )}
+        </Button>
         {!isCallActive ? (
           <Button
             onClick={startCall}
@@ -398,22 +414,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             )}
           </Button>
         ) : (
-          <>
-            <Button
-              onClick={isRecording ? stopRecording : startRecording}
-              variant={isRecording ? "destructive" : "default"}
-              className="mr-2"
-            >
-              {isRecording ? 'Stop Recording' : 'Start Recording'}
-            </Button>
-            <Button
-              onClick={endCall}
-              variant="destructive"
-            >
-              <PhoneOff className="mr-2 h-4 w-4" />
-              End Call
-            </Button>
-          </>
+          <Button
+            onClick={endCall}
+            variant="destructive"
+          >
+            <PhoneOff className="mr-2 h-4 w-4" />
+            End Call
+          </Button>
         )}
       </div>
     </div>
