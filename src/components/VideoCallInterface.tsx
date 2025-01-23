@@ -79,34 +79,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  useEffect(() => {
-    const loadTrainingVideo = async () => {
-      try {
-        const { data: videos, error } = await supabase
-          .from('training_videos')
-          .select('*')
-          .eq('persona_id', persona.id)
-          .eq('processing_status', 'completed')
-          .limit(1)
-          .single();
-
-        if (error) throw error;
-        setTrainingVideo(videos);
-      } catch (error) {
-        console.error('Error loading training video:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load persona video",
-          variant: "destructive",
-        });
-      }
-    };
-
-    if (persona?.id) {
-      loadTrainingVideo();
-    }
-  }, [persona?.id, toast]);
-
   const startRecording = () => {
     if (!streamRef.current) return;
 
@@ -387,6 +359,34 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     }
   };
+
+  useEffect(() => {
+    const loadTrainingVideo = async () => {
+      try {
+        const { data: videos, error } = await supabase
+          .from('training_videos')
+          .select('*')
+          .eq('persona_id', persona.id)
+          .eq('processing_status', 'completed')
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+        setTrainingVideo(videos);
+      } catch (error) {
+        console.error('Error loading training video:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load persona video",
+          variant: "destructive",
+        });
+      }
+    };
+
+    if (persona?.id) {
+      loadTrainingVideo();
+    }
+  }, [persona?.id, toast]);
 
   useEffect(() => {
     return () => {
