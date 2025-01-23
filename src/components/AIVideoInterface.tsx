@@ -1,157 +1,71 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 import { Loader2, Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import VideoAnalysis from './video/VideoAnalysis';
 
 interface AIVideoInterfaceProps {
   persona: any;
   onSpeakingChange: (speaking: boolean) => void;
 }
 
-interface AnalysisResult {
-  emotions?: {
-    happiness?: number;
-    sadness?: number;
-    surprise?: number;
-    anger?: number;
-  };
-  environment?: {
-    description?: string;
-    tags?: string[];
-    objects?: string[];
-  };
-  language?: string;
-}
-
-const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeakingChange }) => {
+const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ 
+  persona, 
+  onSpeakingChange 
+}) => {
   const { toast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
-  const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult>({});
-  const chatRef = useRef<RealtimeChat | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const analysisIntervalRef = useRef<NodeJS.Timeout>();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const analyzeVideo = async (videoElement: HTMLVideoElement) => {
-    if (!canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    canvas.width = videoElement.videoWidth;
-    canvas.height = videoElement.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    ctx.drawImage(videoElement, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg');
-
-    try {
-      console.log('Starting video analysis...');
-      
-      // Call Azure Face API for emotion analysis
-      const [emotionResponse, environmentResponse] = await Promise.all([
-        supabase.functions.invoke('analyze-emotion', {
-          body: { 
-            imageData,
-            personaId: persona.id,
-            userId: (await supabase.auth.getUser()).data.user?.id,
-            language: persona.language || 'en'
-          }
-        }),
-        supabase.functions.invoke('analyze-environment', {
-          body: { 
-            imageData,
-            personaId: persona.id,
-            userId: (await supabase.auth.getUser()).data.user?.id
-          }
-        })
-      ]);
-
-      if (emotionResponse.error) throw emotionResponse.error;
-      if (environmentResponse.error) throw environmentResponse.error;
-      
-      console.log('Analysis results:', { 
-        emotion: emotionResponse.data, 
-        environment: environmentResponse.data 
-      });
-      
-      setLastAnalysis({
-        emotions: emotionResponse.data?.emotions,
-        environment: environmentResponse.data?.environment,
-        language: persona.language || 'en'
-      });
-
-      // Store analysis results in Supabase
-      const { error: dbError } = await supabase
-        .from('emotion_analysis')
-        .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          persona_id: persona.id,
-          emotion_data: emotionResponse.data,
-          environment_data: environmentResponse.data,
-          created_at: new Date().toISOString()
-        });
-
-      if (dbError) throw dbError;
-
-    } catch (error: any) {
-      console.error('Analysis error:', error);
-      toast({
-        title: "Analysis Error",
-        description: error.message || "Failed to analyze video",
-        variant: "destructive",
-      });
-    }
-  };
+  const [lastAnalysis, setLastAnalysis] = useState<any>({});
+  const [chatRef, setChatRef] = useState<RealtimeChat | null>(null);
 
   const handleMessage = (event: any) => {
     console.log('Received WebSocket message:', event);
     
     if (event.type === 'response.audio.delta') {
-      console.log('Received audio delta, persona is speaking');
       onSpeakingChange(true);
     } else if (event.type === 'response.audio.done') {
-      console.log('Audio response completed, persona stopped speaking');
       onSpeakingChange(false);
-    } else if (event.type === 'error') {
-      console.error('WebSocket error:', event.error);
-      toast({
-        title: "Connection Error",
-        description: event.error?.message || "An error occurred during the conversation",
-        variant: "destructive",
-      });
+    }
+  };
+
+  const handleEmotionDetected = async (emotions: any) => {
+    setLastAnalysis(emotions);
+    
+    // Update persona behavior based on emotions
+    if (chatRef) {
+      const dominantEmotion = Object.entries(emotions)
+        .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0];
+      
+      if (dominantEmotion) {
+        chatRef.sendMessage(`User appears to be feeling ${dominantEmotion}`);
+      }
     }
   };
 
   const startConversation = async () => {
     try {
       setIsLoading(true);
-      console.log('Initializing chat with persona:', persona);
       
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init(persona);
+      const chat = new RealtimeChat(handleMessage);
+      await chat.init(persona);
       
+      setChatRef(chat);
       setIsConnected(true);
-      console.log('WebSocket connection established successfully');
       
       toast({
         title: "Connected",
         description: `${persona.name} is ready to chat`,
       });
 
-      if (isVideoEnabled) {
-        await startVideo();
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting conversation:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to start conversation',
+        description: error.message || 'Failed to start conversation',
         variant: "destructive",
       });
     } finally {
@@ -160,97 +74,50 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   };
 
   const endConversation = () => {
-    console.log('Ending conversation and cleaning up connections');
-    chatRef.current?.disconnect();
-    stopVideo();
+    chatRef?.disconnect();
+    setChatRef(null);
     setIsConnected(false);
     onSpeakingChange(false);
-    
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
-    }
   };
 
-  const startVideo = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setIsVideoEnabled(true);
-        
-        // Start analysis interval
-        analysisIntervalRef.current = setInterval(() => {
-          if (videoRef.current) {
-            analyzeVideo(videoRef.current);
-          }
-        }, 5000); // Analyze every 5 seconds
-      }
-    } catch (error: any) {
-      console.error('Video error:', error);
-      toast({
-        title: "Video Error",
-        description: error.message || "Failed to access camera",
-        variant: "destructive",
-      });
-    }
+  const toggleVideo = () => {
+    setIsVideoEnabled(!isVideoEnabled);
   };
-
-  const stopVideo = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        track.stop();
-      });
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsVideoEnabled(false);
-    
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
-    }
-  };
-
-  const toggleVideo = async () => {
-    if (isVideoEnabled) {
-      stopVideo();
-    } else {
-      await startVideo();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      endConversation();
-    };
-  }, []);
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-      {isVideoEnabled && (
-        <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          <canvas
-            ref={canvasRef}
-            className="hidden"
-          />
-          {lastAnalysis.emotions && (
-            <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded">
-              Emotion: {Object.entries(lastAnalysis.emotions)
-                .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0]}
-            </div>
+    <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-4 items-center justify-center">
+        {isVideoEnabled && (
+          <div className="w-full lg:w-1/2">
+            <VideoAnalysis
+              personaId={persona.id}
+              onEmotionDetected={handleEmotionDetected}
+              className="rounded-lg overflow-hidden"
+            />
+          </div>
+        )}
+        <div className="w-full lg:w-1/2">
+          {persona.profile_picture_url && !persona.avatar_model_url && (
+            <img
+              src={persona.profile_picture_url}
+              alt={persona.name}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          )}
+          {persona.avatar_model_url && (
+            <video
+              src={persona.avatar_model_url}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover rounded-lg"
+            />
           )}
         </div>
-      )}
-      <div className="flex gap-2">
+      </div>
+      
+      <div className="mt-4 flex gap-2">
         <Button
           onClick={toggleVideo}
           variant="secondary"
@@ -268,6 +135,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
             </>
           )}
         </Button>
+        
         {!isConnected ? (
           <Button 
             onClick={startConversation}
