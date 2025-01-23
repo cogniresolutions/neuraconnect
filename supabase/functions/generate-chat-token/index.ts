@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,46 +13,55 @@ serve(async (req) => {
 
   try {
     const { personaId, config } = await req.json();
-    
-    if (!personaId) {
-      throw new Error('personaId is required');
-    }
-
     console.log('Generating token for persona:', { personaId, config });
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get persona details
-    const { data: persona, error: personaError } = await supabase
-      .from('personas')
-      .select('*')
-      .eq('id', personaId)
-      .single();
-
-    if (personaError || !persona) {
-      console.error('Persona fetch error:', personaError);
-      throw new Error('Persona not found');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is not set');
+      throw new Error('OPENAI_API_KEY is not set');
     }
 
-    // Generate a secure token for the WebSocket connection
-    const token = crypto.randomUUID();
-    
-    // Generate WebSocket URL with authentication token and persona config
-    const wsUrl = `wss://realtime-chat.lovable.ai/chat?token=${token}&persona=${encodeURIComponent(JSON.stringify(config))}`;
-    
-    console.log('Generated WebSocket URL (token redacted):', wsUrl.replace(token, '[REDACTED]'));
+    // Request an ephemeral token from OpenAI
+    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: config.voice || "alloy",
+        instructions: `You are ${config.name}, an AI assistant with the following personality: ${config.personality}. 
+                      You have expertise in: ${JSON.stringify(config.skills)}. 
+                      You should focus on discussing topics related to: ${config.topics?.join(', ')}.
+                      Always respond in a natural, conversational way.`
+      }),
+    });
 
-    return new Response(JSON.stringify({ wsUrl }), {
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`OpenAI API error: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Session created successfully:", {
+      hasClientSecret: !!data.client_secret,
+      sessionId: data.session_id
+    });
+
+    return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error:", error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: error instanceof Error ? error.stack : undefined 
+      details: error.stack
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
