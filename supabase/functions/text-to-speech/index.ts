@@ -38,9 +38,8 @@ serve(async (req) => {
     }
 
     // Step 3: Ensure we're using the correct TTS endpoint
-    const baseUrl = new URL(azureSpeechEndpoint);
-    baseUrl.hostname = baseUrl.hostname.replace('stt.speech', 'tts.speech');
-    const ttsEndpoint = `${baseUrl.toString()}cognitiveservices/v1`;
+    const baseUrl = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
+    const ttsEndpoint = `${baseUrl}cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Step 4: Map voice name to Azure format
@@ -56,12 +55,7 @@ serve(async (req) => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
-    const ssml = `
-<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-  <voice name='${voiceName}'>
-    <prosody rate="0%">${escapedText}</prosody>
-  </voice>
-</speak>`.trim();
+    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voiceName}'><prosody rate="0%">${escapedText}</prosody></voice></speak>`;
 
     console.log('SSML payload:', ssml);
 
