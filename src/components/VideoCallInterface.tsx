@@ -3,14 +3,25 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Phone, PhoneOff } from 'lucide-react';
-import AIPersonaVideo from './AIPersonaVideo';
-import { useTextToSpeech } from '@/hooks/use-text-to-speech';
-import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 
 interface VideoCallInterfaceProps {
   persona: any;
   onCallStateChange: (isActive: boolean) => void;
+}
+
+interface AnalysisResult {
+  emotions?: {
+    happiness?: number;
+    sadness?: number;
+    surprise?: number;
+    anger?: number;
+  };
+  environment?: {
+    description?: string;
+    tags?: string[];
+    objects?: string[];
+  };
 }
 
 const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
@@ -20,43 +31,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentEmotion, setCurrentEmotion] = useState('neutral');
-  const [trainingVideo, setTrainingVideo] = useState<any>(null);
+  const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult>({});
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const analysisIntervalRef = useRef<NodeJS.Timeout>();
-  const { speak } = useTextToSpeech();
-  const { transcribe } = useSpeechToText();
-
-  useEffect(() => {
-    const loadTrainingVideo = async () => {
-      try {
-        const { data: videos, error } = await supabase
-          .from('training_videos')
-          .select('*')
-          .eq('persona_id', persona.id)
-          .eq('processing_status', 'completed')
-          .limit(1)
-          .single();
-
-        if (error) throw error;
-        setTrainingVideo(videos);
-      } catch (error) {
-        console.error('Error loading training video:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load persona video",
-          variant: "destructive",
-        });
-      }
-    };
-
-    if (persona?.id) {
-      loadTrainingVideo();
-    }
-  }, [persona?.id, toast]);
 
   const analyzeVideo = async () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -72,19 +52,21 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     const imageData = canvas.toDataURL('image/jpeg');
 
     try {
+      console.log('Starting video analysis...');
+      
       const [emotionResponse, environmentResponse] = await Promise.all([
         supabase.functions.invoke('analyze-emotion', {
           body: { 
             imageData,
-            userId: (await supabase.auth.getUser()).data.user?.id,
-            personaId: persona.id
+            personaId: persona.id,
+            userId: (await supabase.auth.getUser()).data.user?.id
           }
         }),
         supabase.functions.invoke('analyze-environment', {
           body: { 
             imageData,
-            userId: (await supabase.auth.getUser()).data.user?.id,
-            personaId: persona.id
+            personaId: persona.id,
+            userId: (await supabase.auth.getUser()).data.user?.id
           }
         })
       ]);
@@ -92,10 +74,15 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (emotionResponse.error) throw emotionResponse.error;
       if (environmentResponse.error) throw environmentResponse.error;
 
-      const dominantEmotion = Object.entries(emotionResponse.data?.emotions || {})
-        .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0];
-      
-      setCurrentEmotion(dominantEmotion || 'neutral');
+      console.log('Analysis results:', { 
+        emotion: emotionResponse.data, 
+        environment: environmentResponse.data 
+      });
+
+      setLastAnalysis({
+        emotions: emotionResponse.data?.emotions,
+        environment: environmentResponse.data?.environment
+      });
 
       // Store analysis in Supabase
       const { error: dbError } = await supabase
@@ -120,10 +107,31 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const handleMessage = (event: any) => {
+    console.log('Received WebSocket message:', event);
+    
+    if (event.type === 'response.audio.delta') {
+      console.log('Received audio delta, persona is speaking');
+      onCallStateChange(true);
+    } else if (event.type === 'response.audio.done') {
+      console.log('Audio response completed, persona stopped speaking');
+      onCallStateChange(false);
+    } else if (event.type === 'error') {
+      console.error('WebSocket error:', event.error);
+      toast({
+        title: "Connection Error",
+        description: event.error?.message || "An error occurred during the call",
+        variant: "destructive",
+      });
+    }
+  };
+
   const startCall = async () => {
     try {
       setIsLoading(true);
+      console.log('Initializing call with persona:', persona);
       
+      // Initialize video stream
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: true, 
         audio: true 
@@ -134,21 +142,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         streamRef.current = stream;
       }
 
-      // Initialize chat and analysis
-      chatRef.current = new RealtimeChat((event) => {
-        if (event.type === 'response.text') {
-          speak(event.content, {
-            voice: persona.voice_style,
-            language: persona.language || 'en'
-          });
-        }
-      });
-      
+      // Initialize real-time chat with OpenAI
+      chatRef.current = new RealtimeChat(handleMessage);
       await chatRef.current.init(persona);
-
+      
       // Start periodic analysis
       analysisIntervalRef.current = setInterval(analyzeVideo, 5000);
 
+      // Create Supabase session record
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
@@ -263,20 +264,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 ref={canvasRef}
                 className="hidden"
               />
-              {currentEmotion && (
+              {lastAnalysis.emotions && (
                 <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded">
-                  Current Emotion: {currentEmotion}
+                  Emotion: {Object.entries(lastAnalysis.emotions)
+                    .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0]}
                 </div>
-              )}
-            </div>
-            <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
-              {trainingVideo && (
-                <AIPersonaVideo
-                  trainingVideoUrl={trainingVideo.video_url}
-                  expressionSegments={trainingVideo.expression_segments}
-                  currentEmotion={currentEmotion}
-                  isPlaying={isCallActive}
-                />
               )}
             </div>
           </>
