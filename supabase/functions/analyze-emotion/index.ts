@@ -10,7 +10,6 @@ const AZURE_COGNITIVE_ENDPOINT = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
 const AZURE_API_KEY = Deno.env.get('AZURE_API_KEY')
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -48,7 +47,7 @@ serve(async (req) => {
     )
 
     // Store emotion analysis results
-    const { data, error } = await supabaseClient
+    const { error: dbError } = await supabaseClient
       .from('emotion_analysis')
       .insert([
         {
@@ -59,7 +58,7 @@ serve(async (req) => {
         }
       ])
 
-    if (error) throw error
+    if (dbError) throw dbError
 
     return new Response(
       JSON.stringify({ success: true, data: emotionData }),
