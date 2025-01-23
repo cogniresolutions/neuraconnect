@@ -19,17 +19,15 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '') // Remove trailing slash if present
+    const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '')
     const subscriptionKey = Deno.env.get('AZURE_SPEECH_KEY')
     
     console.log('Azure credentials check:', {
       hasEndpoint: !!endpoint,
-      hasKey: !!subscriptionKey,
-      endpoint: endpoint // Log the endpoint for debugging
+      hasKey: !!subscriptionKey
     })
 
     if (!endpoint || !subscriptionKey) {
-      console.error('Azure credentials not found')
       throw new Error('Azure credentials not configured')
     }
 
@@ -37,27 +35,19 @@ serve(async (req) => {
     const voiceName = `en-US-${voice}Neural`
     console.log('Using voice:', voiceName)
 
-    // Construct SSML with proper XML escaping
-    const escapedText = text.replace(/[&<>"']/g, (char) => {
-      const entities: { [key: string]: string } = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&apos;'
-      }
-      return entities[char]
-    })
+    // Simple HTML entities escaping
+    const escapeXml = (str: string) => {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
 
-    const ssml = `<speak version='1.0' xml:lang='en-US'>
-      <voice name='${voiceName}'>
-        ${escapedText}
-      </voice>
-    </speak>`
+    const ssml = `<speak version='1.0' xml:lang='en-US'><voice name='${voiceName}'>${escapeXml(text)}</voice></speak>`
+    console.log('SSML payload length:', ssml.length)
 
-    console.log('SSML payload:', ssml)
-
-    // Make request to Azure TTS API with the correct endpoint
     const ttsEndpoint = `${endpoint}/cognitiveservices/v1/synthesize/text-to-speech`
     console.log('Making request to endpoint:', ttsEndpoint)
 
@@ -77,9 +67,8 @@ serve(async (req) => {
       console.error('Azure TTS Error Response:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText,
-        endpoint: ttsEndpoint,
-        headers: Object.fromEntries(response.headers.entries())
+        errorText,
+        endpoint: ttsEndpoint
       })
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
     }
@@ -109,9 +98,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message,
-        details: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
+        error: error.message
       }),
       {
         status: 400,
