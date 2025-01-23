@@ -56,10 +56,13 @@ async function testAzureSpeech() {
   }
 
   try {
-    // For Speech Services, we need to use the base endpoint without additional path
-    console.log('Testing Speech Services with URL:', endpoint)
+    // Extract the region from the endpoint URL
+    const region = endpoint.match(/\/\/([^.]+)\./)?.[1] || 'unknown'
+    const speechEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`
     
-    const response = await fetch(`${endpoint}/cognitiveservices/voices/list`, {
+    console.log('Testing Speech Services with URL:', speechEndpoint)
+    
+    const response = await fetch(speechEndpoint, {
       method: 'GET',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
