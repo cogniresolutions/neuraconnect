@@ -42,10 +42,15 @@ serve(async (req) => {
           throw new Error('Invalid persona or access denied');
         }
 
+        // Generate a unique conversation ID
+        const conversationId = crypto.randomUUID();
+        console.log('Generated conversation ID:', conversationId);
+
         const { data: session, error: sessionError } = await supabase
           .from('tavus_sessions')
           .insert({
             user_id: userId,
+            conversation_id: conversationId,
             status: 'active',
             participants: [
               { user_id: userId, type: 'user' },
