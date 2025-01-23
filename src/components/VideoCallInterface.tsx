@@ -31,6 +31,19 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('User not authenticated');
       }
 
+      // Request media stream before creating the session
+      console.log('Requesting media stream...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      console.log('Media stream obtained:', stream.id);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+      }
+
       console.log('Invoking video-call function...');
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
@@ -52,19 +65,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       console.log('Video call function response:', data);
 
-      // Start local video
-      console.log('Requesting media stream...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: true 
-      });
-      
-      console.log('Media stream obtained:', stream.id);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-      }
-
       setIsCallActive(true);
       onCallStateChange(true);
       
@@ -74,6 +74,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       console.error('Error starting call:', error);
+      // Clean up stream if session creation fails
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
       toast({
         title: "Call Error",
         description: error.message || "Failed to start call",
