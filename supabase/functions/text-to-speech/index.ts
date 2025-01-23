@@ -31,7 +31,7 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
-    // Ensure the endpoint is in the correct format
+    // Ensure the endpoint is in the correct format and construct the TTS URL
     const baseUrl = endpoint.trim().replace(/\/+$/, '')
     console.log('Base URL:', baseUrl)
 
