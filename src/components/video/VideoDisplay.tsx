@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface VideoDisplayProps {
-  stream: MediaStream | null;
+  stream?: MediaStream | null; // Made optional with ?
   videoRef: React.RefObject<HTMLVideoElement>;
   isRecording: boolean;
   currentEmotion: string;
