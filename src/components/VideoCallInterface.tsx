@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import VideoDisplay from './video/VideoDisplay';
@@ -24,7 +24,6 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
   const [realtimeChat, setRealtimeChat] = useState<RealtimeChat | null>(null);
   const { toast } = useToast();
   const { speak } = useTextToSpeech();
-
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 2000;
 
@@ -37,12 +36,21 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
         .single();
 
       if (error) throw error;
+      if (!data) {
+        toast({
+          title: "Error",
+          description: "Persona not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setPersona(data);
     } catch (error) {
       console.error('Error loading persona:', error);
       toast({
         title: "Error",
-        description: "Failed to load persona information. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to load persona",
         variant: "destructive",
       });
     }
@@ -66,26 +74,15 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
 
   const initializeRealtimeChat = async () => {
     try {
+      console.log('Initializing realtime chat with persona:', persona);
       const chat = new RealtimeChat(handleRealtimeMessage);
       await chat.init(persona);
       setRealtimeChat(chat);
       
-      // Send initial system message to introduce the persona
-      const welcomeMessage = {
-        type: 'conversation.item.create',
-        item: {
-          type: 'message',
-          role: 'system',
-          content: [
-            {
-              type: 'text',
-              text: `Hello! I'm ${persona?.name || 'your AI Assistant'}. I'm here to help you with your trading questions and provide insights based on my training data.`
-            }
-          ]
-        }
-      };
-      
-      chat.sendMessage(welcomeMessage);
+      // Send welcome message as text
+      const welcomeText = `Hello! I'm ${persona?.name || 'your AI Assistant'}. ${persona?.description || ''} How can I help you today?`;
+      chat.sendMessage(welcomeText);
+
     } catch (error) {
       console.error('Error initializing realtime chat:', error);
       if (retryCount < MAX_RETRIES) {
