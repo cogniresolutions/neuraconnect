@@ -160,7 +160,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
       {isCallActive && (
-        <div className="relative w-80 h-60 rounded-lg overflow-hidden bg-gray-900 shadow-lg">
+        <div className="relative w-[640px] h-[480px] rounded-lg overflow-hidden bg-gray-900 shadow-lg">
           <video
             ref={videoRef}
             autoPlay
