@@ -71,57 +71,17 @@ export class RealtimeChat {
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
   private accessToken: string | null = null;
   private clientSecret: string | null = null;
-  private tokenExpiryTime: number | null = null;
 
   constructor(messageHandler: MessageHandler) {
     this.messageHandler = messageHandler;
     console.log('RealtimeChat initialized with message handler');
   }
 
-  private async refreshToken(): Promise<boolean> {
-    try {
-      console.log('Refreshing authentication token...');
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      if (!session) throw new Error('No active session');
-
-      this.accessToken = session.access_token;
-      this.tokenExpiryTime = new Date(session.expires_at || '').getTime();
-      console.log('Token refreshed successfully');
-      return true;
-    } catch (error) {
-      console.error('Error refreshing token:', error);
-      return false;
-    }
-  }
-
-  private async validateToken(): Promise<boolean> {
-    if (!this.tokenExpiryTime || !this.accessToken) {
-      console.log('No token found or token expired, refreshing...');
-      return this.refreshToken();
-    }
-
-    const currentTime = Date.now();
-    const timeUntilExpiry = this.tokenExpiryTime - currentTime;
-    const REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes
-
-    if (timeUntilExpiry < REFRESH_THRESHOLD) {
-      console.log('Token near expiry, refreshing...');
-      return this.refreshToken();
-    }
-
-    console.log('Token is valid');
-    return true;
-  }
-
   async init(persona: any) {
     try {
       console.log('Initializing chat with persona:', persona);
       
-      const isTokenValid = await this.validateToken();
-      if (!isTokenValid) throw new Error('Failed to validate token');
-
-      console.log('Requesting chat token from Supabase function...');
+      // Get chat token from Supabase function
       const { data, error } = await supabase.functions.invoke('generate-chat-token', {
         body: { 
           personaId: persona.id,
@@ -132,9 +92,6 @@ export class RealtimeChat {
             skills: persona.skills || [],
             topics: persona.topics || []
           }
-        },
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`
         }
       });
 
@@ -157,16 +114,15 @@ export class RealtimeChat {
   }
 
   private async establishWebSocketConnection() {
-    if (!this.accessToken || !this.clientSecret) {
-      console.error('Missing authentication credentials');
-      throw new Error('Missing authentication credentials');
+    if (!this.clientSecret) {
+      console.error('Missing client secret');
+      throw new Error('Missing client secret');
     }
 
     console.log('Establishing WebSocket connection...');
     
     // Create WebSocket URL with authentication parameters
     const wsUrl = new URL('wss://api.openai.com/v1/realtime');
-    wsUrl.searchParams.append('authorization', `Bearer ${this.accessToken}`);
     wsUrl.searchParams.append('client_secret', this.clientSecret);
     
     // Initialize WebSocket with the 'openai-realtime' subprotocol
@@ -215,21 +171,19 @@ export class RealtimeChat {
   }
 
   private authenticate() {
-    if (!this.socket || !this.accessToken || !this.clientSecret) {
+    if (!this.socket || !this.clientSecret) {
       console.error('Cannot authenticate: missing credentials or socket connection');
       return;
     }
 
     const authMessage = {
       type: 'auth',
-      client_secret: this.clientSecret,
-      access_token: this.accessToken
+      client_secret: this.clientSecret
     };
 
     console.log('Sending authentication message:', {
       ...authMessage,
-      client_secret: '[REDACTED]',
-      access_token: '[REDACTED]'
+      client_secret: '[REDACTED]'
     });
     
     this.socket.send(JSON.stringify(authMessage));
@@ -245,13 +199,11 @@ export class RealtimeChat {
       const message = typeof content === 'string' 
         ? { 
             type: 'text', 
-            content,
-            access_token: this.accessToken
+            content
           }
         : { 
             type: 'audio', 
-            content,
-            access_token: this.accessToken
+            content
           };
       
       this.socket.send(JSON.stringify(message));
@@ -281,8 +233,7 @@ export class RealtimeChat {
     try {
       this.socket.send(JSON.stringify({
         type: 'context',
-        context,
-        access_token: this.accessToken
+        context
       }));
     } catch (error) {
       console.error('Error updating context:', error);
