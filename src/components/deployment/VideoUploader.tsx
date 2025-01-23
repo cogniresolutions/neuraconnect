@@ -109,7 +109,12 @@ const VideoUploader = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Consent Video</label>
+          <label className="block text-sm font-medium mb-2">
+            Consent Video
+            <span className="block text-xs text-gray-500 mt-1">
+              Please record a short video confirming you have rights to use this content
+            </span>
+          </label>
           <Input
             type="file"
             accept="video/*"
