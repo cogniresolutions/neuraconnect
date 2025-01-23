@@ -30,9 +30,9 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Validate endpoint format
-    if (!azureSpeechEndpoint.match(/^https:\/\/[a-z0-9-]+\.tts\.speech\.microsoft\.com$/)) {
-      throw new Error('Invalid Azure Speech endpoint format. Expected: https://<region>.tts.speech.microsoft.com');
+    // Validate endpoint format - more lenient check
+    if (!azureSpeechEndpoint.startsWith('https://') || !azureSpeechEndpoint.includes('.speech.microsoft.com')) {
+      throw new Error('Invalid Azure Speech endpoint format. Expected: https://<region>.speech.microsoft.com');
     }
 
     // Test voices list endpoint
