@@ -220,8 +220,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       console.log('Initializing chat with persona:', persona);
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init(persona);
+      // Updated to match new RealtimeChat interface
+      chatRef.current = new RealtimeChat({
+        onMessage: handleMessage,
+        persona: persona
+      });
+      
+      await chatRef.current.connect();
       console.log('Chat initialized successfully');
     } catch (error) {
       console.error('Error initializing chat:', error);

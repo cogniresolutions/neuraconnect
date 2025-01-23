@@ -117,8 +117,13 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
       
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init(persona);
+      // Updated to match new RealtimeChat interface
+      chatRef.current = new RealtimeChat({
+        onMessage: handleMessage,
+        persona: persona
+      });
+      
+      await chatRef.current.connect();
       
       setIsConnected(true);
       console.log('WebSocket connection established successfully');
@@ -145,7 +150,9 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   const endConversation = () => {
     console.log('Ending conversation and cleaning up connections');
-    chatRef.current?.disconnect();
+    if (chatRef.current) {
+      chatRef.current.disconnect();
+    }
     stopVideo();
     setIsConnected(false);
     onSpeakingChange(false);
@@ -207,7 +214,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   useEffect(() => {
     return () => {
-      // Cleanup on component unmount
       endConversation();
     };
   }, []);
