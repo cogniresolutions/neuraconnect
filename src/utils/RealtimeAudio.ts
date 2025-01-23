@@ -98,32 +98,64 @@ export class RealtimeChat {
 
       const EPHEMERAL_KEY = response.client_secret.value;
 
-      // Create peer connection
-      this.pc = new RTCPeerConnection();
+      // Create peer connection with specific configuration
+      this.pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ]
+      });
 
-      // Set up remote audio
-      this.pc.ontrack = e => {
+      // Set up remote audio with specific event handlers
+      this.pc.ontrack = (e) => {
         console.log('Received remote track:', e.track.kind);
-        this.audioEl.srcObject = e.streams[0];
+        if (e.track.kind === 'audio') {
+          this.audioEl.srcObject = e.streams[0];
+          this.audioEl.play().catch(console.error);
+        }
       };
 
-      // Add local audio track
-      const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.pc.addTrack(ms.getTracks()[0]);
+      // Add local audio track with specific constraints
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000
+        } 
+      });
+      stream.getTracks().forEach(track => {
+        console.log('Adding local track:', track.kind);
+        this.pc.addTrack(track, stream);
+      });
 
-      // Set up data channel
-      this.dc = this.pc.createDataChannel("oai-events");
-      this.dc.addEventListener("message", (e) => {
+      // Set up data channel with specific configuration
+      this.dc = this.pc.createDataChannel("oai-events", {
+        ordered: true,
+        maxRetransmits: 3
+      });
+      
+      this.dc.onopen = () => {
+        console.log('Data channel opened');
+        this.sendSystemMessage();
+      };
+      
+      this.dc.onmessage = (e) => {
         const event = JSON.parse(e.data);
         console.log("Received event:", event);
         this.onMessage(event);
-      });
+      };
 
       // Create and set local description
-      const offer = await this.pc.createOffer();
+      console.log('Creating offer...');
+      const offer = await this.pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: false
+      });
       await this.pc.setLocalDescription(offer);
 
       // Connect to OpenAI's Realtime API
+      console.log('Connecting to OpenAI Realtime API...');
       const baseUrl = "https://api.openai.com/v1/realtime";
       const model = "gpt-4o-realtime-preview-2024-12-17";
       const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
@@ -146,9 +178,9 @@ export class RealtimeChat {
       };
       
       await this.pc.setRemoteDescription(answer);
-      console.log("WebRTC connection established");
+      console.log("WebRTC connection established successfully");
 
-      // Start recording
+      // Start recording with specific configuration
       this.recorder = new AudioRecorder((audioData) => {
         if (this.dc?.readyState === 'open') {
           this.dc.send(JSON.stringify({
@@ -158,9 +190,6 @@ export class RealtimeChat {
         }
       });
       await this.recorder.start();
-
-      // Send initial system message
-      this.sendSystemMessage();
 
     } catch (error) {
       console.error("Error initializing chat:", error);
