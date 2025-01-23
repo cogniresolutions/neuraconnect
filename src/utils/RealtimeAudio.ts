@@ -1,281 +1,148 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 
-export class AudioRecorder {
-  private stream: MediaStream | null = null;
-  private audioContext: AudioContext | null = null;
-  private processor: ScriptProcessorNode | null = null;
-  private source: MediaStreamAudioSourceNode | null = null;
+interface RealtimeAudioConfig {
+  onData?: (data: any) => void;
+  onError?: (error: Error) => void;
+  onStateChange?: (state: string) => void;
+}
 
-  constructor(private onAudioData: (audioData: Float32Array) => void) {}
+export class RealtimeAudio {
+  private peerConnection: RTCPeerConnection | null = null;
+  private dataChannel: RTCDataChannel | null = null;
+  private config: RealtimeAudioConfig;
+  private reconnectAttempts = 0;
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
 
-  async start() {
+  constructor(config: RealtimeAudioConfig) {
+    this.config = config;
+    console.log('RealtimeAudio initialized with config:', config);
+  }
+
+  async initialize() {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 24000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
+      console.log('Initializing RealtimeAudio...');
+      this.peerConnection = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' }
+        ]
       });
-      
-      this.audioContext = new AudioContext({
-        sampleRate: 24000,
-      });
-      
-      this.source = this.audioContext.createMediaStreamSource(this.stream);
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-      
-      this.processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        this.onAudioData(new Float32Array(inputData));
-      };
-      
-      this.source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+
+      this.setupPeerConnectionListeners();
+      this.setupDataChannel();
+
+      const offer = await this.peerConnection.createOffer();
+      await this.peerConnection.setLocalDescription(offer);
+      console.log('Local description set:', offer);
+
+      return offer;
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      console.error('Error initializing RealtimeAudio:', error);
+      this.handleError(error as Error);
       throw error;
     }
   }
 
-  stop() {
-    if (this.source) {
-      this.source.disconnect();
-      this.source = null;
-    }
-    if (this.processor) {
-      this.processor.disconnect();
-      this.processor = null;
-    }
-    if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
-      this.stream = null;
-    }
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
-    }
-  }
-}
+  private setupPeerConnectionListeners() {
+    if (!this.peerConnection) return;
 
-export class RealtimeChat {
-  private pc: RTCPeerConnection | null = null;
-  private dc: RTCDataChannel | null = null;
-  private audioEl: HTMLAudioElement;
-  private recorder: AudioRecorder | null = null;
-  private persona: any;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 3;
+    this.peerConnection.onicecandidate = (event) => {
+      console.log('ICE candidate:', event.candidate);
+      if (event.candidate) {
+        this.updateContext({ iceCandidate: event.candidate });
+      }
+    };
 
-  constructor(private messageCallback: (event: any) => void) {
-    this.audioEl = document.createElement("audio");
-    this.audioEl.autoplay = true;
+    this.peerConnection.onconnectionstatechange = () => {
+      const state = this.peerConnection?.connectionState;
+      console.log('Connection state changed:', state);
+      this.config.onStateChange?.(state || 'unknown');
+
+      if (state === 'failed' && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+        this.handleReconnection();
+      }
+    };
   }
 
-  async init(persona: any) {
+  private setupDataChannel() {
+    if (!this.peerConnection) return;
+
+    this.dataChannel = this.peerConnection.createDataChannel('audio');
+    console.log('Data channel created');
+
+    this.dataChannel.onmessage = (event) => {
+      console.log('Data channel message received:', event.data);
+      this.config.onData?.(event.data);
+    };
+
+    this.dataChannel.onerror = (error) => {
+      console.error('Data channel error:', error);
+      this.handleError(error);
+    };
+  }
+
+  private async updateContext(context: any) {
     try {
-      this.persona = persona;
-      console.log('Initializing chat with persona:', persona);
-      
-      const { data, error } = await supabase.functions.invoke('generate-chat-token', {
-        body: { 
-          personaId: persona.id,
-          config: {
-            name: persona.name,
-            voice: persona.voice_style,
-            personality: persona.personality,
-            skills: persona.skills,
-            topics: persona.topics
-          }
-        }
+      const { error } = await supabase.functions.invoke('realtime-chat', {
+        body: { context }
       });
 
       if (error) {
-        console.error('Error getting chat token:', error);
+        console.error('Error updating context:', error);
         throw error;
       }
-      
-      if (!data?.client_secret?.value) {
-        console.error('No client secret received:', data);
-        throw new Error('No client secret received');
-      }
-
-      console.log('Connecting to WebSocket with token');
-      await this.setupWebRTC(data.client_secret.value);
-
     } catch (error) {
-      console.error('Failed to initialize chat:', error);
-      throw error;
+      console.error('Failed to update context:', error);
+      this.handleError(error as Error);
     }
   }
 
-  updateContext(context: any) {
-    if (!this.dc || this.dc.readyState !== 'open') {
-      console.warn('Data channel not ready for context update');
-      return;
-    }
-
+  private async handleReconnection() {
+    console.log('Attempting reconnection...');
+    this.reconnectAttempts++;
     try {
-      console.log('Updating conversation context:', context);
-      this.dc.send(JSON.stringify({
-        type: 'conversation.context.update',
-        context
-      }));
+      await this.initialize();
     } catch (error) {
-      console.error('Error updating context:', error);
+      console.error('Reconnection failed:', error);
+      this.handleError(error as Error);
     }
   }
 
-  private async setupWebRTC(token: string) {
+  private handleError(error: Error) {
+    console.error('RealtimeAudio error:', error);
+    this.config.onError?.(error);
+  }
+
+  async handleAnswer(answer: RTCSessionDescriptionInit) {
     try {
-      // Create peer connection
-      this.pc = new RTCPeerConnection();
-
-      // Set up remote audio
-      this.pc.ontrack = (e) => {
-        console.log('Received remote track:', e.track.kind);
-        if (this.audioEl) {
-          this.audioEl.srcObject = e.streams[0];
-        }
-      };
-
-      // Add local audio track
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => this.pc?.addTrack(track, stream));
-
-      // Set up data channel
-      this.dc = this.pc.createDataChannel("oai-events");
-      this.dc.onmessage = (e) => {
-        try {
-          const event = JSON.parse(e.data);
-          console.log("Received event:", event);
-          this.messageCallback(event);
-        } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
-        }
-      };
-
-      // Create and set local description
-      const offer = await this.pc.createOffer();
-      await this.pc.setLocalDescription(offer);
-
-      // Connect to OpenAI's Realtime API
-      console.log('Connecting to OpenAI Realtime API');
-      const response = await fetch(`https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/sdp"
-        },
-        body: offer.sdp
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to connect to OpenAI: ${response.statusText}`);
+      if (!this.peerConnection) {
+        throw new Error('PeerConnection not initialized');
       }
-
-      const answer = {
-        type: "answer" as RTCSdpType,
-        sdp: await response.text()
-      };
-      
-      await this.pc.setRemoteDescription(answer);
-      console.log("WebRTC connection established");
-
-      // Start recording
-      this.recorder = new AudioRecorder((audioData) => {
-        if (this.dc?.readyState === 'open') {
-          this.dc.send(JSON.stringify({
-            type: 'input_audio_buffer.append',
-            audio: this.encodeAudioData(audioData)
-          }));
-        }
-      });
-      await this.recorder.start();
-
+      console.log('Setting remote description:', answer);
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (error) {
-      console.error('Error setting up WebRTC:', error);
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
-        this.reconnectAttempts++;
-        await this.setupWebRTC(token);
-      } else {
-        throw error;
-      }
+      console.error('Error handling answer:', error);
+      this.handleError(error as Error);
     }
   }
 
-  private encodeAudioData(float32Array: Float32Array): string {
-    const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-    
-    const uint8Array = new Uint8Array(int16Array.buffer);
-    let binary = '';
-    const chunkSize = 0x8000;
-    
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    
-    return btoa(binary);
-  }
-
-  sendMessage(message: any) {
-    if (!this.dc || this.dc.readyState !== 'open') {
-      console.error('Data channel not ready');
-      throw new Error('Data channel not ready');
-    }
-
+  async handleIceCandidate(candidate: RTCIceCandidateInit) {
     try {
-      if (typeof message === 'string') {
-        const event = {
-          type: 'conversation.item.create',
-          item: {
-            type: 'message',
-            role: 'user',
-            content: [
-              {
-                type: 'input_text',
-                text: message
-              }
-            ]
-          }
-        };
-        console.log('Sending text message:', event);
-        this.dc.send(JSON.stringify(event));
-      } else {
-        console.log('Sending audio data');
-        this.dc.send(JSON.stringify({
-          type: 'input_audio_buffer.append',
-          audio: message
-        }));
+      if (!this.peerConnection) {
+        throw new Error('PeerConnection not initialized');
       }
-      
-      // Request a response
-      this.dc.send(JSON.stringify({type: 'response.create'}));
+      console.log('Adding ICE candidate:', candidate);
+      await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (error) {
-      console.error('Error sending message:', error);
-      throw error;
+      console.error('Error handling ICE candidate:', error);
+      this.handleError(error as Error);
     }
   }
 
-  disconnect() {
-    console.log('Disconnecting chat');
-    this.recorder?.stop();
-    if (this.dc) {
-      this.dc.close();
-      this.dc = null;
-    }
-    if (this.pc) {
-      this.pc.close();
-      this.pc = null;
-    }
-    this.audioEl.srcObject = null;
+  close() {
+    console.log('Closing RealtimeAudio connection');
+    this.dataChannel?.close();
+    this.peerConnection?.close();
+    this.peerConnection = null;
+    this.dataChannel = null;
   }
 }
