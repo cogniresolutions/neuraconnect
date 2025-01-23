@@ -39,20 +39,19 @@ serve(async (req) => {
 
     // Step 2: Validate Azure credentials
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
+    const azureSpeechRegion = 'eastus'; // Hardcoded region as per the endpoint
 
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint
+      region: azureSpeechRegion
     });
 
-    if (!azureSpeechKey || !azureSpeechEndpoint) {
+    if (!azureSpeechKey) {
       throw new Error('Azure Speech credentials not configured');
     }
 
     // Step 3: Prepare Azure endpoint
-    const baseEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech').replace(/\/$/, '');
+    const baseEndpoint = `https://${azureSpeechRegion}.tts.speech.microsoft.com`;
     console.log('Base endpoint:', baseEndpoint);
 
     // Step 4: Test Azure connectivity
