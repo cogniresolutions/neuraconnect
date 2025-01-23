@@ -184,9 +184,23 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       await initializeAudio(stream);
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
-      console.log('Starting call with persona:', persona.id, 'and user:', user.id);
+      if (!persona?.id) {
+        throw new Error('Invalid persona configuration');
+      }
+
+      console.log('Starting call with:', {
+        personaId: persona.id,
+        userId: user.id,
+        personaConfig: {
+          name: persona.name,
+          voiceStyle: persona.voice_style,
+          modelConfig: persona.model_config
+        }
+      });
 
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
@@ -201,7 +215,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Video call function error:', error);
+        throw error;
+      }
 
       setIsCallActive(true);
       onCallStateChange(true);
@@ -248,7 +265,18 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      if (!persona?.id) {
+        throw new Error('Invalid persona configuration');
+      }
+
+      console.log('Ending call with:', {
+        personaId: persona.id,
+        userId: user.id
+      });
 
       const { error } = await supabase.functions.invoke('video-call', {
         body: { 
@@ -258,7 +286,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error ending call:', error);
+        throw error;
+      }
 
       setIsCallActive(false);
       onCallStateChange(false);
