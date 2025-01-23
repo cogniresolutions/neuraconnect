@@ -186,9 +186,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      console.log('Starting call with persona:', persona.id, 'and user:', user.id);
+
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
-          persond: user.id,
+          personaId: persona.id,
+          userId: user.id,
           action: 'start',
           personaConfig: {
             name: persona.name,
