@@ -32,6 +32,7 @@ export const PersonaForm = ({
 }: PersonaFormProps) => {
   const { toast } = useToast();
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isTestingVoice, setIsTestingVoice] = useState(false);
   const [validationResult, setValidationResult] = useState({
     isValid: true,
     issues: [] as string[],
@@ -58,11 +59,26 @@ export const PersonaForm = ({
 
   const handleTestVoice = async () => {
     try {
-      setIsSpeaking(true);
-      console.log('Starting voice test with:', { name, description, voiceStyle });
+      setIsTestingVoice(true);
+      console.log('Starting voice test...');
       
+      // First test Azure voice services connection
+      const { data: azureTest, error: azureError } = await supabase.functions.invoke('azure-voice-test');
+      
+      if (azureError) {
+        console.error('Azure test error:', azureError);
+        throw new Error('Failed to connect to Azure services');
+      }
+
+      console.log('Azure test response:', azureTest);
+
+      if (!azureTest.success) {
+        throw new Error(azureTest.error || 'Azure voice services not available');
+      }
+
+      setIsSpeaking(true);
       const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
-      console.log('Test text:', testText);
+      console.log('Synthesizing speech with text:', testText);
 
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
@@ -71,23 +87,21 @@ export const PersonaForm = ({
         }
       });
 
-      console.log('Supabase response:', { data, error });
-
       if (error) {
-        console.error('Supabase error:', error);
+        console.error('Speech synthesis error:', error);
         throw error;
       }
 
       if (!data?.audioContent) {
-        console.error('No audio content in response');
+        console.error('No audio content received');
         throw new Error('No audio content received');
       }
 
-      console.log('Creating audio element with content length:', data.audioContent.length);
+      console.log('Playing audio...');
       const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
       
       audio.onerror = (e) => {
-        console.error('Audio error:', e);
+        console.error('Audio playback error:', e);
         throw new Error('Failed to play audio');
       };
 
@@ -107,6 +121,7 @@ export const PersonaForm = ({
         variant: "destructive",
       });
     } finally {
+      setIsTestingVoice(false);
       setIsSpeaking(false);
     }
   };
@@ -160,10 +175,15 @@ export const PersonaForm = ({
           variant="outline"
           size="sm"
           onClick={handleTestVoice}
-          disabled={isSpeaking || !name || !description || !voiceStyle}
+          disabled={isTestingVoice || isSpeaking || !name || !description || !voiceStyle}
           className="w-full text-purple-400 border-purple-400/30"
         >
-          {isSpeaking ? (
+          {isTestingVoice ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Testing Voice...
+            </>
+          ) : isSpeaking ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Speaking...
