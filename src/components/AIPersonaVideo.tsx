@@ -1,117 +1,77 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import React, { useEffect, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface AIPersonaVideoProps {
-  trainingVideoUrl?: string;
-  expressionSegments?: {
-    [key: string]: Array<{ start: number; end: number; }>;
-  };
-  currentEmotion?: string;
-  isPlaying?: boolean;
-  onReady?: () => void;
+  videoUrl?: string;
+  onVideoLoad?: () => void;
+  className?: string;
 }
 
 const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
-  trainingVideoUrl,
-  expressionSegments,
-  currentEmotion = 'neutral',
-  isPlaying = false,
-  onReady
+  videoUrl,
+  onVideoLoad,
+  className = '',
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isVideoReady, setIsVideoReady] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const MAX_RETRIES = 3;
+  const [error, setError] = useState<string | null>(null);
 
-  const loadVideo = useCallback(async () => {
-    if (!trainingVideoUrl) return;
+  useEffect(() => {
+    if (!videoUrl) {
+      setError('No video URL provided');
+      setIsLoading(false);
+      return;
+    }
 
     const video = videoRef.current;
     if (!video) return;
 
-    try {
-      setIsLoading(true);
-      video.src = trainingVideoUrl;
-      await video.load();
-      
-      // Set video properties for better performance
-      video.playsInline = true;
-      video.preload = "auto";
-      video.muted = true;
-
-      // Enable hardware acceleration when available
-      video.style.transform = 'translateZ(0)';
-      
+    const handleCanPlay = () => {
+      console.log('Video can play');
       setIsVideoReady(true);
-      onReady?.();
-    } catch (error) {
-      console.error('Error loading video:', error);
-      if (retryCount < MAX_RETRIES) {
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          loadVideo();
-        }, 2000);
-      } else {
-        toast({
-          title: "Video Error",
-          description: "Failed to load persona video. Please try refreshing.",
-          variant: "destructive",
-        });
-      }
-    } finally {
       setIsLoading(false);
-    }
-  }, [trainingVideoUrl, onReady, retryCount, toast]);
-
-  useEffect(() => {
-    loadVideo();
-  }, [loadVideo]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !isVideoReady || !expressionSegments) return;
-
-    const playSegment = async () => {
-      if (isPlaying) {
-        const segments = expressionSegments[currentEmotion] || expressionSegments.neutral;
-        if (segments && segments.length > 0) {
-          const segment = segments[0];
-          video.currentTime = segment.start / 1000;
-          
-          try {
-            await video.play();
-          } catch (error) {
-            console.error('Error playing video:', error);
-            toast({
-              title: "Playback Error",
-              description: "Failed to play video segment",
-              variant: "destructive",
-            });
-          }
-        }
-      } else {
-        video.pause();
-      }
+      if (onVideoLoad) onVideoLoad();
     };
 
-    playSegment();
-  }, [isPlaying, currentEmotion, expressionSegments, isVideoReady, toast]);
+    const handleError = (e: Event) => {
+      console.error('Video loading error:', e);
+      setError('Failed to load video');
+      setIsLoading(false);
+    };
+
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('error', handleError);
+
+    // Load the video
+    video.src = videoUrl;
+    video.load();
+
+    return () => {
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('error', handleError);
+    };
+  }, [videoUrl, onVideoLoad]);
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>;
+  }
 
   return (
-    <div className="relative w-full h-full">
-      <video
-        ref={videoRef}
-        className="w-full h-full object-cover rounded-lg"
-        playsInline
-        muted
-      />
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+    <div className={`relative ${className}`}>
+      {isLoading && !isVideoReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <Loader2 className="h-8 w-8 animate-spin text-white" />
         </div>
       )}
+      <video
+        ref={videoRef}
+        className={`h-full w-full ${isVideoReady ? 'opacity-100' : 'opacity-0'}`}
+        autoPlay
+        playsInline
+        muted
+        loop
+      />
     </div>
   );
 };
