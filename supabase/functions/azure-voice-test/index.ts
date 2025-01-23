@@ -30,35 +30,12 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
+    // Parse the request body to get the text and voice
+    const { text, voice } = await req.json();
+
     // Ensure the endpoint is using tts instead of stt
     const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
     console.log('Using TTS endpoint:', ttsEndpoint);
-
-    // Test voices list endpoint
-    console.log('Testing voices list endpoint...');
-    const voicesUrl = `${ttsEndpoint}/cognitiveservices/voices/list`;
-    console.log('Voices URL:', voicesUrl);
-    
-    const voicesResponse = await fetch(voicesUrl, {
-      headers: {
-        'Ocp-Apim-Subscription-Key': azureSpeechKey,
-      },
-    });
-
-    if (!voicesResponse.ok) {
-      const errorText = await voicesResponse.text();
-      console.error('Failed to fetch voices:', {
-        status: voicesResponse.status,
-        statusText: voicesResponse.statusText,
-        headers: Object.fromEntries(voicesResponse.headers.entries()),
-        error: errorText,
-        url: voicesUrl
-      });
-      throw new Error(`Failed to fetch voices: ${voicesResponse.status} - ${errorText}`);
-    }
-
-    const voices = await voicesResponse.json();
-    console.log('Successfully retrieved voices:', voices.length);
 
     // Test text-to-speech with proper SSML
     console.log('Testing text-to-speech synthesis...');
@@ -66,7 +43,7 @@ serve(async (req) => {
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='en-US-JennyNeural'>
           <prosody rate="0%">
-            This is a test of the Azure Speech Services connection.
+            ${text}
           </prosody>
         </voice>
       </speak>
@@ -110,8 +87,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Azure Speech Services tests passed successfully',
-        voicesAvailable: voices.length,
         audioContent: base64Audio
       }),
       { 
