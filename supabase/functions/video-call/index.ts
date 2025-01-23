@@ -12,7 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const { personaId } = await req.json();
+    const { personaId, userId, action, personaConfig } = await req.json();
+    console.log('Received request:', { personaId, userId, action, personaConfig });
     
     if (!personaId) {
       throw new Error('Persona ID is required');
@@ -29,18 +30,27 @@ serve(async (req) => {
       .eq('id', personaId)
       .single();
 
-    if (personaError) throw personaError;
-    if (!persona) throw new Error('Persona not found');
+    if (personaError) {
+      console.error('Error fetching persona:', personaError);
+      throw personaError;
+    }
+    if (!persona) {
+      console.error('Persona not found');
+      throw new Error('Persona not found');
+    }
+
+    console.log('Found persona:', persona.name);
 
     // Generate a unique conversation ID
     const conversationId = crypto.randomUUID();
+    console.log('Generated conversation ID:', conversationId);
 
     // Create a new tavus session
     const { data: session, error: sessionError } = await supabase
       .from('tavus_sessions')
       .insert({
         conversation_id: conversationId,
-        user_id: persona.user_id,
+        user_id: userId,
         status: 'active',
         video_call_id: crypto.randomUUID(),
         participants: [],
@@ -50,7 +60,12 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      console.error('Error creating session:', sessionError);
+      throw sessionError;
+    }
+
+    console.log('Created new session:', session);
 
     return new Response(
       JSON.stringify({

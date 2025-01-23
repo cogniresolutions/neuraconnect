@@ -281,16 +281,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('Authentication required');
       }
 
-      if (!trainingVideo) {
-        console.error('No processed training video available');
-        toast({
-          title: "Training Video Required",
-          description: "Please upload and process a training video before starting a call.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       console.log('Starting call initialization sequence...');
 
       // Initialize microphone if not already enabled
