@@ -1,62 +1,52 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
-const AzureTest = () => {
-  const [results, setResults] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export default function AzureTest() {
+  const [testResults, setTestResults] = useState<string>('');
+  const { toast } = useToast();
 
   const runTest = async () => {
-    setLoading(true);
-    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke('test-azure');
-      if (error) throw error;
-      setResults(data.results);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to test Azure services',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setTestResults(JSON.stringify(data, null, 2));
+      
+      toast({
+        title: 'Success',
+        description: 'Azure services test completed',
+      });
+    } catch (error) {
+      console.error('Error testing Azure services:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to test Azure services',
+        variant: 'destructive',
+      });
     }
   };
 
   return (
-    <div className="space-y-4 p-4">
-      <Button onClick={runTest} disabled={loading}>
-        {loading ? 'Testing...' : 'Test Azure Services'}
+    <div className="space-y-4">
+      <Button onClick={runTest}>
+        Test Azure Services
       </Button>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {results && (
-        <div className="space-y-2">
-          {results.map((result: any, index: number) => (
-            <div
-              key={index}
-              className={`p-4 rounded-lg border ${
-                result.status === 'success'
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
-              }`}
-            >
-              <h3 className="font-medium">{result.service}</h3>
-              <p className="text-sm">
-                Status: {result.status}
-                {result.error && ` - Error: ${result.error}`}
-                {result.statusCode && ` (Code: ${result.statusCode})`}
-              </p>
-            </div>
-          ))}
-        </div>
+      
+      {testResults && (
+        <pre className="p-4 bg-gray-100 rounded-lg overflow-auto max-h-96">
+          {testResults}
+        </pre>
       )}
     </div>
   );
-};
-
-export default AzureTest;
+}
