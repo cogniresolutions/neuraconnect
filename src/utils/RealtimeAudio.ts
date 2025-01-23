@@ -111,6 +111,23 @@ export class RealtimeChat {
     }
   }
 
+  updateContext(context: any) {
+    if (!this.dc || this.dc.readyState !== 'open') {
+      console.warn('Data channel not ready for context update');
+      return;
+    }
+
+    try {
+      console.log('Updating conversation context:', context);
+      this.dc.send(JSON.stringify({
+        type: 'conversation.context.update',
+        context
+      }));
+    } catch (error) {
+      console.error('Error updating context:', error);
+    }
+  }
+
   private async setupWebRTC(token: string) {
     try {
       // Create peer connection
@@ -187,23 +204,6 @@ export class RealtimeChat {
       } else {
         throw error;
       }
-    }
-  }
-
-  updateContext(context: any) {
-    if (!this.dc || this.dc.readyState !== 'open') {
-      console.warn('Data channel not ready for context update');
-      return;
-    }
-
-    try {
-      console.log('Updating conversation context:', context);
-      this.dc.send(JSON.stringify({
-        type: 'conversation.context.update',
-        context
-      }));
-    } catch (error) {
-      console.error('Error updating context:', error);
     }
   }
 
