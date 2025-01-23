@@ -44,8 +44,6 @@ interface Persona {
 const PersonaCreator = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isWebcamActive, setIsWebcamActive] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [avatarAnimating, setAvatarAnimating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -232,36 +230,6 @@ const PersonaCreator = () => {
     }
   };
 
-  const toggleWebcam = async () => {
-    try {
-      if (!isWebcamActive) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setIsWebcamActive(true);
-        setIsAnalyzing(true);
-        setAvatarAnimating(true);
-      } else {
-        setIsWebcamActive(false);
-        setIsAnalyzing(false);
-        setAvatarAnimating(false);
-      }
-    } catch (error: any) {
-      console.error("Webcam error:", error);
-      toast({
-        title: "Webcam Error",
-        description: error.message || "Failed to access webcam",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePersonaSelect = (persona: Persona) => {
-    setSelectedPersona(persona);
-  };
-
-  const handleCallStateChange = (isActive: boolean) => {
-    setIsCallActive(isActive);
-  };
-
   const testAzureServices = async () => {
     try {
       setIsTestingAzure(true);
@@ -354,8 +322,6 @@ const PersonaCreator = () => {
           </div>
           <div className="space-y-6">
             <PersonaPreview
-              isWebcamActive={isWebcamActive}
-              toggleWebcam={toggleWebcam}
               avatarAnimating={avatarAnimating}
             />
           </div>

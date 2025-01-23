@@ -1,33 +1,27 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Phone, PhoneOff } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Loader2, PhoneOff } from "lucide-react";
 
 interface CallControlsProps {
   isCallActive: boolean;
   isLoading: boolean;
-  isRecording: boolean;
   onStartCall: () => void;
   onEndCall: () => void;
-  onStartRecording: () => void;
-  onStopRecording: () => void;
 }
 
-export const CallControls = ({
+export const CallControls: React.FC<CallControlsProps> = ({
   isCallActive,
   isLoading,
-  isRecording,
   onStartCall,
-  onEndCall,
-  onStartRecording,
-  onStopRecording,
-}: CallControlsProps) => {
+  onEndCall
+}) => {
   return (
-    <div className="flex gap-2">
+    <div className="flex justify-center gap-2">
       {!isCallActive ? (
         <Button
           onClick={onStartCall}
           disabled={isLoading}
-          className="bg-green-500 hover:bg-green-600 text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           {isLoading ? (
             <>
@@ -35,29 +29,17 @@ export const CallControls = ({
               Connecting...
             </>
           ) : (
-            <>
-              <Phone className="mr-2 h-4 w-4" />
-              Start Call
-            </>
+            "Start Call"
           )}
         </Button>
       ) : (
-        <>
-          <Button
-            onClick={isRecording ? onStopRecording : onStartRecording}
-            variant={isRecording ? "destructive" : "default"}
-            className="mr-2"
-          >
-            {isRecording ? 'Stop Recording' : 'Start Recording'}
-          </Button>
-          <Button
-            onClick={onEndCall}
-            variant="destructive"
-          >
-            <PhoneOff className="mr-2 h-4 w-4" />
-            End Call
-          </Button>
-        </>
+        <Button
+          onClick={onEndCall}
+          variant="destructive"
+        >
+          <PhoneOff className="mr-2 h-4 w-4" />
+          End Call
+        </Button>
       )}
     </div>
   );
