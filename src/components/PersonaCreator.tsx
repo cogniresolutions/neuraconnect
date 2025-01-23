@@ -48,6 +48,7 @@ const PersonaCreator = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [voiceStyle, setVoiceStyle] = useState<string>("alloy");
+  const [language, setLanguage] = useState<string>("en");
   const [isCreating, setIsCreating] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -123,7 +124,13 @@ const PersonaCreator = () => {
           description,
           voice_style: voiceStyle,
           status: 'ready',
-          user_id: session.user.id
+          user_id: session.user.id,
+          model_config: {
+            model: "gpt-4o-mini",
+            max_tokens: 800,
+            temperature: 0.7,
+            language
+          }
         })
         .select()
         .single();
@@ -136,7 +143,8 @@ const PersonaCreator = () => {
           description,
           voiceStyle,
           personality: "friendly and helpful",
-          personaId: persona.id
+          personaId: persona.id,
+          language
         }
       });
 
@@ -324,6 +332,8 @@ const PersonaCreator = () => {
               setDescription={setDescription}
               voiceStyle={voiceStyle}
               setVoiceStyle={setVoiceStyle}
+              language={language}
+              setLanguage={setLanguage}
               onSubmit={handleCreatePersona}
               isCreating={isCreating}
             />
