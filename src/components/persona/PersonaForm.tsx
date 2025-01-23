@@ -127,18 +127,18 @@ export function PersonaForm({
 
       <div className="space-y-2">
         <Label htmlFor="voice">Voice Style</Label>
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 bg-white/10 text-white border-white/20">
               <SelectValue placeholder="Select a voice style" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="alloy">Alloy (Neutral)</SelectItem>
-              <SelectItem value="echo">Echo (Male)</SelectItem>
-              <SelectItem value="fable">Fable (Male)</SelectItem>
-              <SelectItem value="onyx">Onyx (Male)</SelectItem>
-              <SelectItem value="nova">Nova (Female)</SelectItem>
-              <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
+            <SelectContent className="bg-gray-900 border border-white/20">
+              <SelectItem value="alloy" className="text-white hover:bg-white/10">Alloy (Neutral)</SelectItem>
+              <SelectItem value="echo" className="text-white hover:bg-white/10">Echo (Male)</SelectItem>
+              <SelectItem value="fable" className="text-white hover:bg-white/10">Fable (Male)</SelectItem>
+              <SelectItem value="onyx" className="text-white hover:bg-white/10">Onyx (Male)</SelectItem>
+              <SelectItem value="nova" className="text-white hover:bg-white/10">Nova (Female)</SelectItem>
+              <SelectItem value="shimmer" className="text-white hover:bg-white/10">Shimmer (Female)</SelectItem>
             </SelectContent>
           </Select>
           <VoiceTest voiceStyle={voiceStyle} />
