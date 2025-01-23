@@ -2,11 +2,9 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
@@ -30,11 +28,6 @@ export default function Auth() {
       });
     } catch (error) {
       console.error('Error:', error);
-      toast({
-        title: "Authentication Error",
-        description: "Failed to sign in with Google",
-        variant: "destructive",
-      });
     }
   };
 
