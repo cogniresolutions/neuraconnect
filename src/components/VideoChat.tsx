@@ -16,7 +16,7 @@ const VideoChat = () => {
   const [persona, setPersona] = useState<any>(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [hasTrainingVideo, setHasTrainingVideo] = useState(false);
+  const [hasTrainingVideo, setHasTrainingVideo] = useState(true); // Default to true to bypass check
 
   useEffect(() => {
     const loadPersona = async () => {
@@ -26,7 +26,6 @@ const VideoChat = () => {
       }
 
       try {
-        // First fetch the persona
         const { data: personaData, error: personaError } = await supabase
           .from('personas')
           .select('*')
@@ -45,18 +44,7 @@ const VideoChat = () => {
         }
 
         setPersona(personaData);
-
-        // Then check for processed training videos
-        const { data: videoData, error: videoError } = await supabase
-          .from('training_videos')
-          .select('*')
-          .eq('persona_id', personaId)
-          .eq('processing_status', 'completed')
-          .limit(1)
-          .maybeSingle();
-
-        if (videoError) throw videoError;
-        setHasTrainingVideo(!!videoData);
+        setHasTrainingVideo(true); // Always set to true to bypass check
 
       } catch (error: any) {
         console.error('Error loading persona:', error);
@@ -112,23 +100,13 @@ const VideoChat = () => {
         </Button>
       </div>
 
-      {!hasTrainingVideo && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTitle>Training Video Required</AlertTitle>
-          <AlertDescription>
-            This persona requires a processed training video before starting a call. 
-            Please upload and process a training video first.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {isVideoEnabled && (
           <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
             <AIVideoInterface 
               persona={persona} 
               onSpeakingChange={handleSpeakingChange}
-              disabled={!hasTrainingVideo}
+              disabled={false} // Set disabled to false to bypass training video check
             />
           </div>
         )}
