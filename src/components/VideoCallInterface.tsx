@@ -42,10 +42,35 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       // Start persona conversation
       await speakWelcomeMessage();
       await initializeChat();
+
+      // Start processing audio for chat
+      startAudioProcessing(stream);
     } catch (error) {
       console.error('Error initializing audio:', error);
       throw error;
     }
+  };
+
+  const startAudioProcessing = (stream: MediaStream) => {
+    if (!chatRef.current) return;
+
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(1024, 1, 1);
+
+    source.connect(processor);
+    processor.connect(audioContext.destination);
+
+    processor.onaudioprocess = (e) => {
+      if (chatRef.current && isCallActive) {
+        const inputData = e.inputBuffer.getChannelData(0);
+        chatRef.current.sendMessage(Array.from(inputData));
+      }
+    };
+
+    // Store references for cleanup
+    audioContextRef.current = audioContext;
+    audioSourceRef.current = source;
   };
 
   const initializeChat = async () => {
@@ -72,6 +97,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       } catch (error) {
         console.error('Error speaking response:', error);
       }
+    } else if (event.type === 'error') {
+      console.error('Chat error:', event.error);
+      toast({
+        title: "Chat Error",
+        description: event.error?.message || "An error occurred during the conversation",
+        variant: "destructive",
+      });
     }
   };
 
