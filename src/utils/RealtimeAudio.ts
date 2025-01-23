@@ -109,11 +109,8 @@ export class RealtimeChat {
     wsUrl.searchParams.append('authorization', `Bearer ${this.accessToken}`);
     wsUrl.searchParams.append('client_secret', this.clientSecret);
     
-    this.socket = new WebSocket(wsUrl.toString(), {
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`
-      }
-    });
+    // Initialize WebSocket with the 'openai-realtime' subprotocol
+    this.socket = new WebSocket(wsUrl.toString(), 'openai-realtime');
     
     this.socket.onopen = () => {
       console.log('WebSocket connection established');
@@ -166,10 +163,7 @@ export class RealtimeChat {
     const authMessage = {
       type: 'auth',
       client_secret: this.clientSecret,
-      access_token: this.accessToken,
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`
-      }
+      access_token: this.accessToken
     };
 
     console.log('Sending authentication message:', {
