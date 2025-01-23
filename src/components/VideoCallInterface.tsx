@@ -7,6 +7,16 @@ import AIPersonaVideo from './AIPersonaVideo';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -22,6 +32,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [currentEmotion, setCurrentEmotion] = useState('neutral');
   const [trainingVideo, setTrainingVideo] = useState<any>(null);
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -204,7 +215,21 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const startCall = async () => {
     try {
+      setShowConsentDialog(true);
+    } catch (error: any) {
+      console.error('Error starting call:', error);
+      toast({
+        title: "Call Error",
+        description: error.message || "Failed to start call",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConsentAccepted = async () => {
+    try {
       setIsLoading(true);
+      setShowConsentDialog(false);
       console.log('Starting call with persona:', persona);
       
       const { data: { user } } = await supabase.auth.getUser();
@@ -416,6 +441,25 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           </>
         )}
       </div>
+
+      <AlertDialog open={showConsentDialog} onOpenChange={setShowConsentDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Camera and Microphone Access</AlertDialogTitle>
+            <AlertDialogDescription>
+              To start the call, we need access to your camera and microphone. 
+              This will allow you to interact with {persona.name} in real-time. 
+              Your privacy is important to us, and this data is only used during the call.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConsentAccepted}>
+              Allow Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

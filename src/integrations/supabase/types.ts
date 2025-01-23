@@ -65,30 +65,39 @@ export type Database = {
       }
       emotion_analysis: {
         Row: {
+          analysis_timestamp: string | null
+          background_objects: Json | null
           created_at: string
           emotion_data: Json | null
           environment_context: Json | null
           environment_data: Json | null
           id: string
           persona_id: string | null
+          scene_description: string | null
           user_id: string | null
         }
         Insert: {
+          analysis_timestamp?: string | null
+          background_objects?: Json | null
           created_at?: string
           emotion_data?: Json | null
           environment_context?: Json | null
           environment_data?: Json | null
           id?: string
           persona_id?: string | null
+          scene_description?: string | null
           user_id?: string | null
         }
         Update: {
+          analysis_timestamp?: string | null
+          background_objects?: Json | null
           created_at?: string
           emotion_data?: Json | null
           environment_context?: Json | null
           environment_data?: Json | null
           id?: string
           persona_id?: string | null
+          scene_description?: string | null
           user_id?: string | null
         }
         Relationships: [
