@@ -19,6 +19,26 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+
+  const initializeAudio = async (stream: MediaStream) => {
+    try {
+      // Create audio context
+      audioContextRef.current = new AudioContext();
+      
+      // Create source from stream
+      audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+      
+      // Connect to audio output
+      audioSourceRef.current.connect(audioContextRef.current.destination);
+      
+      console.log('Audio initialized successfully');
+    } catch (error) {
+      console.error('Error initializing audio:', error);
+      throw error;
+    }
+  };
 
   const startCall = async () => {
     try {
@@ -43,6 +63,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
       }
+
+      // Initialize audio
+      await initializeAudio(stream);
 
       console.log('Invoking video-call function...');
       const { data, error } = await supabase.functions.invoke('video-call', {
@@ -82,6 +105,15 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
+      // Clean up audio context
+      if (audioSourceRef.current) {
+        audioSourceRef.current.disconnect();
+        audioSourceRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
       toast({
         title: "Call Error",
         description: error.message || "Failed to start call",
@@ -105,6 +137,16 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       if (videoRef.current) {
         videoRef.current.srcObject = null;
+      }
+
+      // Clean up audio
+      if (audioSourceRef.current) {
+        audioSourceRef.current.disconnect();
+        audioSourceRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
       }
 
       const { data: { user } } = await supabase.auth.getUser();
