@@ -13,6 +13,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Processing realtime chat request...');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       console.error('OPENAI_API_KEY is not set');
@@ -53,7 +54,7 @@ serve(async (req) => {
         voice: mappedVoice,
         instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
                       You have expertise in: ${JSON.stringify(persona.skills)}. 
-                      You should focus on discussing topics related to: ${persona.topics.join(', ')}.`
+                      You should focus on discussing topics related to: ${persona.topics?.join(', ') || 'general topics'}.`
       }),
     });
 
@@ -62,22 +63,27 @@ serve(async (req) => {
       console.error('OpenAI API error:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorText
+        error: errorText,
+        headers: Object.fromEntries(response.headers)
       });
-      throw new Error(`OpenAI API error: ${errorText}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log("Session created successfully");
+    console.log("Session created successfully:", {
+      sessionId: data.session_id,
+      expiresAt: data.expires_at
+    });
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error in realtime chat:", error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: error.stack
+      details: error.stack,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
