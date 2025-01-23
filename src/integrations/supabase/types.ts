@@ -501,8 +501,10 @@ export type Database = {
         Row: {
           consent_url: string
           created_at: string
+          expression_segments: Json | null
           id: string
           persona_id: string | null
+          processing_status: string | null
           status: string | null
           updated_at: string
           user_id: string | null
@@ -511,8 +513,10 @@ export type Database = {
         Insert: {
           consent_url: string
           created_at?: string
+          expression_segments?: Json | null
           id?: string
           persona_id?: string | null
+          processing_status?: string | null
           status?: string | null
           updated_at?: string
           user_id?: string | null
@@ -521,8 +525,10 @@ export type Database = {
         Update: {
           consent_url?: string
           created_at?: string
+          expression_segments?: Json | null
           id?: string
           persona_id?: string | null
+          processing_status?: string | null
           status?: string | null
           updated_at?: string
           user_id?: string | null

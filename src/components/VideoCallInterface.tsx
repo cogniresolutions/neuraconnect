@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Phone, PhoneOff } from 'lucide-react';
-import Avatar3D from './Avatar3D';
+import AIPersonaVideo from './AIPersonaVideo';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
@@ -20,6 +20,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentEmotion, setCurrentEmotion] = useState('neutral');
+  const [trainingVideo, setTrainingVideo] = useState<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -29,6 +31,34 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const { transcribe } = useSpeechToText();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+
+  useEffect(() => {
+    const loadTrainingVideo = async () => {
+      try {
+        const { data: videos, error } = await supabase
+          .from('training_videos')
+          .select('*')
+          .eq('persona_id', persona.id)
+          .eq('processing_status', 'completed')
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+        setTrainingVideo(videos);
+      } catch (error) {
+        console.error('Error loading training video:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load persona video",
+          variant: "destructive",
+        });
+      }
+    };
+
+    if (persona?.id) {
+      loadTrainingVideo();
+    }
+  }, [persona?.id, toast]);
 
   const startRecording = () => {
     if (!streamRef.current) return;
@@ -78,22 +108,15 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const initializeAudio = async (stream: MediaStream) => {
     try {
-      // Create audio context
       audioContextRef.current = new AudioContext();
-      
-      // Create source from stream
       audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-      
-      // Connect to audio output
       audioSourceRef.current.connect(audioContextRef.current.destination);
       
       console.log('Audio initialized successfully');
 
-      // Start persona conversation
       await speakWelcomeMessage();
       await initializeChat();
 
-      // Start processing audio for chat
       startAudioProcessing(stream);
     } catch (error) {
       console.error('Error initializing audio:', error);
@@ -114,12 +137,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     processor.onaudioprocess = (e) => {
       if (chatRef.current && isCallActive) {
         const inputData = e.inputBuffer.getChannelData(0);
-        // Convert Float32Array to number[] before sending
         chatRef.current.sendMessage(Array.from(inputData));
       }
     };
 
-    // Store references for cleanup
     audioContextRef.current = audioContext;
     audioSourceRef.current = source;
   };
@@ -141,6 +162,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     
     if (event.type === 'response.text') {
       try {
+        const emotion = event.emotion || 'neutral';
+        setCurrentEmotion(emotion);
+
         await speak(event.content, {
           voice: persona.voice_style,
           language: persona.language || 'en'
@@ -189,8 +213,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('User not authenticated');
       }
 
-      // Request media stream before creating the session
-      console.log('Requesting media stream...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: true, 
         audio: true 
@@ -202,7 +224,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         streamRef.current = stream;
       }
 
-      // Initialize audio
       await initializeAudio(stream);
 
       console.log('Invoking video-call function...');
@@ -235,22 +256,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       console.error('Error starting call:', error);
-      // Clean up stream if session creation fails
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
-      }
-      // Clean up audio context
-      if (audioSourceRef.current) {
-        audioSourceRef.current.disconnect();
-        audioSourceRef.current = null;
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
       }
       toast({
         title: "Call Error",
@@ -277,7 +288,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         videoRef.current.srcObject = null;
       }
 
-      // Clean up audio
       if (audioSourceRef.current) {
         audioSourceRef.current.disconnect();
         audioSourceRef.current = null;
@@ -287,7 +297,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         audioContextRef.current = null;
       }
 
-      // Clean up chat
       if (chatRef.current) {
         chatRef.current.disconnect();
         chatRef.current = null;
@@ -353,12 +362,18 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
               )}
             </div>
             <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
-              <Avatar3D
-                modelUrl={persona.avatar_model_url}
-                isAnimating={true}
-                emotions={persona.emotion_settings}
-                language={persona.language}
-              />
+              {trainingVideo ? (
+                <AIPersonaVideo
+                  trainingVideoUrl={trainingVideo.video_url}
+                  expressionSegments={trainingVideo.expression_segments}
+                  currentEmotion={currentEmotion}
+                  isPlaying={isCallActive}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-white">
+                  No training video available
+                </div>
+              )}
             </div>
           </>
         )}
