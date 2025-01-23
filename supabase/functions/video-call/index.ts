@@ -42,23 +42,33 @@ serve(async (req) => {
           throw new Error('Invalid persona or access denied');
         }
 
-        // Generate a unique conversation ID
+        // Generate a unique conversation ID and validate it's not null
         const conversationId = crypto.randomUUID();
+        if (!conversationId) {
+          console.error('Failed to generate conversation ID');
+          throw new Error('Failed to generate conversation ID');
+        }
         console.log('Generated conversation ID:', conversationId);
+
+        // Prepare session data with all required fields
+        const sessionData = {
+          user_id: userId,
+          conversation_id: conversationId,
+          status: 'active',
+          participants: [
+            { user_id: userId, type: 'user' },
+            { persona_id: personaId, type: 'persona', config: personaConfig }
+          ],
+          session_type: 'video_call',
+          is_active: true,
+          last_checked_at: new Date().toISOString()
+        };
+
+        console.log('Creating session with data:', sessionData);
 
         const { data: session, error: sessionError } = await supabase
           .from('tavus_sessions')
-          .insert({
-            user_id: userId,
-            conversation_id: conversationId,
-            status: 'active',
-            participants: [
-              { user_id: userId, type: 'user' },
-              { persona_id: personaId, type: 'persona', config: personaConfig }
-            ],
-            session_type: 'video_call',
-            is_active: true
-          })
+          .insert(sessionData)
           .select()
           .single();
 
