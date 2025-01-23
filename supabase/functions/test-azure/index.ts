@@ -14,7 +14,9 @@ async function testAzureCognitive() {
   }
 
   try {
-    const response = await fetch(`${endpoint}vision/v3.2/analyze`, {
+    // Ensure endpoint ends with a slash before appending the path
+    const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
+    const response = await fetch(`${baseUrl}vision/v3.2/analyze`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
@@ -45,7 +47,9 @@ async function testAzureSpeech() {
   }
 
   try {
-    const response = await fetch(endpoint, {
+    // Ensure endpoint ends with a slash before making the request
+    const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
@@ -72,7 +76,9 @@ async function testAzureVision() {
   }
 
   try {
-    const response = await fetch(`${endpoint}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`, {
+    // Ensure endpoint ends with a slash before appending the path
+    const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
+    const response = await fetch(`${baseUrl}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
