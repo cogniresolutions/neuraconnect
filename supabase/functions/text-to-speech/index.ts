@@ -20,8 +20,8 @@ serve(async (req) => {
     const { text, voice } = await req.json();
     console.log('Request payload:', { text, voice });
 
-    if (!text || !voice) {
-      throw new Error('Missing required fields: text and voice are required');
+    if (!text) {
+      throw new Error('Missing required field: text');
     }
 
     // Step 2: Get and validate Azure credentials
@@ -42,15 +42,23 @@ serve(async (req) => {
     const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
     console.log('Using TTS endpoint:', ttsEndpoint);
 
-    // Step 4: Map voice name to Azure format
-    const voiceName = `en-US-${voice}Neural`;
+    // Step 4: Map voice name to Azure format (capitalize first letter)
+    const formattedVoice = voice.charAt(0).toUpperCase() + voice.slice(1).toLowerCase();
+    const voiceName = `en-US-${formattedVoice}Neural`;
     console.log('Using voice:', voiceName);
 
-    // Step 5: Prepare SSML with proper formatting
+    // Step 5: Prepare SSML with proper formatting and XML escaping
+    const escapedText = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
     const ssml = `
 <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
   <voice name='${voiceName}'>
-    <prosody rate="0%">${text}</prosody>
+    <prosody rate="0%">${escapedText}</prosody>
   </voice>
 </speak>`.trim();
 
