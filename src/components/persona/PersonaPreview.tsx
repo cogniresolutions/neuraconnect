@@ -1,49 +1,92 @@
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, CameraOff } from "lucide-react";
+import Avatar3D from "../Avatar3D";
+import { useToast } from "@/hooks/use-toast";
 
 interface PersonaPreviewProps {
   isWebcamActive: boolean;
   toggleWebcam: () => void;
   avatarAnimating: boolean;
-  profilePictureUrl?: string | null;
 }
 
-export function PersonaPreview({ 
-  isWebcamActive, 
-  toggleWebcam, 
+export const PersonaPreview = ({
+  isWebcamActive,
+  toggleWebcam,
   avatarAnimating,
-  profilePictureUrl 
-}: PersonaPreviewProps) {
-  return (
-    <Card className="p-6 bg-white/5 border-purple-400/20">
-      <div className="aspect-video rounded-lg overflow-hidden bg-gray-900 relative">
-        {profilePictureUrl ? (
-          <img
-            src={profilePictureUrl}
-            alt="Persona Preview"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            {avatarAnimating ? (
-              <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
-            ) : (
-              <Camera className="w-8 h-8 text-gray-400" />
-            )}
-          </div>
-        )}
-      </div>
+}: PersonaPreviewProps) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { toast } = useToast();
 
-      <div className="mt-4">
-        <Button
-          onClick={toggleWebcam}
-          variant="outline"
-          className="w-full bg-purple-900/30 hover:bg-purple-900/40"
-        >
-          {isWebcamActive ? "Stop Preview" : "Start Preview"}
-        </Button>
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    const setupWebcam = async () => {
+      try {
+        if (isWebcamActive) {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            } 
+          });
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        }
+      } catch (error) {
+        console.error('Webcam error:', error);
+        toast({
+          title: "Camera Error",
+          description: error instanceof Error ? error.message : "Failed to access camera",
+          variant: "destructive",
+        });
+      }
+    };
+
+    setupWebcam();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isWebcamActive, toast]);
+
+  return (
+    <div className="space-y-4">
+      <div className="relative aspect-video rounded-lg overflow-hidden bg-black/20">
+        {isWebcamActive && (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Avatar3D isAnimating={avatarAnimating} />
+        </div>
       </div>
-    </Card>
+      <Button
+        variant="outline"
+        className="w-full bg-white/10 text-white border-purple-400/30 hover:bg-white/20"
+        onClick={toggleWebcam}
+      >
+        {isWebcamActive ? (
+          <>
+            <CameraOff className="mr-2 h-4 w-4" />
+            Disable Camera
+          </>
+        ) : (
+          <>
+            <Camera className="mr-2 h-4 w-4" />
+            Enable Camera
+          </>
+        )}
+      </Button>
+    </div>
   );
-}
+};

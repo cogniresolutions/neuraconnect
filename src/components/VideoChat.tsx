@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Video, VideoOff } from 'lucide-react';
 import AIVideoInterface from './AIVideoInterface';
 import Avatar3D from './Avatar3D';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const VideoChat = () => {
   const { personaId } = useParams();
@@ -16,7 +15,6 @@ const VideoChat = () => {
   const [persona, setPersona] = useState<any>(null);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [hasTrainingVideo, setHasTrainingVideo] = useState(true); // Default to true to bypass check
 
   useEffect(() => {
     const loadPersona = async () => {
@@ -26,14 +24,14 @@ const VideoChat = () => {
       }
 
       try {
-        const { data: personaData, error: personaError } = await supabase
+        const { data, error } = await supabase
           .from('personas')
           .select('*')
           .eq('id', personaId)
           .single();
 
-        if (personaError) throw personaError;
-        if (!personaData) {
+        if (error) throw error;
+        if (!data) {
           toast({
             title: "Error",
             description: "Persona not found",
@@ -43,9 +41,7 @@ const VideoChat = () => {
           return;
         }
 
-        setPersona(personaData);
-        setHasTrainingVideo(true); // Always set to true to bypass check
-
+        setPersona(data);
       } catch (error: any) {
         console.error('Error loading persona:', error);
         toast({
@@ -67,6 +63,7 @@ const VideoChat = () => {
 
   const handleSpeakingChange = (speaking: boolean) => {
     setIsSpeaking(speaking);
+    // Additional logic for when the speaking state changes can be added here
   };
 
   if (isLoading) {
@@ -106,7 +103,6 @@ const VideoChat = () => {
             <AIVideoInterface 
               persona={persona} 
               onSpeakingChange={handleSpeakingChange}
-              disabled={false} // Set disabled to false to bypass training video check
             />
           </div>
         )}

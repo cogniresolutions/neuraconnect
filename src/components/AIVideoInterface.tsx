@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 interface AIVideoInterfaceProps {
   persona: any;
   onSpeakingChange: (speaking: boolean) => void;
-  disabled?: boolean;
 }
 
 interface AnalysisResult {
@@ -26,11 +25,7 @@ interface AnalysisResult {
   language?: string;
 }
 
-const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ 
-  persona, 
-  onSpeakingChange,
-  disabled = false 
-}) => {
+const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeakingChange }) => {
   const { toast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,6 +50,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
     try {
       console.log('Starting video analysis...');
       
+      // Call analysis functions with enhanced emotion detection
       const [emotionResponse, environmentResponse] = await Promise.all([
         supabase.functions.invoke('analyze-emotion', {
           body: { 
@@ -121,12 +117,8 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
       
-      chatRef.current = new RealtimeChat({
-        onMessage: handleMessage,
-        persona: persona
-      });
-      
-      await chatRef.current.connect();
+      chatRef.current = new RealtimeChat(handleMessage);
+      await chatRef.current.init(persona);
       
       setIsConnected(true);
       console.log('WebSocket connection established successfully');
@@ -153,11 +145,10 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
 
   const endConversation = () => {
     console.log('Ending conversation and cleaning up connections');
-    if (chatRef.current) {
-      chatRef.current.disconnect();
-    }
+    chatRef.current?.disconnect();
     stopVideo();
     setIsConnected(false);
+    onSpeakingChange(false);
     
     if (analysisIntervalRef.current) {
       clearInterval(analysisIntervalRef.current);
@@ -172,11 +163,12 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
         streamRef.current = stream;
         setIsVideoEnabled(true);
         
+        // Start analysis interval
         analysisIntervalRef.current = setInterval(() => {
           if (videoRef.current) {
             analyzeVideo(videoRef.current);
           }
-        }, 5000);
+        }, 5000); // Analyze every 5 seconds
       }
     } catch (error: any) {
       console.error('Video error:', error);
@@ -215,6 +207,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
 
   useEffect(() => {
     return () => {
+      // Cleanup on component unmount
       endConversation();
     };
   }, []);

@@ -326,8 +326,6 @@ export type Database = {
           model_config: Json | null
           name: string
           personality: string | null
-          profile_picture_url: string | null
-          requires_training_video: boolean | null
           skills: Json | null
           status: string | null
           topics: string[] | null
@@ -347,8 +345,6 @@ export type Database = {
           model_config?: Json | null
           name: string
           personality?: string | null
-          profile_picture_url?: string | null
-          requires_training_video?: boolean | null
           skills?: Json | null
           status?: string | null
           topics?: string[] | null
@@ -368,8 +364,6 @@ export type Database = {
           model_config?: Json | null
           name?: string
           personality?: string | null
-          profile_picture_url?: string | null
-          requires_training_video?: boolean | null
           skills?: Json | null
           status?: string | null
           topics?: string[] | null

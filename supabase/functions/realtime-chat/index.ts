@@ -70,10 +70,7 @@ serve(async (req) => {
     const data = await response.json();
     console.log("Session created successfully");
 
-    return new Response(JSON.stringify({
-      websocketUrl: `wss://api.openai.com/v1/realtime/${data.session_id}`,
-      token: data.client_secret.value
-    }), {
+    return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
