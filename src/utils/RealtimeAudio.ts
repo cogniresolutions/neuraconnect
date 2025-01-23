@@ -1,148 +1,144 @@
 import { supabase } from "@/integrations/supabase/client";
 
-interface RealtimeAudioConfig {
-  onData?: (data: any) => void;
-  onError?: (error: Error) => void;
-  onStateChange?: (state: string) => void;
+interface MessageHandler {
+  (event: any): void;
 }
 
-export class RealtimeAudio {
-  private peerConnection: RTCPeerConnection | null = null;
-  private dataChannel: RTCDataChannel | null = null;
-  private config: RealtimeAudioConfig;
+export class RealtimeChat {
+  private socket: WebSocket | null = null;
+  private messageHandler: MessageHandler;
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
 
-  constructor(config: RealtimeAudioConfig) {
-    this.config = config;
-    console.log('RealtimeAudio initialized with config:', config);
+  constructor(messageHandler: MessageHandler) {
+    this.messageHandler = messageHandler;
+    console.log('RealtimeChat initialized with message handler');
   }
 
-  async initialize() {
+  async init(persona: any) {
     try {
-      console.log('Initializing RealtimeAudio...');
-      this.peerConnection = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' }
-        ]
+      console.log('Initializing chat with persona:', persona);
+      
+      // Get chat token from Supabase function
+      const { data, error } = await supabase.functions.invoke('generate-chat-token', {
+        body: { 
+          personaId: persona.id,
+          config: {
+            name: persona.name,
+            voice: persona.voice_style,
+            personality: persona.personality,
+            skills: persona.skills || [],
+            topics: persona.topics || []
+          }
+        }
       });
 
-      this.setupPeerConnectionListeners();
-      this.setupDataChannel();
+      if (error) throw error;
+      if (!data?.client_secret) throw new Error('No client secret received');
 
-      const offer = await this.peerConnection.createOffer();
-      await this.peerConnection.setLocalDescription(offer);
-      console.log('Local description set:', offer);
+      console.log('Successfully received chat token');
 
-      return offer;
+      // Initialize WebSocket connection
+      this.socket = new WebSocket('wss://api.openai.com/v1/realtime');
+      
+      this.socket.onopen = () => {
+        console.log('WebSocket connection established');
+        if (this.socket) {
+          this.socket.send(JSON.stringify({
+            type: 'auth',
+            client_secret: data.client_secret
+          }));
+        }
+      };
+
+      this.socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received WebSocket message:', data);
+          this.messageHandler(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+          this.messageHandler({
+            type: 'error',
+            error: new Error('Failed to parse WebSocket message')
+          });
+        }
+      };
+
+      this.socket.onerror = (event) => {
+        console.error('WebSocket error:', event);
+        this.messageHandler({
+          type: 'error',
+          error: new Error('WebSocket connection error')
+        });
+      };
+
+      this.socket.onclose = () => {
+        console.log('WebSocket connection closed');
+        if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+          console.log('Attempting to reconnect...');
+          this.reconnectAttempts++;
+          setTimeout(() => this.init(persona), 1000 * this.reconnectAttempts);
+        } else {
+          this.messageHandler({
+            type: 'error',
+            error: new Error('WebSocket connection closed')
+          });
+        }
+      };
+
     } catch (error) {
-      console.error('Error initializing RealtimeAudio:', error);
-      this.handleError(error as Error);
+      console.error('Error initializing chat:', error);
+      this.messageHandler({
+        type: 'error',
+        error: error instanceof Error ? error : new Error('Failed to initialize chat')
+      });
       throw error;
     }
   }
 
-  private setupPeerConnectionListeners() {
-    if (!this.peerConnection) return;
+  sendMessage(content: string | number[]) {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket not connected');
+      return;
+    }
 
-    this.peerConnection.onicecandidate = (event) => {
-      console.log('ICE candidate:', event.candidate);
-      if (event.candidate) {
-        this.updateContext({ iceCandidate: event.candidate });
-      }
-    };
-
-    this.peerConnection.onconnectionstatechange = () => {
-      const state = this.peerConnection?.connectionState;
-      console.log('Connection state changed:', state);
-      this.config.onStateChange?.(state || 'unknown');
-
-      if (state === 'failed' && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-        this.handleReconnection();
-      }
-    };
-  }
-
-  private setupDataChannel() {
-    if (!this.peerConnection) return;
-
-    this.dataChannel = this.peerConnection.createDataChannel('audio');
-    console.log('Data channel created');
-
-    this.dataChannel.onmessage = (event) => {
-      console.log('Data channel message received:', event.data);
-      this.config.onData?.(event.data);
-    };
-
-    this.dataChannel.onerror = (error) => {
-      console.error('Data channel error:', error);
-      this.handleError(error);
-    };
-  }
-
-  private async updateContext(context: any) {
     try {
-      const { error } = await supabase.functions.invoke('realtime-chat', {
-        body: { context }
+      const message = typeof content === 'string' 
+        ? { type: 'text', content }
+        : { type: 'audio', content };
+      
+      this.socket.send(JSON.stringify(message));
+    } catch (error) {
+      console.error('Error sending message:', error);
+      this.messageHandler({
+        type: 'error',
+        error: new Error('Failed to send message')
       });
-
-      if (error) {
-        console.error('Error updating context:', error);
-        throw error;
-      }
-    } catch (error) {
-      console.error('Failed to update context:', error);
-      this.handleError(error as Error);
     }
   }
 
-  private async handleReconnection() {
-    console.log('Attempting reconnection...');
-    this.reconnectAttempts++;
+  disconnect() {
+    console.log('Disconnecting WebSocket');
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
+    }
+  }
+
+  updateContext(context: any) {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket not connected');
+      return;
+    }
+
     try {
-      await this.initialize();
+      this.socket.send(JSON.stringify({
+        type: 'context',
+        context
+      }));
     } catch (error) {
-      console.error('Reconnection failed:', error);
-      this.handleError(error as Error);
+      console.error('Error updating context:', error);
     }
-  }
-
-  private handleError(error: Error) {
-    console.error('RealtimeAudio error:', error);
-    this.config.onError?.(error);
-  }
-
-  async handleAnswer(answer: RTCSessionDescriptionInit) {
-    try {
-      if (!this.peerConnection) {
-        throw new Error('PeerConnection not initialized');
-      }
-      console.log('Setting remote description:', answer);
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (error) {
-      console.error('Error handling answer:', error);
-      this.handleError(error as Error);
-    }
-  }
-
-  async handleIceCandidate(candidate: RTCIceCandidateInit) {
-    try {
-      if (!this.peerConnection) {
-        throw new Error('PeerConnection not initialized');
-      }
-      console.log('Adding ICE candidate:', candidate);
-      await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (error) {
-      console.error('Error handling ICE candidate:', error);
-      this.handleError(error as Error);
-    }
-  }
-
-  close() {
-    console.log('Closing RealtimeAudio connection');
-    this.dataChannel?.close();
-    this.peerConnection?.close();
-    this.peerConnection = null;
-    this.dataChannel = null;
   }
 }
