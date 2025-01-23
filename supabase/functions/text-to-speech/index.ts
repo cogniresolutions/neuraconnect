@@ -38,10 +38,7 @@ serve(async (req) => {
     }
 
     // Step 3: Ensure we're using the correct TTS endpoint
-    // Remove any trailing slashes and ensure we're using the TTS endpoint
-    const baseEndpoint = azureSpeechEndpoint
-      .replace(/\/$/, '')
-      .replace('stt.speech', 'tts.speech');
+    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '');
     const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
@@ -80,9 +77,6 @@ serve(async (req) => {
       body: ssml
     });
 
-    console.log('TTS response status:', response.status);
-    console.log('TTS response headers:', Object.fromEntries(response.headers.entries()));
-
     if (!response.ok) {
       const errorText = await response.text();
       console.error('TTS error:', {
@@ -99,7 +93,8 @@ serve(async (req) => {
     // Step 7: Process successful response
     console.log('Successfully received audio response');
     const arrayBuffer = await response.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64Audio = btoa(String.fromCharCode.apply(null, uint8Array));
 
     console.log('Successfully converted audio to base64, length:', base64Audio.length);
 
@@ -124,11 +119,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString(),
-        details: {
-          stack: error.stack,
-          name: error.name
-        }
+        timestamp: new Date().toISOString()
       }),
       {
         status: 400,
