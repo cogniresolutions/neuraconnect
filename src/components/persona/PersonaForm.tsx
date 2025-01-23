@@ -54,6 +54,28 @@ export function PersonaForm({
     }
   };
 
+  const handleLanguageChange = async (newLanguage: string) => {
+    setLanguage(newLanguage);
+    
+    if (personaId) {
+      try {
+        await supabase
+          .from('personas')
+          .update({
+            model_config: {
+              model: "gpt-4o-mini",
+              max_tokens: 800,
+              temperature: 0.7,
+              language: newLanguage
+            }
+          })
+          .eq('id', personaId);
+      } catch (error) {
+        console.error('Error updating language:', error);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
       <div className="space-y-2">
@@ -78,7 +100,7 @@ export function PersonaForm({
 
       <div className="space-y-2">
         <Label htmlFor="language">Language</Label>
-        <Select value={language} onValueChange={setLanguage}>
+        <Select value={language} onValueChange={handleLanguageChange}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select a language" />
           </SelectTrigger>
@@ -111,7 +133,7 @@ export function PersonaForm({
               <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
             </SelectContent>
           </Select>
-          <VoiceTest voiceStyle={voiceStyle} />
+          <VoiceTest voiceStyle={voiceStyle} language={language} />
         </div>
       </div>
 

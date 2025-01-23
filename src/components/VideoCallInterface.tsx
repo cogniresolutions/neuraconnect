@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { VideoAnalysis } from './video/VideoAnalysis';
 import { CallControls } from './video/CallControls';
@@ -18,10 +18,37 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [subtitles, setSubtitles] = useState<string>('');
+  const [translatedSubtitles, setTranslatedSubtitles] = useState<string>('');
+  const targetLanguage = persona?.model_config?.language || 'en';
+
+  const translateText = async (text: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('azure-translate', {
+        body: { text, targetLanguage }
+      });
+
+      if (error) throw error;
+      return data.translatedText;
+    } catch (error) {
+      console.error('Translation error:', error);
+      return text; // Fallback to original text
+    }
+  };
+
+  useEffect(() => {
+    const translateSubtitles = async () => {
+      if (subtitles && targetLanguage !== 'en') {
+        const translated = await translateText(subtitles);
+        setTranslatedSubtitles(translated);
+      }
+    };
+
+    translateSubtitles();
+  }, [subtitles, targetLanguage]);
 
   const handleAnalysisComplete = async (analysis: any) => {
     try {
-      // Update persona behavior based on analysis results
       const { error } = await supabase
         .from('emotion_analysis')
         .insert([{
@@ -45,7 +72,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         body: { 
           action: 'start',
           personaId: persona.id,
-          userId: (await supabase.auth.getUser()).data.user?.id
+          userId: (await supabase.auth.getUser()).data.user?.id,
+          language: targetLanguage
         }
       });
 
@@ -100,11 +128,20 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
       {isCallActive && (
-        <div className="w-full max-w-2xl aspect-video bg-black rounded-lg overflow-hidden">
-          <VideoAnalysis
-            personaId={persona.id}
-            onAnalysisComplete={handleAnalysisComplete}
-          />
+        <div className="w-full max-w-2xl space-y-4">
+          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <VideoAnalysis
+              personaId={persona.id}
+              onAnalysisComplete={handleAnalysisComplete}
+              onSpeechDetected={setSubtitles}
+            />
+          </div>
+          
+          {(subtitles || translatedSubtitles) && (
+            <div className="bg-black/80 p-4 rounded-lg text-white text-center">
+              <p className="text-lg">{translatedSubtitles || subtitles}</p>
+            </div>
+          )}
         </div>
       )}
 
