@@ -9,6 +9,7 @@ export class RealtimeChat {
   private messageHandler: MessageHandler;
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
+  private accessToken: string | null = null;
 
   constructor(messageHandler: MessageHandler) {
     this.messageHandler = messageHandler;
@@ -23,7 +24,8 @@ export class RealtimeChat {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error('No active session');
-
+      
+      this.accessToken = session.access_token;
       console.log('Session retrieved successfully:', session.user?.id);
 
       // Get chat token from Supabase function
@@ -53,11 +55,14 @@ export class RealtimeChat {
       
       this.socket.onopen = () => {
         console.log('WebSocket connection established');
-        if (this.socket) {
+        if (this.socket && this.accessToken) {
           this.socket.send(JSON.stringify({
             type: 'auth',
             client_secret: data.client_secret,
-            access_token: session.access_token // Include access token for authentication
+            access_token: this.accessToken,
+            headers: {
+              Authorization: `Bearer ${this.accessToken}`
+            }
           }));
         }
       };
@@ -116,8 +121,20 @@ export class RealtimeChat {
 
     try {
       const message = typeof content === 'string' 
-        ? { type: 'text', content }
-        : { type: 'audio', content };
+        ? { 
+            type: 'text', 
+            content,
+            headers: {
+              Authorization: `Bearer ${this.accessToken}`
+            }
+          }
+        : { 
+            type: 'audio', 
+            content,
+            headers: {
+              Authorization: `Bearer ${this.accessToken}`
+            }
+          };
       
       this.socket.send(JSON.stringify(message));
     } catch (error) {
@@ -146,7 +163,10 @@ export class RealtimeChat {
     try {
       this.socket.send(JSON.stringify({
         type: 'context',
-        context
+        context,
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`
+        }
       }));
     } catch (error) {
       console.error('Error updating context:', error);
