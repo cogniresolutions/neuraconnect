@@ -14,10 +14,13 @@ async function testAzureCognitive() {
   }
 
   try {
-    const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    console.log('Testing Cognitive Services with URL:', `${baseUrl}computervision/imageanalysis:analyze`)
+    // Extract the region from the endpoint URL
+    const region = endpoint.match(/\/\/([^.]+)\./)?.[1] || 'unknown'
+    const cognitiveEndpoint = `https://${region}.api.cognitive.microsoft.com/vision/v3.2/analyze?visualFeatures=Description`
     
-    const response = await fetch(`${baseUrl}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=Description`, {
+    console.log('Testing Cognitive Services with URL:', cognitiveEndpoint)
+    
+    const response = await fetch(cognitiveEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
