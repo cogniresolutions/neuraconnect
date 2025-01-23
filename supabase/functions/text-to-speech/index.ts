@@ -34,9 +34,16 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Test Azure connectivity first
+    // Ensure the endpoint is using tts instead of stt and remove trailing slash if present
+    const baseEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech').replace(/\/$/, '');
+    console.log('Base endpoint:', baseEndpoint);
+
+    // Test Azure connectivity first using the voices list endpoint
     console.log('Testing Azure Speech Services connectivity...');
-    const testResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/voices/list`, {
+    const voicesUrl = `${baseEndpoint}/cognitiveservices/voices/list`;
+    console.log('Testing connectivity with URL:', voicesUrl);
+    
+    const testResponse = await fetch(voicesUrl, {
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
       }
@@ -44,25 +51,25 @@ serve(async (req) => {
 
     if (!testResponse.ok) {
       const errorText = await testResponse.text();
-      console.error('Azure connectivity test failed:', {
+      const errorDetails = {
         status: testResponse.status,
         statusText: testResponse.statusText,
+        headers: Object.fromEntries(testResponse.headers.entries()),
+        endpoint: baseEndpoint,
+        voicesUrl,
         error: errorText
-      });
+      };
+      console.error('Azure connectivity test failed:', errorDetails);
       throw new Error(`Azure Speech Services not available: ${testResponse.status} - ${errorText}`);
     }
 
     console.log('Azure Speech Services connectivity test passed');
 
-    // Ensure the endpoint is using tts instead of stt
-    const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
-    console.log('Using TTS endpoint:', ttsEndpoint);
-
     // Format voice name correctly for Azure
     const voiceName = `en-US-${voice}Neural`;
     console.log('Using voice:', voiceName);
 
-    // Construct SSML with proper XML namespace - exactly matching the working implementation
+    // Construct SSML with proper XML namespace
     const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='${voiceName}'>
           <prosody rate="0%">
@@ -74,7 +81,7 @@ serve(async (req) => {
     console.log('SSML payload:', ssml);
 
     // Test text-to-speech with proper SSML
-    const ttsUrl = `${ttsEndpoint}/cognitiveservices/v1`;
+    const ttsUrl = `${baseEndpoint}/cognitiveservices/v1`;
     console.log('TTS URL:', ttsUrl);
 
     const response = await fetch(ttsUrl, {
@@ -99,7 +106,8 @@ serve(async (req) => {
         headers: Object.fromEntries(response.headers.entries()),
         error: errorText,
         url: ttsUrl,
-        ssml: ssml
+        ssml: ssml,
+        endpoint: baseEndpoint
       };
       console.error('TTS error details:', errorDetails);
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`);
@@ -131,7 +139,11 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        details: {
+          stack: error.stack,
+          name: error.name
+        }
       }),
       {
         status: 400,
