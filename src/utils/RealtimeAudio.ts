@@ -215,13 +215,18 @@ export class RealtimeChat {
     this.dc.send(JSON.stringify({type: 'response.create'}));
   }
 
-  sendMessage(audioData: Float32Array) {
+  sendMessage(audioData: number[] | Float32Array) {
     if (!this.dc || this.dc.readyState !== 'open') {
       console.error('Data channel not ready');
       return;
     }
 
-    const encodedAudio = this.encodeAudioData(audioData);
+    // Convert number[] to Float32Array if needed
+    const float32Data = audioData instanceof Float32Array 
+      ? audioData 
+      : new Float32Array(audioData);
+
+    const encodedAudio = this.encodeAudioData(float32Data);
     const message = {
       type: 'input_audio_buffer.append',
       audio: encodedAudio,

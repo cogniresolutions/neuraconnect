@@ -64,6 +64,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     processor.onaudioprocess = (e) => {
       if (chatRef.current && isCallActive) {
         const inputData = e.inputBuffer.getChannelData(0);
+        // Convert Float32Array to number[] before sending
         chatRef.current.sendMessage(Array.from(inputData));
       }
     };
