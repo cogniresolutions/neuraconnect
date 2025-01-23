@@ -12,12 +12,24 @@ export const VoiceTest = ({ voiceStyle }: VoiceTestProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const { toast } = useToast();
 
+  const getVoiceMessage = (style: string) => {
+    const voices: Record<string, string> = {
+      alloy: "Hi, I am Alloy, a neutral voice assistant",
+      echo: "Hello there, I'm Echo, a male voice assistant",
+      fable: "Greetings, I'm Fable, your male voice companion",
+      onyx: "Hi, I'm Onyx, a male voice assistant",
+      nova: "Hello, I'm Nova, a female voice assistant",
+      shimmer: "Hi there, I'm Shimmer, a female voice assistant"
+    };
+    return voices[style] || `Hello, I'm ${style}`;
+  };
+
   const testVoice = async () => {
     try {
       setIsPlaying(true);
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
-          text: "Hello! This is a test of my voice. How do I sound?",
+          text: getVoiceMessage(voiceStyle),
           voice: voiceStyle
         }
       });
@@ -30,7 +42,7 @@ export const VoiceTest = ({ voiceStyle }: VoiceTestProps) => {
         
         toast({
           title: "Voice Test",
-          description: `Testing ${voiceStyle} voice style`,
+          description: `Testing ${voiceStyle} voice`,
         });
       }
     } catch (error) {
