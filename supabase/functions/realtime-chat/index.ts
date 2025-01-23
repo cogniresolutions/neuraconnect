@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
@@ -18,67 +17,39 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not set');
     }
 
-    const { personaId, message, voice } = await req.json();
-    
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { persona } = await req.json();
+    console.log('Generating token for persona:', persona);
 
-    // Get persona details
-    const { data: persona, error: personaError } = await supabase
-      .from('personas')
-      .select('*')
-      .eq('id', personaId)
-      .single();
-
-    if (personaError || !persona) {
-      throw new Error('Persona not found');
-    }
-
-    console.log('Creating session with persona:', persona.name);
-
-    const instructions = `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
-                        You have expertise in: ${JSON.stringify(persona.skills)}. 
-                        You should focus on discussing topics related to: ${persona.topics.join(', ')}.`;
-
-    const sessionConfig = {
-      model: "gpt-4o-realtime-preview-2024-12-17",
-      voice: voice,
-      instructions: instructions,
-      session_mode: "conversation"
-    };
-
-    console.log('Session configuration:', sessionConfig);
-
-    // Create a session with OpenAI
+    // Request an ephemeral token from OpenAI
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(sessionConfig),
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: persona.voice_style || "alloy",
+        instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
+                      You have expertise in: ${JSON.stringify(persona.skills)}. 
+                      You should focus on discussing topics related to: ${persona.topics.join(', ')}.`
+      }),
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('OpenAI API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData
-      });
-      throw new Error(`OpenAI API error: ${errorData}`);
+      const errorText = await response.text();
+      console.error('OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${errorText}`);
     }
 
     const data = await response.json();
-    console.log("Session created successfully:", data);
+    console.log("Session created successfully");
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Error in realtime-chat function:", error);
+    console.error("Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
