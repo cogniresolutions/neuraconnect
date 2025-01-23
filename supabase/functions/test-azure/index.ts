@@ -14,11 +14,12 @@ async function testAzureCognitive() {
   }
 
   try {
-    // Extract the region from the endpoint URL
-    const region = endpoint.match(/\/\/([^.]+)\./)?.[1] || 'unknown'
+    // Extract the region from the endpoint URL for consistent formatting
+    const region = endpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus'
     const cognitiveEndpoint = `https://${region}.api.cognitive.microsoft.com/vision/v3.2/analyze?visualFeatures=Description`
     
     console.log('Testing Cognitive Services with URL:', cognitiveEndpoint)
+    console.log('Using key length:', key.length)
     
     const response = await fetch(cognitiveEndpoint, {
       method: 'POST',
@@ -59,13 +60,12 @@ async function testAzureSpeech() {
   }
 
   try {
-    // Format the test SSML
-    const voiceName = 'en-US-JennyNeural'
-    const ssml = `<speak version='1.0' xml:lang='en-US'><voice name='${voiceName}'>This is a test message.</voice></speak>`
+    // Use the full endpoint for speech services
+    const speechEndpoint = `${endpoint}/cognitiveservices/v1/voices/list`
+    console.log('Testing Speech Services with URL:', speechEndpoint)
+    console.log('Using key length:', key.length)
     
-    console.log('Testing Speech Services with SSML:', ssml)
-    
-    const response = await fetch(`${endpoint}/cognitiveservices/v1/voices/list`, {
+    const response = await fetch(speechEndpoint, {
       method: 'GET',
       headers: {
         'Ocp-Apim-Subscription-Key': key
@@ -101,9 +101,12 @@ async function testAzureVision() {
 
   try {
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    console.log('Testing Vision Services with URL:', `${baseUrl}computervision/imageanalysis:analyze`)
+    const visionEndpoint = `${baseUrl}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`
     
-    const response = await fetch(`${baseUrl}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`, {
+    console.log('Testing Vision Services with URL:', visionEndpoint)
+    console.log('Using key length:', key.length)
+    
+    const response = await fetch(visionEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
