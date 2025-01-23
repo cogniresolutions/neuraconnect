@@ -49,11 +49,10 @@ serve(async (req) => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
-    // Construct SSML according to Azure documentation
     const ssml = `<speak version='1.0' xml:lang='en-US' xmlns='http://www.w3.org/2001/10/synthesis'><voice name='${voiceName}'>${escapedText}</voice></speak>`;
     console.log('SSML payload:', ssml);
 
-    // Step 5: Make request to Azure TTS using the correct endpoint format
+    // Step 5: Make request to Azure TTS
     console.log('Making request to Azure TTS...');
     const ttsEndpoint = 'https://eastus.tts.speech.microsoft.com/cognitiveservices/v1';
     console.log('Using TTS endpoint:', ttsEndpoint);
