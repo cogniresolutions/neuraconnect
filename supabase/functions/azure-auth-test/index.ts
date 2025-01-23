@@ -8,6 +8,9 @@ const corsHeaders = {
 console.log('Azure Auth Test Function loaded');
 
 serve(async (req) => {
+  // Log every request
+  console.log(`Request received: ${req.method} ${req.url}`);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('Handling CORS preflight request');
@@ -20,16 +23,27 @@ serve(async (req) => {
   try {
     console.log('Starting Azure authentication test...');
 
-    const results = [];
-    
-    // Check Cognitive Services credentials
+    // Get Azure credentials
     const cognitiveKey = Deno.env.get('AZURE_COGNITIVE_KEY');
     const cognitiveEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT');
-    console.log('Checking Cognitive Services credentials:', {
+    const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
+    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
+    const visionKey = Deno.env.get('AZURE_VISION_KEY');
+    const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT');
+
+    console.log('Checking Azure credentials:', {
       hasCognitiveKey: !!cognitiveKey,
-      hasCognitiveEndpoint: !!cognitiveEndpoint
+      hasCognitiveEndpoint: !!cognitiveEndpoint,
+      hasSpeechKey: !!speechKey,
+      hasSpeechEndpoint: !!speechEndpoint,
+      hasVisionKey: !!visionKey,
+      hasVisionEndpoint: !!visionEndpoint
     });
 
+    const results = [];
+
+    // Test Cognitive Services
+    console.log('Testing Cognitive Services configuration...');
     results.push({
       service: 'Cognitive Services',
       status: cognitiveKey && cognitiveEndpoint ? 'success' : 'error',
@@ -37,14 +51,8 @@ serve(async (req) => {
         'Missing required credentials' : undefined
     });
 
-    // Check Speech Services credentials
-    const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
-    console.log('Checking Speech Services credentials:', {
-      hasSpeechKey: !!speechKey,
-      hasSpeechEndpoint: !!speechEndpoint
-    });
-
+    // Test Speech Services
+    console.log('Testing Speech Services configuration...');
     results.push({
       service: 'Speech Services',
       status: speechKey && speechEndpoint ? 'success' : 'error',
@@ -52,14 +60,8 @@ serve(async (req) => {
         'Missing required credentials' : undefined
     });
 
-    // Check Vision Services credentials
-    const visionKey = Deno.env.get('AZURE_VISION_KEY');
-    const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT');
-    console.log('Checking Vision Services credentials:', {
-      hasVisionKey: !!visionKey,
-      hasVisionEndpoint: !!visionEndpoint
-    });
-
+    // Test Vision Services
+    console.log('Testing Vision Services configuration...');
     results.push({
       service: 'Vision Services',
       status: visionKey && visionEndpoint ? 'success' : 'error',

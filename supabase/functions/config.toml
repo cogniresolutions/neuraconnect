@@ -9,5 +9,5 @@ AZURE_VISION_KEY = "AZURE_VISION_KEY"
 AZURE_VISION_ENDPOINT = "AZURE_VISION_ENDPOINT"
 
 [[functions]]
-name = "test-azure"
+name = "azure-auth-test"
 verify_jwt = false
