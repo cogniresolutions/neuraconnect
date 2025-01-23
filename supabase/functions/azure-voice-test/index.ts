@@ -37,7 +37,7 @@ serve(async (req) => {
 
     // Test voices list endpoint
     console.log('Testing voices list endpoint...');
-    const voicesUrl = `${azureSpeechEndpoint}/cognitiveservices/voices/list/v1`;
+    const voicesUrl = `${azureSpeechEndpoint}/cognitiveservices/voices/list`;
     console.log('Voices URL:', voicesUrl);
     
     const voicesResponse = await fetch(voicesUrl, {
