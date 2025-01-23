@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -19,6 +18,26 @@ serve(async (req) => {
     if (!imageData || !personaId || !userId) {
       console.error('Missing required parameters:', { hasImageData: !!imageData, hasPersonaId: !!personaId, hasUserId: !!userId });
       throw new Error('Missing required parameters');
+    }
+
+    // Check if there's an active video call session
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const { data: activeSession, error: sessionError } = await supabase
+      .from('tavus_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('persona_id', personaId)
+      .eq('is_active', true)
+      .eq('session_type', 'video_call')
+      .single();
+
+    if (sessionError || !activeSession) {
+      console.error('No active video call session found:', sessionError);
+      throw new Error('No active video call session found');
     }
 
     const azureEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT');
@@ -80,12 +99,6 @@ serve(async (req) => {
       console.log('Facial expression analysis completed:', faceData);
 
       // Store analysis results in Supabase
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-
-      console.log('Storing analysis results in database...');
       const { error: dbError } = await supabase
         .from('emotion_analysis')
         .insert({
