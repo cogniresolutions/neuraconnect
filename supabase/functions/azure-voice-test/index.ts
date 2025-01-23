@@ -19,19 +19,28 @@ serve(async (req) => {
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
+    // Validate environment variables
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
       hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint // Log the endpoint for debugging
+      endpoint: azureSpeechEndpoint
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // First test the voices list endpoint
+    // Validate endpoint format
+    if (!azureSpeechEndpoint.match(/^https:\/\/[a-z0-9-]+\.tts\.speech\.microsoft\.com$/)) {
+      throw new Error('Invalid Azure Speech endpoint format. Expected: https://<region>.tts.speech.microsoft.com');
+    }
+
+    // Test voices list endpoint
     console.log('Testing voices list endpoint...');
-    const voicesResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/voices/list/v1`, {
+    const voicesUrl = `${azureSpeechEndpoint}/cognitiveservices/voices/list/v1`;
+    console.log('Voices URL:', voicesUrl);
+    
+    const voicesResponse = await fetch(voicesUrl, {
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
       },
@@ -43,7 +52,8 @@ serve(async (req) => {
         status: voicesResponse.status,
         statusText: voicesResponse.statusText,
         headers: Object.fromEntries(voicesResponse.headers.entries()),
-        error: errorText
+        error: errorText,
+        url: voicesUrl
       });
       throw new Error(`Failed to fetch voices: ${voicesResponse.status} - ${errorText}`);
     }
@@ -51,20 +61,23 @@ serve(async (req) => {
     const voices = await voicesResponse.json();
     console.log('Successfully retrieved voices:', voices.length);
 
-    // Now test text-to-speech with a simple SSML payload
+    // Test text-to-speech with proper SSML
     console.log('Testing text-to-speech synthesis...');
     const ssml = `
-      <speak version='1.0' xml:lang='en-US'>
+      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='en-US-JennyNeural'>
-          This is a test of the Azure Speech Services connection.
+          <prosody rate="0%">
+            This is a test of the Azure Speech Services connection.
+          </prosody>
         </voice>
       </speak>
     `.trim();
 
-    console.log('Sending TTS request to:', `${azureSpeechEndpoint}/cognitiveservices/v1/synthesize`);
+    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1`;
+    console.log('TTS URL:', ttsUrl);
     console.log('SSML Payload:', ssml);
 
-    const ttsResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1/synthesize`, {
+    const ttsResponse = await fetch(ttsUrl, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
@@ -84,7 +97,8 @@ serve(async (req) => {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
         headers: Object.fromEntries(ttsResponse.headers.entries()),
-        error: errorText
+        error: errorText,
+        url: ttsUrl
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
