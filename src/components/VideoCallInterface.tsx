@@ -188,8 +188,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
-          personaId: persona.id,
-          userId: user.id,
+          persond: user.id,
           action: 'start',
           personaConfig: {
             name: persona.name,
