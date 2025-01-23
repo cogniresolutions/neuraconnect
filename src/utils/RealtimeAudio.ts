@@ -17,13 +17,14 @@ export class RealtimeChat {
 
   async connect() {
     try {
-      console.log('Connecting to chat server...');
+      console.log('Starting connection process...');
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         throw new Error('User not authenticated');
       }
 
+      console.log('Requesting WebSocket URL from realtime-chat function...');
       const { data, error } = await supabase.functions.invoke('realtime-chat', {
         body: { 
           persona: this.persona,
@@ -31,12 +32,18 @@ export class RealtimeChat {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from realtime-chat function:', error);
+        throw error;
+      }
       
-      const { websocketUrl, token } = data;
-      console.log('Connecting to WebSocket:', websocketUrl);
-      
-      this.socket = new WebSocket(websocketUrl);
+      if (!data.websocketUrl) {
+        console.error('No WebSocket URL received:', data);
+        throw new Error('Invalid response from server');
+      }
+
+      console.log('Connecting to WebSocket:', data.websocketUrl);
+      this.socket = new WebSocket(data.websocketUrl);
 
       this.socket.onopen = () => {
         console.log('WebSocket connection established');
@@ -45,11 +52,13 @@ export class RealtimeChat {
 
       this.socket.onmessage = (event) => {
         try {
+          console.log('Raw WebSocket message received:', event.data);
           const message = JSON.parse(event.data);
-          console.log('Received message:', message);
+          console.log('Parsed message:', message);
           this.onMessage(message);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('Error handling WebSocket message:', error);
+          this.onMessage({ type: 'error', error });
         }
       };
 
@@ -63,7 +72,7 @@ export class RealtimeChat {
       };
 
     } catch (error) {
-      console.error('Error connecting to chat:', error);
+      console.error('Connection error:', error);
       throw error;
     }
   }
@@ -101,6 +110,7 @@ export class RealtimeChat {
   }
 
   disconnect() {
+    console.log('Disconnecting WebSocket...');
     if (this.socket) {
       this.socket.close();
       this.socket = null;

@@ -22,7 +22,25 @@ serve(async (req) => {
     const { persona } = await req.json();
     console.log('Generating token for persona:', persona);
 
-    // Request an ephemeral token from OpenAI
+    // Map voice style to supported OpenAI voices
+    const voiceMapping: { [key: string]: string } = {
+      'Jason': 'echo',     // Male voice
+      'Jenny': 'shimmer',  // Female voice
+      'Guy': 'echo',       // Male voice
+      'Aria': 'shimmer',   // Female voice
+      'Davis': 'echo',     // Male voice
+      'Jane': 'shimmer',   // Female voice
+      'Tony': 'echo',      // Male voice
+      'Nancy': 'shimmer',  // Female voice
+      'Sara': 'shimmer',   // Female voice
+      'Brandon': 'echo'    // Male voice
+    };
+
+    // Get mapped voice or default to 'alloy'
+    const mappedVoice = voiceMapping[persona.voice_style] || 'alloy';
+    console.log('Mapped voice style:', persona.voice_style, 'to:', mappedVoice);
+
+    // Request an ephemeral token from OpenAI with detailed error logging
     console.log('Requesting ephemeral token from OpenAI...');
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -32,7 +50,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "gpt-4o-realtime-preview-2024-12-17",
-        voice: "alloy",
+        voice: mappedVoice,
         instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
                       You have expertise in: ${JSON.stringify(persona.skills)}. 
                       You should focus on discussing topics related to: ${persona.topics.join(', ')}.`
@@ -52,7 +70,6 @@ serve(async (req) => {
     const data = await response.json();
     console.log("Session created successfully");
 
-    // Return WebSocket URL for the client
     return new Response(JSON.stringify({
       websocketUrl: `wss://api.openai.com/v1/realtime/${data.session_id}`,
       token: data.client_secret.value
