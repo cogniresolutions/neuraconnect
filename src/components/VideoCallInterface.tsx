@@ -5,6 +5,7 @@ import VideoDisplay from './video/VideoDisplay';
 import CallControls from './video/CallControls';
 import AIPersonaVideo from './AIPersonaVideo';
 import { useToast } from '@/hooks/use-toast';
+import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 
 const VideoCallInterface = () => {
   const { personaId } = useParams();
@@ -15,6 +16,7 @@ const VideoCallInterface = () => {
   const [persona, setPersona] = useState<any>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
+  const { speak } = useTextToSpeech();
 
   useEffect(() => {
     if (personaId) {
@@ -52,10 +54,19 @@ const VideoCallInterface = () => {
       setLocalStream(stream);
       setIsCallActive(true);
 
-      // Show welcome message from persona
+      // Play welcome message from persona
+      const welcomeMessage = `Hello! I'm ${persona?.name || 'your AI Assistant'}. I'm here to help you with your trading questions and provide insights based on my training data.`;
+      setIsSpeaking(true);
+      
+      await speak(welcomeMessage, {
+        voice: persona?.voice_style || 'Jenny'
+      });
+      
+      setIsSpeaking(false);
+
       toast({
         title: `${persona?.name || 'AI Assistant'} joined the call`,
-        description: `Hello! I'm ${persona?.name || 'your AI Assistant'}. How can I help you today?`,
+        description: welcomeMessage,
       });
 
     } catch (error) {
