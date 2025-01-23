@@ -10,6 +10,7 @@ export class RealtimeChat {
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
   private accessToken: string | null = null;
+  private clientSecret: string | null = null;
 
   constructor(messageHandler: MessageHandler) {
     this.messageHandler = messageHandler;
@@ -41,67 +42,17 @@ export class RealtimeChat {
           }
         },
         headers: {
-          Authorization: `Bearer ${session.access_token}`
+          Authorization: `Bearer ${this.accessToken}`
         }
       });
 
       if (error) throw error;
       if (!data?.client_secret) throw new Error('No client secret received');
 
+      this.clientSecret = data.client_secret;
       console.log('Successfully received chat token');
 
-      // Initialize WebSocket connection with authentication
-      this.socket = new WebSocket('wss://api.openai.com/v1/realtime');
-      
-      this.socket.onopen = () => {
-        console.log('WebSocket connection established');
-        if (this.socket && this.accessToken) {
-          this.socket.send(JSON.stringify({
-            type: 'auth',
-            client_secret: data.client_secret,
-            access_token: this.accessToken,
-            headers: {
-              Authorization: `Bearer ${this.accessToken}`
-            }
-          }));
-        }
-      };
-
-      this.socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Received WebSocket message:', data);
-          this.messageHandler(data);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-          this.messageHandler({
-            type: 'error',
-            error: new Error('Failed to parse WebSocket message')
-          });
-        }
-      };
-
-      this.socket.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        this.messageHandler({
-          type: 'error',
-          error: new Error('WebSocket connection error')
-        });
-      };
-
-      this.socket.onclose = () => {
-        console.log('WebSocket connection closed');
-        if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-          console.log('Attempting to reconnect...');
-          this.reconnectAttempts++;
-          setTimeout(() => this.init(persona), 1000 * this.reconnectAttempts);
-        } else {
-          this.messageHandler({
-            type: 'error',
-            error: new Error('WebSocket connection closed')
-          });
-        }
-      };
+      await this.establishWebSocketConnection();
 
     } catch (error) {
       console.error('Error initializing chat:', error);
@@ -111,6 +62,75 @@ export class RealtimeChat {
       });
       throw error;
     }
+  }
+
+  private async establishWebSocketConnection() {
+    if (!this.accessToken || !this.clientSecret) {
+      throw new Error('Missing authentication credentials');
+    }
+
+    // Initialize WebSocket connection with authentication
+    this.socket = new WebSocket('wss://api.openai.com/v1/realtime');
+    
+    this.socket.onopen = () => {
+      console.log('WebSocket connection established');
+      this.authenticate();
+    };
+
+    this.socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Received WebSocket message:', data);
+        this.messageHandler(data);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+        this.messageHandler({
+          type: 'error',
+          error: new Error('Failed to parse WebSocket message')
+        });
+      }
+    };
+
+    this.socket.onerror = (event) => {
+      console.error('WebSocket error:', event);
+      this.messageHandler({
+        type: 'error',
+        error: new Error('WebSocket connection error')
+      });
+    };
+
+    this.socket.onclose = () => {
+      console.log('WebSocket connection closed');
+      if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+        console.log('Attempting to reconnect...');
+        this.reconnectAttempts++;
+        setTimeout(() => this.establishWebSocketConnection(), 1000 * Math.pow(2, this.reconnectAttempts));
+      } else {
+        this.messageHandler({
+          type: 'error',
+          error: new Error('WebSocket connection closed')
+        });
+      }
+    };
+  }
+
+  private authenticate() {
+    if (!this.socket || !this.accessToken || !this.clientSecret) {
+      console.error('Cannot authenticate: missing credentials or socket connection');
+      return;
+    }
+
+    const authMessage = {
+      type: 'auth',
+      client_secret: this.clientSecret,
+      access_token: this.accessToken,
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`
+      }
+    };
+
+    console.log('Sending authentication message:', authMessage);
+    this.socket.send(JSON.stringify(authMessage));
   }
 
   sendMessage(content: string | number[]) {
