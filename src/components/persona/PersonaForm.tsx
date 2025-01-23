@@ -12,7 +12,6 @@ import {
 import { Loader2, Upload } from "lucide-react";
 import PersonaProfilePicture from "./PersonaProfilePicture";
 import PersonaTrainingMaterials from "./PersonaTrainingMaterials";
-import { useToast } from "@/hooks/use-toast";
 
 interface PersonaFormProps {
   name: string;
@@ -24,7 +23,7 @@ interface PersonaFormProps {
   onSubmit: () => void;
   isCreating: boolean;
   personaId?: string;
-  profilePictureUrl?: string | null;
+  profilePictureUrl?: string;
   onProfilePictureUpload?: (url: string) => void;
 }
 
@@ -41,23 +40,8 @@ export function PersonaForm({
   profilePictureUrl,
   onProfilePictureUpload
 }: PersonaFormProps) {
-  const { toast } = useToast();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !description) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-    onSubmit();
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
+    <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
       {personaId && (
         <div className="space-y-4">
           <Label>Profile Picture</Label>
@@ -114,7 +98,7 @@ export function PersonaForm({
       )}
 
       <Button
-        type="submit"
+        onClick={onSubmit}
         disabled={isCreating || !name || !description}
         className="w-full"
       >
@@ -130,6 +114,6 @@ export function PersonaForm({
           </>
         )}
       </Button>
-    </form>
+    </div>
   );
 }
