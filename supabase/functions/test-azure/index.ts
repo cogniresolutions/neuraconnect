@@ -14,7 +14,6 @@ async function testAzureCognitive() {
   }
 
   try {
-    // Ensure endpoint ends with a slash before appending the path
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
     console.log('Testing Cognitive Services with URL:', `${baseUrl}vision/v3.2/analyze`)
     
@@ -33,6 +32,8 @@ async function testAzureCognitive() {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Cognitive Services error:', errorText)
+    } else {
+      console.log('Cognitive Services test successful!')
     }
 
     return {
@@ -55,11 +56,9 @@ async function testAzureSpeech() {
   }
 
   try {
-    // Use the TTS endpoint format
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
     console.log('Testing Speech Services with URL:', `${baseUrl}cognitiveservices/voices/list`)
     
-    // Test TTS endpoint by getting available voices
     const response = await fetch(`${baseUrl}cognitiveservices/voices/list`, {
       method: 'GET',
       headers: {
@@ -71,6 +70,8 @@ async function testAzureSpeech() {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Speech Services error:', errorText)
+    } else {
+      console.log('Speech Services test successful!')
     }
 
     return {
@@ -93,7 +94,6 @@ async function testAzureVision() {
   }
 
   try {
-    // Ensure endpoint ends with a slash before appending the path
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
     console.log('Testing Vision Services with URL:', `${baseUrl}computervision/imageanalysis:analyze`)
     
@@ -112,6 +112,8 @@ async function testAzureVision() {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('Vision Services error:', errorText)
+    } else {
+      console.log('Vision Services test successful!')
     }
 
     return {
@@ -126,7 +128,6 @@ async function testAzureVision() {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
