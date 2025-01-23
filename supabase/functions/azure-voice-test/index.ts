@@ -18,33 +18,63 @@ serve(async (req) => {
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
+    console.log('Checking Azure Speech credentials:', {
+      hasKey: !!azureSpeechKey,
+      hasEndpoint: !!azureSpeechEndpoint,
+      endpoint: azureSpeechEndpoint // Log the endpoint for verification
+    });
+
     if (!azureSpeechKey || !azureSpeechEndpoint) {
       console.error('Azure Speech credentials not configured');
       throw new Error('Azure Speech credentials not configured');
     }
 
-    console.log('Azure Speech credentials found, testing connection...');
+    // Test text-to-speech with a simple SSML payload
+    const ssml = `
+      <speak version='1.0' xml:lang='en-US'>
+        <voice name='en-US-JennyNeural'>
+          This is a test of the Azure Speech Services connection.
+        </voice>
+      </speak>
+    `;
 
-    // Test text-to-speech endpoint
-    const response = await fetch(`${azureSpeechEndpoint}/cognitiveservices/voices/list`, {
+    console.log('Testing Azure Speech Services with endpoint:', azureSpeechEndpoint);
+    
+    const response = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1`, {
+      method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+        'User-Agent': 'LovableAI'
       },
+      body: ssml
     });
 
+    console.log('Azure Speech Services response status:', response.status);
+
     if (!response.ok) {
-      console.error('Failed to connect to Azure Speech Services:', response.statusText);
-      throw new Error(`Failed to connect to Azure Speech Services: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Azure Speech Services error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      throw new Error(`Failed to connect to Azure Speech Services: ${response.statusText}\n${errorText}`);
     }
 
-    const voices = await response.json();
-    console.log('Successfully retrieved voices list:', voices.length, 'voices available');
+    // Convert audio buffer to base64
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+    console.log('Successfully generated audio, length:', base64Audio.length);
 
     return new Response(
-      JSON.stringify({
+      JSON.stringify({ 
         success: true,
         message: 'Azure Speech Services connection successful',
-        voicesAvailable: voices.length
+        audioContent: base64Audio 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -57,7 +87,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error.message,
+        timestamp: new Date().toISOString()
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
