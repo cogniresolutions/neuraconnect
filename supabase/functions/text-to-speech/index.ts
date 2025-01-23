@@ -13,9 +13,6 @@ serve(async (req) => {
 
   try {
     // Step 1: Validate request payload
-    console.log('Request method:', req.method);
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
-    
     let requestBody;
     try {
       requestBody = await req.json();
@@ -27,7 +24,6 @@ serve(async (req) => {
 
     const { text, voice } = requestBody;
     
-    // Validate required fields
     if (!text) {
       console.error('Missing required field: text');
       throw new Error('Text is required');
@@ -44,6 +40,7 @@ serve(async (req) => {
     console.log('Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
       region: azureSpeechRegion,
+      keyLength: azureSpeechKey?.length
     });
 
     if (!azureSpeechKey) {
@@ -59,28 +56,33 @@ serve(async (req) => {
     const voiceName = `en-US-${voice}Neural`;
     console.log('Using voice:', voiceName);
 
+    // Construct minimal valid SSML
     const ssml = `
-      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='${voiceName}'>
-          <prosody rate="0%">
-            ${text}
-          </prosody>
-        </voice>
-      </speak>
-    `.trim();
+<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+  <voice name='${voiceName}'>
+    <prosody rate="0%">${text}</prosody>
+  </voice>
+</speak>`.trim();
     
     console.log('SSML payload:', ssml);
 
     // Step 4: Make TTS request with detailed error handling
+    const headers = {
+      'Ocp-Apim-Subscription-Key': azureSpeechKey,
+      'Content-Type': 'application/ssml+xml',
+      'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+      'User-Agent': 'LovableAI'
+    };
+
+    console.log('Request headers:', {
+      ...headers,
+      'Ocp-Apim-Subscription-Key': '[REDACTED]'
+    });
+
     console.log('Making request to Azure TTS...');
     const response = await fetch(ttsEndpoint, {
       method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': azureSpeechKey,
-        'Content-Type': 'application/ssml+xml',
-        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
-        'User-Agent': 'LovableAI'
-      },
+      headers,
       body: ssml
     });
 
@@ -122,6 +124,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
+
   } catch (error) {
     console.error('Text-to-speech error:', error);
     return new Response(
