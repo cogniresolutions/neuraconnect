@@ -138,22 +138,20 @@ export class RealtimeChat {
     this.audioRecorder.stop();
   }
 
-  sendMessage(text: string) {
+  sendMessage(audioData: number[]) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.error('WebSocket is not connected');
       return;
     }
 
-    const audioChunks = this.audioRecorder.getAudioChunks();
-    console.log('Sending message with', audioChunks.length, 'audio chunks');
+    console.log('Sending audio data, length:', audioData.length);
     
     const message = {
-      type: 'message',
-      text,
-      audioChunks
+      type: 'audio',
+      data: audioData,
+      timestamp: Date.now()
     };
 
     this.ws.send(JSON.stringify(message));
-    this.audioRecorder.clearAudioChunks();
   }
 }
