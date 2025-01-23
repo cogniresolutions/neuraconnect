@@ -167,12 +167,11 @@ export class RealtimeChat {
         this.onMessage(event);
       };
 
-      // Create and set local description with specific constraints
+      // Create and set local description
       console.log('Creating offer...');
       const offer = await this.pc.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: false,
-        voiceActivityDetection: true
+        offerToReceiveVideo: false
       });
       
       await this.pc.setLocalDescription(offer);
