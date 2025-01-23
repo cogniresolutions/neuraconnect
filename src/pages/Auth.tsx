@@ -14,15 +14,9 @@ const Auth = () => {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        
+        const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // Only attempt to sign out if there's an active session
-          const { error: signOutError } = await supabase.auth.signOut();
-          if (signOutError) {
-            console.error('Error signing out:', signOutError);
-          }
+          navigate('/');
         }
       } catch (error) {
         console.error('Auth check error:', error);
