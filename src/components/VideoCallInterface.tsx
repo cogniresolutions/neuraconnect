@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import VideoDisplay from './video/VideoDisplay';
@@ -7,7 +7,11 @@ import AIPersonaVideo from './AIPersonaVideo';
 import { useToast } from '@/hooks/use-toast';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 
-const VideoCallInterface = () => {
+interface VideoCallProps {
+  onCallStateChange?: (isActive: boolean) => void;
+}
+
+const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => {
   const { personaId } = useParams();
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
@@ -15,16 +19,14 @@ const VideoCallInterface = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [persona, setPersona] = useState<any>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
   const { speak } = useTextToSpeech();
 
-  useEffect(() => {
-    if (personaId) {
-      loadPersona();
-    }
-  }, [personaId]);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 2000;
 
-  const loadPersona = async () => {
+  const loadPersona = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('personas')
@@ -38,42 +40,88 @@ const VideoCallInterface = () => {
       console.error('Error loading persona:', error);
       toast({
         title: "Error",
-        description: "Failed to load persona information",
+        description: "Failed to load persona information. Please try again.",
         variant: "destructive",
       });
     }
-  };
+  }, [personaId, toast]);
 
-  const startCall = async () => {
+  useEffect(() => {
+    if (personaId) {
+      loadPersona();
+    }
+  }, [personaId, loadPersona]);
+
+  const playWelcomeMessage = async () => {
     try {
-      setIsLoading(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-      setLocalStream(stream);
-      setIsCallActive(true);
-
-      // Play welcome message from persona
       const welcomeMessage = `Hello! I'm ${persona?.name || 'your AI Assistant'}. I'm here to help you with your trading questions and provide insights based on my training data.`;
       setIsSpeaking(true);
       
       await speak(welcomeMessage, {
         voice: persona?.voice_style || 'Jenny'
       });
-      
+    } catch (error) {
+      console.error('Error playing welcome message:', error);
+      if (retryCount < MAX_RETRIES) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          playWelcomeMessage();
+        }, RETRY_DELAY);
+      } else {
+        toast({
+          title: "Audio Error",
+          description: "Unable to play welcome message. Please check your audio settings.",
+          variant: "destructive",
+        });
+      }
+    } finally {
       setIsSpeaking(false);
+    }
+  };
+
+  const startCall = async () => {
+    try {
+      setIsLoading(true);
+      const constraints = {
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 24, max: 30 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setLocalStream(stream);
+      setIsCallActive(true);
+      onCallStateChange?.(true);
+
+      // Initialize audio context for better performance
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(1024, 1, 1);
+      
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      // Play welcome message with retry mechanism
+      await playWelcomeMessage();
 
       toast({
         title: `${persona?.name || 'AI Assistant'} joined the call`,
-        description: welcomeMessage,
+        description: "Connection established successfully",
       });
 
     } catch (error) {
       console.error('Error starting call:', error);
       toast({
         title: "Error",
-        description: "Failed to start video call",
+        description: "Failed to start video call. Please check your camera and microphone permissions.",
         variant: "destructive",
       });
     } finally {
@@ -88,6 +136,7 @@ const VideoCallInterface = () => {
     setLocalStream(null);
     setIsCallActive(false);
     setIsMuted(false);
+    onCallStateChange?.(false);
   };
 
   const toggleMute = () => {
@@ -103,10 +152,6 @@ const VideoCallInterface = () => {
         description: isMuted ? "Others can now hear you" : "Others cannot hear you",
       });
     }
-  };
-
-  const handleSpeakingChange = (speaking: boolean) => {
-    setIsSpeaking(speaking);
   };
 
   return (
