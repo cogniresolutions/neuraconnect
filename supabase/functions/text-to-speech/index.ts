@@ -38,7 +38,7 @@ serve(async (req) => {
     }
 
     // Step 3: Ensure we're using the correct TTS endpoint
-    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '');
+    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '').replace('stt.speech', 'tts.speech');
     const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
