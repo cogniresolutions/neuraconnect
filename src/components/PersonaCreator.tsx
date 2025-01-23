@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, Plus, Settings } from 'lucide-react';
-import PersonaForm from './persona/PersonaForm';
-import PersonaList from './persona/PersonaList';
+import { PersonaForm } from './persona/PersonaForm';
+import { PersonaList } from './persona/PersonaList';
 
 const PersonaCreator = () => {
   const [isCreating, setIsCreating] = useState(false);

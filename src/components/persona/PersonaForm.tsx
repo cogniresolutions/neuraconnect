@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,66 +10,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload } from "lucide-react";
-import PersonaProfilePicture from "./PersonaProfilePicture";
-import PersonaTrainingMaterials from "./PersonaTrainingMaterials";
-import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
 
 interface PersonaFormProps {
-  name: string;
-  setName: (name: string) => void;
-  description: string;
-  setDescription: (description: string) => void;
-  voiceStyle: string;
-  setVoiceStyle: (style: string) => void;
-  onSubmit: () => void;
-  isCreating: boolean;
-  personaId?: string;
-  profilePictureUrl?: string | null;
-  onProfilePictureUpload?: (url: string) => void;
+  onCancel: () => void;
+  onSuccess: () => void;
 }
 
-export function PersonaForm({
-  name,
-  setName,
-  description,
-  setDescription,
-  voiceStyle,
-  setVoiceStyle,
-  onSubmit,
-  isCreating,
-  personaId,
-  profilePictureUrl,
-  onProfilePictureUpload
-}: PersonaFormProps) {
-  const { toast } = useToast();
+export const PersonaForm = ({ onCancel, onSuccess }: PersonaFormProps) => {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [voiceStyle, setVoiceStyle] = useState('alloy');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !description) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+    setIsSubmitting(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase.from('personas').insert([
+        {
+          name,
+          description,
+          voice_style: voiceStyle,
+          user_id: user?.id,
+          status: 'ready'
+        }
+      ]);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (error) {
+      console.error('Error creating persona:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-    onSubmit();
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
-      {personaId && (
-        <div className="space-y-4">
-          <Label>Profile Picture</Label>
-          <PersonaProfilePicture
-            personaId={personaId}
-            existingUrl={profilePictureUrl}
-            onUploadComplete={onProfilePictureUpload || (() => {})}
-          />
-        </div>
-      )}
-
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <Input
@@ -76,6 +59,7 @@ export function PersonaForm({
           placeholder="Enter persona name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          className="bg-white/5 border-purple-400/30"
         />
       </div>
 
@@ -86,13 +70,14 @@ export function PersonaForm({
           placeholder="Describe your persona"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          className="bg-white/5 border-purple-400/30"
         />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="voice">Voice Style</Label>
         <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-          <SelectTrigger>
+          <SelectTrigger className="bg-white/5 border-purple-400/30">
             <SelectValue placeholder="Select a voice style" />
           </SelectTrigger>
           <SelectContent>
@@ -106,30 +91,30 @@ export function PersonaForm({
         </Select>
       </div>
 
-      {personaId && (
-        <div className="space-y-4">
-          <Label>Training Materials</Label>
-          <PersonaTrainingMaterials personaId={personaId} />
-        </div>
-      )}
-
-      <Button
-        type="submit"
-        disabled={isCreating || !name || !description}
-        className="w-full"
-      >
-        {isCreating ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Creating Persona...
-          </>
-        ) : (
-          <>
-            <Upload className="w-4 h-4 mr-2" />
-            Create Persona
-          </>
-        )}
-      </Button>
+      <div className="flex justify-end gap-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="border-purple-400/30 text-purple-400 hover:bg-purple-400/10"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={isSubmitting || !name || !description}
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating...
+            </>
+          ) : (
+            'Create Persona'
+          )}
+        </Button>
+      </div>
     </form>
   );
-}
+};
