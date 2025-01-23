@@ -12,33 +12,11 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const clearSessions = async () => {
-      try {
-        console.log('Clearing existing sessions...');
-        const { error } = await supabase.auth.signOut({ scope: 'global' });
-        if (error) {
-          console.error('Error clearing sessions:', error);
-          throw error;
-        }
-        console.log('Sessions cleared successfully');
-      } catch (error) {
-        console.error('Error in clearSessions:', error);
-        toast({
-          title: "Error",
-          description: "Failed to clear existing sessions. Please try again.",
-          variant: "destructive",
-        });
-      }
-    };
-
     const checkUser = async () => {
       try {
-        await clearSessions();
-        console.log('Checking current session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
         
-        console.log('Session check result:', session ? 'Session exists' : 'No session');
         if (session) {
           navigate('/');
         }
@@ -57,27 +35,19 @@ const Auth = () => {
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session);
-      
       if (event === 'SIGNED_IN') {
         if (session?.provider_token) {
-          console.log('Signed in with Google');
           toast({
             title: "Welcome!",
             description: `Signed in with Google as ${session.user?.email}`,
           });
         } else {
-          console.log('Signed in with email');
           toast({
             title: "Welcome!",
             description: "You have successfully signed in.",
           });
         }
         navigate('/');
-      }
-
-      if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
       }
     });
 
