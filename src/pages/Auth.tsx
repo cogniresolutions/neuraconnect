@@ -20,7 +20,7 @@ const Auth = () => {
       setSessionCheckFailed(false);
       setAuthError(null);
 
-      // Simple session check without timeout
+      console.log('Checking session...');
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -28,6 +28,7 @@ const Auth = () => {
         throw error;
       }
 
+      console.log('Session check result:', session ? 'Logged in' : 'Not logged in');
       if (session?.user) {
         navigate('/', { replace: true });
       }
@@ -36,8 +37,8 @@ const Auth = () => {
       setSessionCheckFailed(true);
       setAuthError('Failed to check authentication status');
       toast({
-        title: "Connection Error",
-        description: "Unable to connect to authentication service. Please try again.",
+        title: "Authentication Error",
+        description: "Unable to verify authentication status. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -54,6 +55,7 @@ const Auth = () => {
       console.log('Auth state changed:', event, session);
       
       if (event === 'SIGNED_IN' && session) {
+        console.log('User signed in, redirecting...');
         toast({
           title: "Welcome!",
           description: "You have successfully signed in.",
@@ -78,7 +80,7 @@ const Auth = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <p className="text-purple-200">Unable to connect to authentication service</p>
+          <p className="text-purple-200">Authentication service error</p>
           <Button 
             onClick={checkSession}
             variant="outline"
@@ -97,7 +99,7 @@ const Auth = () => {
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-          <p className="text-purple-200">Connecting to authentication service...</p>
+          <p className="text-purple-200">Initializing authentication...</p>
         </div>
       </div>
     );
