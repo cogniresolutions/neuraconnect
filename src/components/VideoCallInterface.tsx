@@ -7,6 +7,8 @@ import AIPersonaVideo from './AIPersonaVideo';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
+import { analyzeEmotionAndEnvironment } from '@/utils/emotionAnalysis';
+import { captureVideoFrame } from '@/utils/videoCapture';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +44,40 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const { transcribe } = useSpeechToText();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const analysisIntervalRef = useRef<NodeJS.Timeout>();
+  const [lastAnalysis, setLastAnalysis] = useState<any>(null);
+
+  const performAnalysis = async () => {
+    if (!videoRef.current || !streamRef.current) return;
+    
+    try {
+      const imageData = captureVideoFrame(videoRef.current);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const analysis = await analyzeEmotionAndEnvironment(
+        imageData,
+        persona.id,
+        user.id
+      );
+
+      setLastAnalysis(analysis);
+      if (analysis.emotions) {
+        const dominantEmotion = Object.entries(analysis.emotions)
+          .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0];
+        setCurrentEmotion(dominantEmotion || 'neutral');
+      }
+
+      if (chatRef.current && analysis.environment) {
+        chatRef.current.updateContext({
+          environment: analysis.environment,
+          userEmotion: currentEmotion
+        });
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+    }
+  };
 
   useEffect(() => {
     const loadTrainingVideo = async () => {
@@ -230,20 +266,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     try {
       setIsLoading(true);
       setShowConsentDialog(false);
-      console.log('Starting call with persona:', persona);
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error('No authenticated user found');
-        throw new Error('User not authenticated');
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: true, 
         audio: true 
       });
       
-      console.log('Media stream obtained:', stream.id);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
@@ -251,7 +279,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       await initializeAudio(stream);
 
-      console.log('Invoking video-call function...');
+      analysisIntervalRef.current = setInterval(performAnalysis, 5000);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
           personaId: persona.id,
@@ -265,12 +297,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
-      if (error) {
-        console.error('Error from video-call function:', error);
-        throw error;
-      }
-
-      console.log('Video call function response:', data);
+      if (error) throw error;
 
       setIsCallActive(true);
       onCallStateChange(true);
@@ -300,6 +327,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const endCall = async () => {
     try {
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current);
+      }
+
       console.log('Ending call...');
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
@@ -362,6 +393,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     return () => {
       if (isCallActive) {
         endCall();
+      }
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current);
       }
     };
   }, []);
