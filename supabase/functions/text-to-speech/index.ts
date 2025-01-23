@@ -19,7 +19,7 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    // Ensure the endpoint is using tts instead of stt
+    // Get Azure credentials
     const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace('stt.speech', 'tts.speech')?.replace(/\/$/, '')
     const subscriptionKey = Deno.env.get('AZURE_SPEECH_KEY')
     
@@ -50,7 +50,7 @@ serve(async (req) => {
     const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voiceName}'><prosody rate="0%">${escapeXml(text)}</prosody></voice></speak>`
     console.log('SSML payload:', ssml)
 
-    // Use the correct endpoint format
+    // Use the correct endpoint format for text-to-speech
     const ttsUrl = `${endpoint}/cognitiveservices/v1`
     console.log('TTS URL:', ttsUrl)
 
