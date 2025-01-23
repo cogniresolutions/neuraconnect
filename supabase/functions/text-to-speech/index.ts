@@ -29,25 +29,25 @@ serve(async (req) => {
 
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint
+      hasEndpoint: !!azureSpeechEndpoint
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Step 3: Ensure we're using the correct TTS endpoint
-    const baseUrl = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
-    const ttsEndpoint = `${baseUrl}cognitiveservices/v1`;
+    // Step 3: Construct the correct endpoint URL
+    // The endpoint should be in the format: https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
+    const endpoint = new URL(azureSpeechEndpoint);
+    const ttsEndpoint = `https://${endpoint.host}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
-    // Step 4: Map voice name to Azure format
+    // Step 4: Format voice name according to Azure standards
     const formattedVoice = voice ? voice.charAt(0).toUpperCase() + voice.slice(1).toLowerCase() : 'Jenny';
     const voiceName = `en-US-${formattedVoice}Neural`;
     console.log('Using voice:', voiceName);
 
-    // Step 5: Prepare SSML with proper formatting and XML escaping
+    // Step 5: Prepare SSML with proper XML escaping
     const escapedText = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -55,8 +55,8 @@ serve(async (req) => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
-    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voiceName}'><prosody rate="0%">${escapedText}</prosody></voice></speak>`;
-
+    // Construct SSML according to Azure documentation
+    const ssml = `<speak version='1.0' xml:lang='en-US' xmlns='http://www.w3.org/2001/10/synthesis'><voice name='${voiceName}'>${escapedText}</voice></speak>`;
     console.log('SSML payload:', ssml);
 
     // Step 6: Make request to Azure TTS
