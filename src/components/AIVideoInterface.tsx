@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface AIVideoInterfaceProps {
   persona: any;
   onSpeakingChange: (speaking: boolean) => void;
+  disabled?: boolean;
 }
 
 interface AnalysisResult {
@@ -25,7 +26,11 @@ interface AnalysisResult {
   language?: string;
 }
 
-const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeakingChange }) => {
+const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ 
+  persona, 
+  onSpeakingChange,
+  disabled = false 
+}) => {
   const { toast } = useToast();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +55,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     try {
       console.log('Starting video analysis...');
       
-      // Call analysis functions with enhanced emotion detection
       const [emotionResponse, environmentResponse] = await Promise.all([
         supabase.functions.invoke('analyze-emotion', {
           body: { 
@@ -113,6 +117,15 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   };
 
   const startConversation = async () => {
+    if (disabled) {
+      toast({
+        title: "Cannot Start Call",
+        description: "A processed training video is required before starting a call",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
@@ -154,7 +167,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     }
     stopVideo();
     setIsConnected(false);
-    onSpeakingChange(false);
     
     if (analysisIntervalRef.current) {
       clearInterval(analysisIntervalRef.current);
@@ -169,12 +181,11 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         streamRef.current = stream;
         setIsVideoEnabled(true);
         
-        // Start analysis interval
         analysisIntervalRef.current = setInterval(() => {
           if (videoRef.current) {
             analyzeVideo(videoRef.current);
           }
-        }, 5000); // Analyze every 5 seconds
+        }, 5000);
       }
     } catch (error: any) {
       console.error('Video error:', error);
@@ -240,7 +251,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         <Button
           onClick={toggleVideo}
           variant="secondary"
-          disabled={isLoading}
+          disabled={isLoading || disabled}
         >
           {isVideoEnabled ? (
             <>
@@ -257,7 +268,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         {!isConnected ? (
           <Button 
             onClick={startConversation}
-            disabled={isLoading}
+            disabled={isLoading || disabled}
             className="bg-primary hover:bg-primary/90 text-white"
           >
             {isLoading ? (
