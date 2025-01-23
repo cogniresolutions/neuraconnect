@@ -5,12 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-async function testAzureCognitive() {
-  const key = Deno.env.get('AZURE_COGNITIVE_KEY')
-  const endpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
-  
-  if (!key || !endpoint) {
-    return { service: 'Cognitive Services', status: 'failed', error: 'Missing credentials' }
+const testCognitiveServices = async (endpoint: string, key: string) => {
+  console.log('Starting Cognitive Services test...')
+  if (!endpoint || !key) {
+    console.error('Missing endpoint or key for Cognitive Services')
+    throw new Error('Missing endpoint or key')
   }
 
   try {
@@ -19,51 +18,45 @@ async function testAzureCognitive() {
     const cognitiveEndpoint = `https://${region}.api.cognitive.microsoft.com/vision/v3.2/analyze?visualFeatures=Description`
     
     console.log('Testing Cognitive Services with URL:', cognitiveEndpoint)
-    console.log('Using key length:', key.length)
+    console.log('Key provided (length):', key.length)
     
     const response = await fetch(cognitiveEndpoint, {
       method: 'POST',
       headers: {
-        'Ocp-Apim-Subscription-Key': key,
         'Content-Type': 'application/json',
+        'Ocp-Apim-Subscription-Key': key
       },
       body: JSON.stringify({
         url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
       })
     })
 
-    console.log('Cognitive Services response status:', response.status)
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Cognitive Services error:', errorText)
-    } else {
-      console.log('Cognitive Services test successful!')
-    }
+    console.log('Cognitive Services Response Status:', response.status)
+    const data = await response.json()
+    console.log('Cognitive Services Response:', JSON.stringify(data, null, 2))
 
     return {
-      service: 'Cognitive Services',
-      status: response.ok ? 'success' : 'failed',
-      statusCode: response.status
+      status: response.status,
+      data
     }
   } catch (error) {
-    console.error('Cognitive Services test error:', error)
-    return { service: 'Cognitive Services', status: 'failed', error: error.message }
+    console.error('Cognitive Services Error:', error)
+    throw error
   }
 }
 
-async function testAzureSpeech() {
-  const key = Deno.env.get('AZURE_SPEECH_KEY')
-  const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')
-  
-  if (!key || !endpoint) {
-    return { service: 'Speech Services', status: 'failed', error: 'Missing credentials' }
+const testSpeechServices = async (endpoint: string, key: string) => {
+  console.log('Starting Speech Services test...')
+  if (!endpoint || !key) {
+    console.error('Missing endpoint or key for Speech Services')
+    throw new Error('Missing endpoint or key')
   }
 
   try {
     // Use the full endpoint for speech services
     const speechEndpoint = `${endpoint}/cognitiveservices/v1/voices/list`
     console.log('Testing Speech Services with URL:', speechEndpoint)
-    console.log('Using key length:', key.length)
+    console.log('Key provided (length):', key.length)
     
     const response = await fetch(speechEndpoint, {
       method: 'GET',
@@ -72,31 +65,25 @@ async function testAzureSpeech() {
       }
     })
 
-    console.log('Speech Services response status:', response.status)
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Speech Services error:', errorText)
-    } else {
-      console.log('Speech Services test successful!')
-    }
+    console.log('Speech Services Response Status:', response.status)
+    const data = await response.json()
+    console.log('Speech Services Response:', JSON.stringify(data, null, 2))
 
     return {
-      service: 'Speech Services',
-      status: response.ok ? 'success' : 'failed',
-      statusCode: response.status
+      status: response.status,
+      data
     }
   } catch (error) {
-    console.error('Speech Services test error:', error)
-    return { service: 'Speech Services', status: 'failed', error: error.message }
+    console.error('Speech Services Error:', error)
+    throw error
   }
 }
 
-async function testAzureVision() {
-  const key = Deno.env.get('AZURE_VISION_KEY')
-  const endpoint = Deno.env.get('AZURE_VISION_ENDPOINT')
-  
-  if (!key || !endpoint) {
-    return { service: 'Vision Services', status: 'failed', error: 'Missing credentials' }
+const testVisionServices = async (endpoint: string, key: string) => {
+  console.log('Starting Vision Services test...')
+  if (!endpoint || !key) {
+    console.error('Missing endpoint or key for Vision Services')
+    throw new Error('Missing endpoint or key')
   }
 
   try {
@@ -104,75 +91,75 @@ async function testAzureVision() {
     const visionEndpoint = `${baseUrl}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`
     
     console.log('Testing Vision Services with URL:', visionEndpoint)
-    console.log('Using key length:', key.length)
+    console.log('Key provided (length):', key.length)
     
     const response = await fetch(visionEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
       })
     })
 
-    console.log('Vision Services response status:', response.status)
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Vision Services error:', errorText)
-    } else {
-      console.log('Vision Services test successful!')
-    }
+    console.log('Vision Services Response Status:', response.status)
+    const data = await response.json()
+    console.log('Vision Services Response:', JSON.stringify(data, null, 2))
 
     return {
-      service: 'Vision Services',
-      status: response.ok ? 'success' : 'failed',
-      statusCode: response.status
+      status: response.status,
+      data
     }
   } catch (error) {
-    console.error('Vision Services test error:', error)
-    return { service: 'Vision Services', status: 'failed', error: error.message }
+    console.error('Vision Services Error:', error)
+    throw error
   }
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log('Starting Azure services test...')
+    console.log('Received request to test Azure services')
+    const { endpoint, key, service } = await req.json()
     
-    const results = await Promise.all([
-      testAzureCognitive(),
-      testAzureSpeech(),
-      testAzureVision()
-    ])
+    console.log('Testing service:', service)
+    console.log('Using endpoint:', endpoint)
+    console.log('Key length:', key?.length)
 
-    console.log('Test results:', results)
+    let result
+    switch (service) {
+      case 'cognitive':
+        result = await testCognitiveServices(endpoint, key)
+        break
+      case 'speech':
+        result = await testSpeechServices(endpoint, key)
+        break
+      case 'vision':
+        result = await testVisionServices(endpoint, key)
+        break
+      default:
+        throw new Error(`Unknown service: ${service}`)
+    }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        results
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    )
+    console.log(`${service} service test completed successfully`)
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    })
   } catch (error) {
-    console.error('Test failed:', error)
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
-    )
+    console.error('Error testing Azure services:', error)
+    return new Response(JSON.stringify({
+      error: error.message,
+      details: error.toString()
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    })
   }
 })
