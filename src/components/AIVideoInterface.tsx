@@ -117,15 +117,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
   };
 
   const startConversation = async () => {
-    if (disabled) {
-      toast({
-        title: "Cannot Start Call",
-        description: "A processed training video is required before starting a call",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
@@ -251,7 +242,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
         <Button
           onClick={toggleVideo}
           variant="secondary"
-          disabled={isLoading || disabled}
+          disabled={isLoading}
         >
           {isVideoEnabled ? (
             <>
@@ -268,7 +259,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({
         {!isConnected ? (
           <Button 
             onClick={startConversation}
-            disabled={isLoading || disabled}
+            disabled={isLoading}
             className="bg-primary hover:bg-primary/90 text-white"
           >
             {isLoading ? (
