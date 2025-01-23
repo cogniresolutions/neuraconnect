@@ -39,6 +39,8 @@ interface Persona {
   };
   environment_analysis?: boolean;
   facial_expressions?: any[];
+  requires_training_video?: boolean;
+  profile_picture_url?: string | null;
 }
 
 const PersonaCreator = () => {
