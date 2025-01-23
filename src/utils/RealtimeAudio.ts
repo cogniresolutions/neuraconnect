@@ -26,16 +26,17 @@ export class RealtimeChat {
 
       const { data, error } = await supabase.functions.invoke('realtime-chat', {
         body: { 
-          action: 'connect',
-          personaId: this.persona.id,
+          persona: this.persona,
           userId: user.id
         }
       });
 
       if (error) throw error;
       
-      const wsUrl = data.websocketUrl;
-      this.socket = new WebSocket(wsUrl);
+      const { websocketUrl, token } = data;
+      console.log('Connecting to WebSocket:', websocketUrl);
+      
+      this.socket = new WebSocket(websocketUrl);
 
       this.socket.onopen = () => {
         console.log('WebSocket connection established');
@@ -45,6 +46,7 @@ export class RealtimeChat {
       this.socket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          console.log('Received message:', message);
           this.onMessage(message);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -78,6 +80,7 @@ export class RealtimeChat {
       content: `You are ${this.persona.name}. ${this.persona.personality || ''}`,
     };
 
+    console.log('Sending system message:', systemMessage);
     this.socket.send(JSON.stringify(systemMessage));
   }
 
@@ -93,6 +96,7 @@ export class RealtimeChat {
       content: text,
     };
 
+    console.log('Sending message:', message);
     this.socket.send(JSON.stringify(message));
   }
 
