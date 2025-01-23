@@ -50,7 +50,9 @@ export class AudioRecorder {
       this.processor = null;
     }
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach(track => {
+        track.stop();
+      });
       this.stream = null;
     }
     if (this.audioContext) {
@@ -98,38 +100,56 @@ export class RealtimeChat {
 
       const EPHEMERAL_KEY = response.client_secret.value;
 
-      // Create peer connection with specific configuration
+      // Create peer connection with improved ICE configuration
       this.pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-        ]
+          { urls: 'stun1.l.google.com:19302' },
+          { urls: 'stun2.l.google.com:19302' }
+        ],
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+        iceCandidatePoolSize: 10
       });
 
-      // Set up remote audio with specific event handlers
+      // Set up ICE connection monitoring
+      this.pc.oniceconnectionstatechange = () => {
+        console.log('ICE Connection State:', this.pc?.iceConnectionState);
+      };
+
+      this.pc.onicecandidate = event => {
+        console.log('ICE Candidate:', event.candidate);
+      };
+
+      // Set up remote audio with enhanced error handling
       this.pc.ontrack = (e) => {
         console.log('Received remote track:', e.track.kind);
         if (e.track.kind === 'audio') {
           this.audioEl.srcObject = e.streams[0];
-          this.audioEl.play().catch(console.error);
+          this.audioEl.play().catch(err => {
+            console.error('Error playing audio:', err);
+          });
         }
       };
 
-      // Add local audio track with specific constraints
+      // Add local audio track with optimized constraints
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000
+          sampleRate: 48000,
+          channelCount: 1
         } 
       });
+
       stream.getTracks().forEach(track => {
         console.log('Adding local track:', track.kind);
         this.pc.addTrack(track, stream);
       });
 
-      // Set up data channel with specific configuration
+      // Set up data channel with reliability settings
       this.dc = this.pc.createDataChannel("oai-events", {
         ordered: true,
         maxRetransmits: 3
@@ -137,6 +157,7 @@ export class RealtimeChat {
       
       this.dc.onopen = () => {
         console.log('Data channel opened');
+        // Send system message immediately after channel opens
         this.sendSystemMessage();
       };
       
@@ -146,13 +167,16 @@ export class RealtimeChat {
         this.onMessage(event);
       };
 
-      // Create and set local description
+      // Create and set local description with specific constraints
       console.log('Creating offer...');
       const offer = await this.pc.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: false
+        offerToReceiveVideo: false,
+        voiceActivityDetection: true
       });
+      
       await this.pc.setLocalDescription(offer);
+      console.log('Local description set:', offer.sdp);
 
       // Connect to OpenAI's Realtime API
       console.log('Connecting to OpenAI Realtime API...');
@@ -180,7 +204,7 @@ export class RealtimeChat {
       await this.pc.setRemoteDescription(answer);
       console.log("WebRTC connection established successfully");
 
-      // Start recording with specific configuration
+      // Start recording with enhanced error handling
       this.recorder = new AudioRecorder((audioData) => {
         if (this.dc?.readyState === 'open') {
           this.dc.send(JSON.stringify({
@@ -195,25 +219,6 @@ export class RealtimeChat {
       console.error("Error initializing chat:", error);
       throw error;
     }
-  }
-
-  private encodeAudioData(float32Array: Float32Array): string {
-    const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32Array[i]));
-      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-    
-    const uint8Array = new Uint8Array(int16Array.buffer);
-    let binary = '';
-    const chunkSize = 0x8000;
-    
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    
-    return btoa(binary);
   }
 
   private sendSystemMessage() {
@@ -260,6 +265,25 @@ export class RealtimeChat {
     console.log('Sending welcome message:', welcomeMessage);
     this.dc.send(JSON.stringify(welcomeMessage));
     this.dc.send(JSON.stringify({type: 'response.create'}));
+  }
+
+  private encodeAudioData(float32Array: Float32Array): string {
+    const int16Array = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    
+    const uint8Array = new Uint8Array(int16Array.buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    return btoa(binary);
   }
 
   sendMessage(text: string) {
