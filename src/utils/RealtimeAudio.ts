@@ -70,12 +70,10 @@ export class RealtimeChat {
     }
 
     // Initialize WebSocket connection
-    // We'll add authentication in the connection handshake
-    const url = new URL('wss://api.openai.com/v1/realtime');
-    url.searchParams.append('authorization', `Bearer ${this.accessToken}`);
-    url.searchParams.append('client_secret', this.clientSecret);
+    // Construct the URL with authentication parameters properly encoded
+    const wsUrl = `wss://api.openai.com/v1/realtime?auth=${encodeURIComponent(this.accessToken)}&secret=${encodeURIComponent(this.clientSecret)}`;
     
-    this.socket = new WebSocket(url.toString());
+    this.socket = new WebSocket(wsUrl);
     
     this.socket.onopen = () => {
       console.log('WebSocket connection established');
@@ -128,13 +126,10 @@ export class RealtimeChat {
     const authMessage = {
       type: 'auth',
       client_secret: this.clientSecret,
-      access_token: this.accessToken,
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`
-      }
+      access_token: this.accessToken
     };
 
-    console.log('Sending authentication message:', authMessage);
+    console.log('Sending authentication message');
     this.socket.send(JSON.stringify(authMessage));
   }
 
@@ -149,16 +144,12 @@ export class RealtimeChat {
         ? { 
             type: 'text', 
             content,
-            headers: {
-              Authorization: `Bearer ${this.accessToken}`
-            }
+            access_token: this.accessToken
           }
         : { 
             type: 'audio', 
             content,
-            headers: {
-              Authorization: `Bearer ${this.accessToken}`
-            }
+            access_token: this.accessToken
           };
       
       this.socket.send(JSON.stringify(message));
@@ -189,9 +180,7 @@ export class RealtimeChat {
       this.socket.send(JSON.stringify({
         type: 'context',
         context,
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`
-        }
+        access_token: this.accessToken
       }));
     } catch (error) {
       console.error('Error updating context:', error);
