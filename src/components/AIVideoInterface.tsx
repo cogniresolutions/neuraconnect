@@ -35,9 +35,12 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const analysisIntervalRef = useRef<NodeJS.Timeout>();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const analyzeVideo = async (videoElement: HTMLVideoElement) => {
-    const canvas = document.createElement('canvas');
+    if (!canvasRef.current) return;
+
+    const canvas = canvasRef.current;
     canvas.width = videoElement.videoWidth;
     canvas.height = videoElement.videoHeight;
     const ctx = canvas.getContext('2d');
@@ -50,7 +53,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     try {
       console.log('Starting video analysis...');
       
-      // Call analysis functions with enhanced emotion detection
+      // Call Azure Face API for emotion analysis
       const [emotionResponse, environmentResponse] = await Promise.all([
         supabase.functions.invoke('analyze-emotion', {
           body: { 
@@ -82,6 +85,19 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         environment: environmentResponse.data?.environment,
         language: persona.language || 'en'
       });
+
+      // Store analysis results in Supabase
+      const { error: dbError } = await supabase
+        .from('emotion_analysis')
+        .insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          persona_id: persona.id,
+          emotion_data: emotionResponse.data,
+          environment_data: environmentResponse.data,
+          created_at: new Date().toISOString()
+        });
+
+      if (dbError) throw dbError;
 
     } catch (error: any) {
       console.error('Analysis error:', error);
@@ -207,7 +223,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   useEffect(() => {
     return () => {
-      // Cleanup on component unmount
       endConversation();
     };
   }, []);
@@ -222,6 +237,10 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
             playsInline
             muted
             className="w-full h-full object-cover"
+          />
+          <canvas
+            ref={canvasRef}
+            className="hidden"
           />
           {lastAnalysis.emotions && (
             <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded">

@@ -16,9 +16,9 @@ serve(async (req) => {
   }
 
   try {
-    const { image_data, user_id, persona_id } = await req.json()
+    const { imageData, userId, personaId } = await req.json()
 
-    if (!image_data) {
+    if (!imageData) {
       throw new Error('No image data provided')
     }
 
@@ -30,9 +30,13 @@ serve(async (req) => {
         'Ocp-Apim-Subscription-Key': AZURE_API_KEY!,
       },
       body: JSON.stringify({
-        url: image_data
+        url: imageData
       })
     })
+
+    if (!response.ok) {
+      throw new Error(`Azure Face API error: ${await response.text()}`)
+    }
 
     const emotionData = await response.json()
     console.log('Emotion analysis result:', emotionData)
@@ -48,9 +52,10 @@ serve(async (req) => {
       .from('emotion_analysis')
       .insert([
         {
-          user_id,
-          persona_id,
-          emotion_data: emotionData
+          user_id: userId,
+          persona_id: personaId,
+          emotion_data: emotionData,
+          created_at: new Date().toISOString()
         }
       ])
 

@@ -65,30 +65,39 @@ export type Database = {
       }
       emotion_analysis: {
         Row: {
+          analysis_timestamp: string | null
+          background_objects: Json | null
           created_at: string
           emotion_data: Json | null
           environment_context: Json | null
           environment_data: Json | null
           id: string
           persona_id: string | null
+          scene_description: string | null
           user_id: string | null
         }
         Insert: {
+          analysis_timestamp?: string | null
+          background_objects?: Json | null
           created_at?: string
           emotion_data?: Json | null
           environment_context?: Json | null
           environment_data?: Json | null
           id?: string
           persona_id?: string | null
+          scene_description?: string | null
           user_id?: string | null
         }
         Update: {
+          analysis_timestamp?: string | null
+          background_objects?: Json | null
           created_at?: string
           emotion_data?: Json | null
           environment_context?: Json | null
           environment_data?: Json | null
           id?: string
           persona_id?: string | null
+          scene_description?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -326,6 +335,8 @@ export type Database = {
           model_config: Json | null
           name: string
           personality: string | null
+          profile_picture_url: string | null
+          requires_training_video: boolean | null
           skills: Json | null
           status: string | null
           topics: string[] | null
@@ -345,6 +356,8 @@ export type Database = {
           model_config?: Json | null
           name: string
           personality?: string | null
+          profile_picture_url?: string | null
+          requires_training_video?: boolean | null
           skills?: Json | null
           status?: string | null
           topics?: string[] | null
@@ -364,6 +377,8 @@ export type Database = {
           model_config?: Json | null
           name?: string
           personality?: string | null
+          profile_picture_url?: string | null
+          requires_training_video?: boolean | null
           skills?: Json | null
           status?: string | null
           topics?: string[] | null
