@@ -128,6 +128,54 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const handleTranscriptionComplete = async (transcription: string) => {
+    console.log('Transcription received:', transcription);
+    if (chatRef.current) {
+      chatRef.current.sendMessage(transcription);
+    }
+  };
+
+  const speakWelcomeMessage = async () => {
+    try {
+      const welcomeMessage = `Hello! I'm ${persona.name}. How can I assist you today?`;
+      await speak(welcomeMessage, {
+        voice: persona.voice_style,
+        language: persona.language || 'en'
+      });
+      console.log('Welcome message spoken successfully');
+    } catch (error) {
+      console.error('Error speaking welcome message:', error);
+    }
+  };
+
+  const handleAnalysisComplete = (analysis: any) => {
+    if (analysis.emotions) {
+      const dominantEmotion = Object.entries(analysis.emotions)
+        .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0];
+      setCurrentEmotion(dominantEmotion || 'neutral');
+    }
+
+    if (chatRef.current && analysis.environment) {
+      chatRef.current.updateContext({
+        environment: analysis.environment,
+        userEmotion: currentEmotion
+      });
+    }
+  };
+
+  const startCall = async () => {
+    try {
+      setShowConsentDialog(true);
+    } catch (error: any) {
+      console.error('Error starting call:', error);
+      toast({
+        title: "Call Error",
+        description: error.message || "Failed to start call",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleConsentAccepted = async () => {
     try {
       setIsLoading(true);
