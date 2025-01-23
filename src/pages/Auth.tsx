@@ -4,38 +4,56 @@ import { Auth as SupabaseAuth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
+
+  const checkSession = async () => {
+    try {
+      setIsLoading(true);
+      setSessionCheckFailed(false);
+      
+      // Add timeout to the session check
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Session check timed out')), 5000);
+      });
+
+      const sessionPromise = supabase.auth.getSession();
+      
+      const { data: { session }, error } = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]) as any;
+
+      if (error) throw error;
+      
+      if (session?.user) {
+        navigate('/', { replace: true });
+      }
+    } catch (error) {
+      console.error('Session check error:', error);
+      setSessionCheckFailed(true);
+      setAuthError('Failed to check authentication status');
+      toast({
+        title: "Authentication Error",
+        description: "Connection timed out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
 
-    // Immediately check session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (!mounted) return;
-
-      if (error) {
-        console.error('Session check error:', error);
-        setAuthError('Failed to check authentication status');
-        toast({
-          title: "Authentication Error",
-          description: "Failed to check authentication status. Please try again.",
-          variant: "destructive",
-        });
-      } else if (session?.user) {
-        navigate('/', { replace: true });
-      }
-      
-      setIsLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const handleAuthChange = (event: string, session: any) => {
       if (!mounted) return;
       
       console.log('Auth state changed:', event);
@@ -47,13 +65,37 @@ const Auth = () => {
         });
         navigate('/', { replace: true });
       }
-    });
+    };
+
+    // Initial session check
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, [navigate, toast]);
+
+  if (sessionCheckFailed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <p className="text-purple-200">Connection timed out</p>
+          <Button 
+            onClick={checkSession}
+            variant="outline"
+            className="bg-purple-500/10 border-purple-500/20 text-purple-200 hover:bg-purple-500/20"
+          >
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Retry Connection
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
