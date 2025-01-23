@@ -19,43 +19,69 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
+    const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '') // Remove trailing slash if present
+    const subscriptionKey = Deno.env.get('AZURE_SPEECH_KEY')
     
-    console.log('OpenAI credentials check:', {
-      hasKey: !!openaiKey
+    console.log('Azure credentials check:', {
+      hasEndpoint: !!endpoint,
+      hasKey: !!subscriptionKey,
+      endpoint: endpoint // Log the endpoint for debugging
     })
 
-    if (!openaiKey) {
-      console.error('OpenAI API key not found')
-      throw new Error('OpenAI API key not configured')
+    if (!endpoint || !subscriptionKey) {
+      console.error('Azure credentials not found')
+      throw new Error('Azure credentials not configured')
     }
 
-    console.log('Making request to OpenAI TTS API...')
+    // Format voice name correctly for Azure
+    const voiceName = `en-US-${voice}Neural`
+    console.log('Using voice:', voiceName)
 
-    // Make request to OpenAI TTS API
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    // Construct SSML with proper XML escaping
+    const escapedText = text.replace(/[&<>"']/g, (char) => {
+      const entities: { [key: string]: string } = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&apos;'
+      }
+      return entities[char]
+    })
+
+    const ssml = `<speak version='1.0' xml:lang='en-US'>
+      <voice name='${voiceName}'>
+        ${escapedText}
+      </voice>
+    </speak>`
+
+    console.log('SSML payload:', ssml)
+
+    // Make request to Azure TTS API with the correct endpoint
+    const ttsEndpoint = `${endpoint}/cognitiveservices/v1/synthesize/text-to-speech`
+    console.log('Making request to endpoint:', ttsEndpoint)
+
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json'
+        'Ocp-Apim-Subscription-Key': subscriptionKey,
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+        'User-Agent': 'LovableAI'
       },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: text,
-        voice: voice.toLowerCase(),
-        response_format: 'mp3'
-      })
+      body: ssml
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('OpenAI TTS Error Response:', {
+      console.error('Azure TTS Error Response:', {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
+        endpoint: ttsEndpoint,
         headers: Object.fromEntries(response.headers.entries())
       })
-      throw new Error(`OpenAI TTS Error: ${response.status} - ${errorText}`)
+      throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
     }
 
     console.log('Successfully received audio response')
