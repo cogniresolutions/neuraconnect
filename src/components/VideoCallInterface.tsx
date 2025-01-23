@@ -24,6 +24,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [trainingVideo, setTrainingVideo] = useState<any>(null);
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
+  const [isInitializingDevices, setIsInitializingDevices] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -58,103 +59,110 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     if (persona?.id) {
       loadTrainingVideo();
     }
+
+    // Cleanup function
+    return () => {
+      cleanupMedia();
+    };
   }, [persona?.id, toast]);
 
-  const toggleCamera = async () => {
+  const initializeDevice = async (type: 'camera' | 'microphone') => {
+    setIsInitializingDevices(true);
     try {
-      if (isCameraEnabled) {
-        if (streamRef.current) {
-          streamRef.current.getVideoTracks().forEach(track => track.stop());
-          setIsCameraEnabled(false);
-        }
-      } else {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const constraints = {
+        video: type === 'camera',
+        audio: type === 'microphone'
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      if (type === 'camera') {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
           setIsCameraEnabled(true);
         }
+      } else {
+        streamRef.current = stream;
+        setIsMicEnabled(true);
+        
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext({
+            sampleRate: 24000,
+          });
+        }
+        audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
       }
-    } catch (error: any) {
-      console.error('Camera toggle error:', error);
+
       toast({
-        title: "Camera Error",
-        description: error.message || "Failed to toggle camera",
+        title: `${type === 'camera' ? 'Camera' : 'Microphone'} Enabled`,
+        description: `Successfully initialized ${type}`,
+      });
+    } catch (error: any) {
+      console.error(`${type} initialization error:`, error);
+      toast({
+        title: `${type === 'camera' ? 'Camera' : 'Microphone'} Error`,
+        description: error.message || `Failed to initialize ${type}`,
         variant: "destructive",
       });
+      
+      if (type === 'camera') {
+        setIsCameraEnabled(false);
+      } else {
+        setIsMicEnabled(false);
+      }
+    } finally {
+      setIsInitializingDevices(false);
+    }
+  };
+
+  const toggleCamera = async () => {
+    if (isCameraEnabled) {
+      if (streamRef.current) {
+        streamRef.current.getVideoTracks().forEach(track => track.stop());
+        setIsCameraEnabled(false);
+      }
+    } else {
+      await initializeDevice('camera');
     }
   };
 
   const toggleMicrophone = async () => {
-    try {
-      if (isMicEnabled) {
-        if (streamRef.current) {
-          streamRef.current.getAudioTracks().forEach(track => track.stop());
-          setIsMicEnabled(false);
-        }
-      } else {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
-        setIsMicEnabled(true);
-        
-        // Initialize audio context
-        if (!audioContextRef.current) {
-          audioContextRef.current = new AudioContext();
-        }
-        audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+    if (isMicEnabled) {
+      if (streamRef.current) {
+        streamRef.current.getAudioTracks().forEach(track => track.stop());
+        setIsMicEnabled(false);
       }
-    } catch (error: any) {
-      console.error('Microphone toggle error:', error);
-      toast({
-        title: "Microphone Error",
-        description: error.message || "Failed to toggle microphone",
-        variant: "destructive",
-      });
+    } else {
+      await initializeDevice('microphone');
     }
   };
 
-  const initializeAudio = async () => {
-    try {
-      if (!isMicEnabled) {
-        await toggleMicrophone();
-      }
-      
-      if (!streamRef.current) {
-        throw new Error('No audio stream available');
-      }
-
-      await speakWelcomeMessage();
-      await initializeChat();
-    } catch (error: any) {
-      console.error('Error initializing audio:', error);
-      toast({
-        title: "Audio Error",
-        description: error.message || "Failed to initialize audio",
-        variant: "destructive",
+  const cleanupMedia = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log(`Stopped ${track.kind} track`);
       });
-      throw error;
+      streamRef.current = null;
     }
-  };
-
-  const startAudioProcessing = (stream: MediaStream) => {
-    if (!chatRef.current) return;
-
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(1024, 1, 1);
-
-    source.connect(processor);
-    processor.connect(audioContext.destination);
-
-    processor.onaudioprocess = (e) => {
-      if (chatRef.current && isCallActive) {
-        const inputData = e.inputBuffer.getChannelData(0);
-        chatRef.current.sendMessage(Array.from(inputData));
-      }
-    };
-
-    audioContextRef.current = audioContext;
-    audioSourceRef.current = source;
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    if (audioSourceRef.current) {
+      audioSourceRef.current.disconnect();
+      audioSourceRef.current = null;
+    }
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current = null;
+    }
+    
+    setIsCameraEnabled(false);
+    setIsMicEnabled(false);
   };
 
   const initializeChat = async () => {
@@ -223,7 +231,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('User not authenticated');
       }
 
-      await initializeAudio();
+      // Initialize microphone if not already enabled
+      if (!isMicEnabled) {
+        await initializeDevice('microphone');
+      }
 
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
@@ -258,26 +269,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const cleanupMedia = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    if (audioSourceRef.current) {
-      audioSourceRef.current.disconnect();
-      audioSourceRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    setIsCameraEnabled(false);
-    setIsMicEnabled(false);
   };
 
   const endCall = async () => {
@@ -319,14 +310,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (isCallActive) {
-        endCall();
-      }
-    };
-  }, []);
-
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
       <div className="grid grid-cols-2 gap-4">
@@ -340,6 +323,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 muted
                 className="w-full h-full object-cover"
               />
+              {!isCameraEnabled && (
+                <div className="absolute inset-0 flex items-center justify-center text-white bg-gray-800/50">
+                  Camera Off
+                </div>
+              )}
             </div>
             <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
               {trainingVideo ? (
@@ -362,8 +350,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         <Button
           onClick={toggleCamera}
           variant="secondary"
-          className="bg-gray-700 hover:bg-gray-600"
-          disabled={isLoading}
+          className={`${isCameraEnabled ? 'bg-gray-700' : 'bg-gray-600'} hover:bg-gray-600`}
+          disabled={isLoading || isInitializingDevices}
         >
           {isCameraEnabled ? (
             <>
@@ -380,8 +368,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         <Button
           onClick={toggleMicrophone}
           variant="secondary"
-          className="bg-gray-700 hover:bg-gray-600"
-          disabled={isLoading}
+          className={`${isMicEnabled ? 'bg-gray-700' : 'bg-gray-600'} hover:bg-gray-600`}
+          disabled={isLoading || isInitializingDevices}
         >
           {isMicEnabled ? (
             <>
@@ -398,13 +386,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         {!isCallActive ? (
           <Button
             onClick={startCall}
-            disabled={isLoading}
+            disabled={isLoading || isInitializingDevices}
             className="bg-green-500 hover:bg-green-600 text-white"
           >
-            {isLoading ? (
+            {isLoading || isInitializingDevices ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Connecting...
+                {isInitializingDevices ? 'Initializing...' : 'Connecting...'}
               </>
             ) : (
               <>
@@ -417,6 +405,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           <Button
             onClick={endCall}
             variant="destructive"
+            disabled={isInitializingDevices}
           >
             <PhoneOff className="mr-2 h-4 w-4" />
             End Call
