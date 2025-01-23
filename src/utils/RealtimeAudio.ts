@@ -18,8 +18,14 @@ export class RealtimeChat {
         body: { personaId: persona.id }
       });
 
-      if (error) throw error;
-      if (!data?.wsUrl) throw new Error('No WebSocket URL received');
+      if (error) {
+        console.error('Error getting chat token:', error);
+        throw error;
+      }
+      
+      if (!data?.wsUrl) {
+        throw new Error('No WebSocket URL received');
+      }
 
       console.log('Connecting to WebSocket:', data.wsUrl);
       
@@ -28,16 +34,18 @@ export class RealtimeChat {
       this.ws.onopen = () => {
         console.log('WebSocket connection established');
         // Send initial persona config
-        this.ws.send(JSON.stringify({
-          type: 'config',
-          persona: {
-            name: persona.name,
-            voice: persona.voice_style,
-            personality: persona.personality,
-            skills: persona.skills,
-            topics: persona.topics
-          }
-        }));
+        if (this.ws) {
+          this.ws.send(JSON.stringify({
+            type: 'config',
+            persona: {
+              name: persona.name,
+              voice: persona.voice_style,
+              personality: persona.personality,
+              skills: persona.skills,
+              topics: persona.topics
+            }
+          }));
+        }
       };
 
       this.ws.onmessage = (event) => {
