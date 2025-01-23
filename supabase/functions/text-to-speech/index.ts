@@ -35,7 +35,7 @@ serve(async (req) => {
     // Remove trailing slash if present and construct the full TTS endpoint
     const baseEndpoint = endpoint.replace(/\/+$/, '')
     // The correct endpoint for Azure TTS
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/speak`
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/synthesize`
 
     console.log('Using TTS endpoint:', ttsEndpoint.substring(0, 20) + '...')
 
