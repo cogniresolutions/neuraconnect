@@ -39,6 +39,7 @@ interface Persona {
   };
   environment_analysis?: boolean;
   facial_expressions?: any[];
+  profile_picture_url?: string | null;
 }
 
 const PersonaCreator = () => {
@@ -57,6 +58,7 @@ const PersonaCreator = () => {
   const [isCallActive, setIsCallActive] = useState(false);
   const [isTestingAzure, setIsTestingAzure] = useState(false);
   const [azureTestSuccess, setAzureTestSuccess] = useState(false);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuthAndFetchPersonas = async () => {
@@ -125,7 +127,8 @@ const PersonaCreator = () => {
           description,
           voice_style: voiceStyle,
           status: 'ready',
-          user_id: session.user.id
+          user_id: session.user.id,
+          profile_picture_url: profilePictureUrl
         })
         .select()
         .single();
@@ -212,6 +215,7 @@ const PersonaCreator = () => {
     setName(persona.name);
     setDescription(persona.description || '');
     setVoiceStyle(persona.voice_style || 'alloy');
+    setProfilePictureUrl(persona.profile_picture_url || null);
     toast({
       title: "Persona loaded for editing",
       description: "You can now make changes to the persona.",
@@ -350,6 +354,9 @@ const PersonaCreator = () => {
               setVoiceStyle={setVoiceStyle}
               onSubmit={handleCreatePersona}
               isCreating={isCreating}
+              personaId={selectedPersona?.id}
+              profilePictureUrl={profilePictureUrl}
+              onProfilePictureUpload={setProfilePictureUrl}
             />
           </div>
           <div className="space-y-6">
