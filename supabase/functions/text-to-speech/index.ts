@@ -19,7 +19,7 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    // Get Azure credentials
+    // Get Azure credentials and ensure TTS endpoint
     const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace('stt.speech', 'tts.speech')?.replace(/\/$/, '')
     const subscriptionKey = Deno.env.get('AZURE_SPEECH_KEY')
     
@@ -47,7 +47,17 @@ serve(async (req) => {
         .replace(/'/g, '&apos;');
     }
 
-    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voiceName}'><prosody rate="0%">${escapeXml(text)}</prosody></voice></speak>`
+    // Construct SSML with proper XML namespace
+    const ssml = `
+      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+        <voice name='${voiceName}'>
+          <prosody rate="0%">
+            ${escapeXml(text)}
+          </prosody>
+        </voice>
+      </speak>
+    `.trim();
+    
     console.log('SSML payload:', ssml)
 
     // Use the correct endpoint format for text-to-speech
@@ -74,7 +84,9 @@ serve(async (req) => {
         status: response.status,
         statusText: response.statusText,
         error: errorText,
-        url: ttsUrl
+        url: ttsUrl,
+        ssml: ssml,
+        headers: Object.fromEntries(response.headers.entries())
       })
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
     }
