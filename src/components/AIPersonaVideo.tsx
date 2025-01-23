@@ -3,13 +3,15 @@ import { Loader2 } from 'lucide-react';
 
 interface AIPersonaVideoProps {
   videoUrl?: string;
-  onVideoLoad?: () => void;
+  isPlaying?: boolean;
+  onReady?: () => void;
   className?: string;
 }
 
 const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
   videoUrl,
-  onVideoLoad,
+  isPlaying,
+  onReady,
   className = '',
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -31,7 +33,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
       console.log('Video can play');
       setIsVideoReady(true);
       setIsLoading(false);
-      if (onVideoLoad) onVideoLoad();
+      if (onReady) onReady();
     };
 
     const handleError = (e: Event) => {
@@ -51,7 +53,18 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('error', handleError);
     };
-  }, [videoUrl, onVideoLoad]);
+  }, [videoUrl, onReady]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVideoReady) return;
+
+    if (isPlaying) {
+      video.play().catch(console.error);
+    } else {
+      video.pause();
+    }
+  }, [isPlaying, isVideoReady]);
 
   if (error) {
     return <div className="text-red-500">{error}</div>;

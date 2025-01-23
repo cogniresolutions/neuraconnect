@@ -181,7 +181,7 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
             </div>
             <div className="w-full lg:w-1/2">
               <AIPersonaVideo
-                trainingVideoUrl={persona?.avatar_model_url}
+                videoUrl={persona?.avatar_model_url}
                 isPlaying={isSpeaking}
                 onReady={() => {
                   console.log('AI Persona video ready');
