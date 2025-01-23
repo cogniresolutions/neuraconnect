@@ -42,8 +42,11 @@ serve(async (req) => {
     const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
     console.log('Using TTS endpoint:', ttsEndpoint);
 
-    // Step 4: Prepare SSML
+    // Step 4: Map voice name to Azure format
     const voiceName = `en-US-${voice}Neural`;
+    console.log('Using voice:', voiceName);
+
+    // Step 5: Prepare SSML with proper formatting
     const ssml = `
 <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
   <voice name='${voiceName}'>
@@ -53,7 +56,7 @@ serve(async (req) => {
 
     console.log('SSML payload:', ssml);
 
-    // Step 5: Make request to Azure TTS
+    // Step 6: Make request to Azure TTS
     console.log('Making request to Azure TTS...');
     const response = await fetch(`${ttsEndpoint}/cognitiveservices/v1`, {
       method: 'POST',
@@ -82,7 +85,7 @@ serve(async (req) => {
       throw new Error(`Text-to-speech synthesis failed: ${response.status} - ${errorText}`);
     }
 
-    // Step 6: Process successful response
+    // Step 7: Process successful response
     console.log('Successfully received audio response');
     const arrayBuffer = await response.arrayBuffer();
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
