@@ -1,13 +1,12 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Loader2, Phone, PhoneOff } from 'lucide-react';
+import AIPersonaVideo from './AIPersonaVideo';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
-import { CallControls } from './video/CallControls';
-import { ConsentDialog } from './video/ConsentDialog';
-import { Mic, MicOff } from 'lucide-react';
-import { Button } from './ui/button';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -22,15 +21,141 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentEmotion, setCurrentEmotion] = useState('neutral');
-  const [showConsentDialog, setShowConsentDialog] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [trainingVideo, setTrainingVideo] = useState<any>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const { speak } = useTextToSpeech();
   const { transcribe } = useSpeechToText();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+
+  useEffect(() => {
+    const loadTrainingVideo = async () => {
+      try {
+        const { data: videos, error } = await supabase
+          .from('training_videos')
+          .select('*')
+          .eq('persona_id', persona.id)
+          .eq('processing_status', 'completed')
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+        setTrainingVideo(videos);
+      } catch (error) {
+        console.error('Error loading training video:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load persona video",
+          variant: "destructive",
+        });
+      }
+    };
+
+    if (persona?.id) {
+      loadTrainingVideo();
+    }
+  }, [persona?.id, toast]);
+
+  const startRecording = () => {
+    if (!streamRef.current) return;
+
+    const mediaRecorder = new MediaRecorder(streamRef.current);
+    const chunks: Blob[] = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunks.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      
+      reader.onloadend = async () => {
+        try {
+          const base64Audio = (reader.result as string).split(',')[1];
+          const transcription = await transcribe(base64Audio);
+          await handleTranscriptionComplete(transcription);
+        } catch (error) {
+          console.error('Error processing audio:', error);
+          toast({
+            title: "Transcription Error",
+            description: "Failed to process speech",
+            variant: "destructive",
+          });
+        }
+      };
+
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const initializeAudio = async (stream: MediaStream) => {
+    try {
+      audioContextRef.current = new AudioContext();
+      audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+      audioSourceRef.current.connect(audioContextRef.current.destination);
+      
+      console.log('Audio initialized successfully');
+
+      await speakWelcomeMessage();
+      await initializeChat();
+
+      startAudioProcessing(stream);
+    } catch (error) {
+      console.error('Error initializing audio:', error);
+      throw error;
+    }
+  };
+
+  const startAudioProcessing = (stream: MediaStream) => {
+    if (!chatRef.current) return;
+
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(1024, 1, 1);
+
+    source.connect(processor);
+    processor.connect(audioContext.destination);
+
+    processor.onaudioprocess = (e) => {
+      if (chatRef.current && isCallActive) {
+        const inputData = e.inputBuffer.getChannelData(0);
+        chatRef.current.sendMessage(Array.from(inputData));
+      }
+    };
+
+    audioContextRef.current = audioContext;
+    audioSourceRef.current = source;
+  };
+
+  const initializeChat = async () => {
+    try {
+      console.log('Initializing chat with persona:', persona);
+      chatRef.current = new RealtimeChat(handleMessage);
+      await chatRef.current.init(persona);
+      console.log('Chat initialized successfully');
+    } catch (error) {
+      console.error('Error initializing chat:', error);
+      throw error;
+    }
+  };
 
   const handleMessage = async (event: any) => {
     console.log('Received message event:', event);
@@ -57,65 +182,86 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const handleTranscriptionComplete = async (transcription: string) => {
+    console.log('Transcription received:', transcription);
+    if (chatRef.current) {
+      chatRef.current.sendMessage(transcription);
+    }
+  };
+
+  const speakWelcomeMessage = async () => {
+    try {
+      const welcomeMessage = `Hello! I'm ${persona.name}. How can I assist you today?`;
+      await speak(welcomeMessage, {
+        voice: persona.voice_style,
+        language: persona.language || 'en'
+      });
+      console.log('Welcome message spoken successfully');
+    } catch (error) {
+      console.error('Error speaking welcome message:', error);
+    }
+  };
+
   const startCall = async () => {
     try {
       setIsLoading(true);
       console.log('Starting call with persona:', persona);
-
-      // Get user media stream
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true,
-        video: true
-      });
-      streamRef.current = stream;
-
-      // Initialize audio context and processing
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      audioContextRef.current = audioContext;
-      audioSourceRef.current = source;
-
-      // Initialize chat with persona
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init(persona);
-
-      // Create video call session in Supabase
+      
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        console.error('No authenticated user found');
+        throw new Error('User not authenticated');
+      }
 
-      const { data, error } = await supabase.from('tavus_sessions').insert({
-        user_id: user.id,
-        conversation_id: crypto.randomUUID(),
-        status: 'active',
-        participants: [
-          { user_id: user.id, type: 'user' },
-          { persona_id: persona.id, type: 'persona' }
-        ],
-        session_type: 'video_call',
-        is_active: true
-      }).select().single();
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      console.log('Media stream obtained:', stream.id);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+      }
 
-      if (error) throw error;
+      await initializeAudio(stream);
+
+      console.log('Invoking video-call function...');
+      const { data, error } = await supabase.functions.invoke('video-call', {
+        body: { 
+          personaId: persona.id,
+          userId: user.id,
+          action: 'start',
+          personaConfig: {
+            name: persona.name,
+            voiceStyle: persona.voice_style,
+            modelConfig: persona.model_config
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Error from video-call function:', error);
+        throw error;
+      }
+
+      console.log('Video call function response:', data);
 
       setIsCallActive(true);
       onCallStateChange(true);
-
+      
       toast({
         title: "Call Started",
         description: `Connected with ${persona.name}`,
       });
-
-      // Speak welcome message
-      await speak(`Hello! I'm ${persona.name}. How can I assist you today?`, {
-        voice: persona.voice_style,
-        language: persona.language || 'en'
-      });
-
     } catch (error: any) {
       console.error('Error starting call:', error);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
       toast({
         title: "Call Error",
@@ -129,9 +275,17 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const endCall = async () => {
     try {
+      console.log('Ending call...');
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach(track => {
+          console.log('Stopping track:', track.kind);
+          track.stop();
+        });
         streamRef.current = null;
+      }
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
 
       if (audioSourceRef.current) {
@@ -151,14 +305,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { error } = await supabase.from('tavus_sessions')
-        .update({ 
-          status: 'ended',
-          is_active: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-        .eq('is_active', true);
+      console.log('Invoking video-call end function...');
+      const { error } = await supabase.functions.invoke('video-call', {
+        body: { 
+          personaId: persona.id,
+          userId: user.id,
+          action: 'end'
+        }
+      });
 
       if (error) throw error;
 
@@ -179,21 +333,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const toggleMute = () => {
-    if (streamRef.current) {
-      const audioTracks = streamRef.current.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsMuted(!isMuted);
-      
-      toast({
-        title: isMuted ? "Microphone Unmuted" : "Microphone Muted",
-        description: isMuted ? "Others can now hear you" : "Others cannot hear you",
-      });
-    }
-  };
-
   useEffect(() => {
     return () => {
       if (isCallActive) {
@@ -204,39 +343,79 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-4">
         {isCallActive && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={toggleMute}
-            className="bg-black/50 hover:bg-black/70"
-          >
-            {isMuted ? (
-              <MicOff className="h-4 w-4 text-red-500" />
-            ) : (
-              <Mic className="h-4 w-4 text-white" />
-            )}
-          </Button>
+          <>
+            <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              {isRecording && (
+                <div className="absolute top-2 right-2 flex items-center gap-2 bg-red-500 px-2 py-1 rounded-full text-white text-xs">
+                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  Recording
+                </div>
+              )}
+            </div>
+            <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
+              {trainingVideo ? (
+                <AIPersonaVideo
+                  trainingVideoUrl={trainingVideo.video_url}
+                  expressionSegments={trainingVideo.expression_segments}
+                  currentEmotion={currentEmotion}
+                  isPlaying={isCallActive}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-white">
+                  No training video available
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
-
-      <CallControls
-        isCallActive={isCallActive}
-        isLoading={isLoading}
-        isRecording={isRecording}
-        onStartCall={startCall}
-        onEndCall={endCall}
-        onStartRecording={() => setIsRecording(true)}
-        onStopRecording={() => setIsRecording(false)}
-      />
-
-      <ConsentDialog
-        open={showConsentDialog}
-        onOpenChange={setShowConsentDialog}
-        onAccept={startCall}
-        personaName={persona.name}
-      />
+      <div className="flex gap-2">
+        {!isCallActive ? (
+          <Button
+            onClick={startCall}
+            disabled={isLoading}
+            className="bg-green-500 hover:bg-green-600 text-white"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <Phone className="mr-2 h-4 w-4" />
+                Start Call
+              </>
+            )}
+          </Button>
+        ) : (
+          <>
+            <Button
+              onClick={isRecording ? stopRecording : startRecording}
+              variant={isRecording ? "destructive" : "default"}
+              className="mr-2"
+            >
+              {isRecording ? 'Stop Recording' : 'Start Recording'}
+            </Button>
+            <Button
+              onClick={endCall}
+              variant="destructive"
+            >
+              <PhoneOff className="mr-2 h-4 w-4" />
+              End Call
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,9 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 
-interface MessageHandler {
-  (event: any): void;
-}
-
 export class AudioRecorder {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
@@ -65,190 +61,208 @@ export class AudioRecorder {
 }
 
 export class RealtimeChat {
-  private socket: WebSocket | null = null;
-  private messageHandler: MessageHandler;
-  private reconnectAttempts = 0;
-  private readonly MAX_RECONNECT_ATTEMPTS = 3;
-  private clientSecret: string | null = null;
+  private pc: RTCPeerConnection | null = null;
+  private dc: RTCDataChannel | null = null;
+  private audioEl: HTMLAudioElement;
+  private recorder: AudioRecorder | null = null;
+  private persona: any;
 
-  constructor(messageHandler: MessageHandler) {
-    this.messageHandler = messageHandler;
-    console.log('RealtimeChat initialized with message handler');
+  constructor(private onMessage: (event: any) => void) {
+    this.audioEl = document.createElement("audio");
+    this.audioEl.autoplay = true;
   }
 
   async init(persona: any) {
     try {
+      this.persona = persona;
       console.log('Initializing chat with persona:', persona);
       
-      // Get chat token from Supabase function
-      const { data, error } = await supabase.functions.invoke('generate-chat-token', {
+      const { data: response, error } = await supabase.functions.invoke('realtime-chat', {
         body: { 
-          personaId: persona.id,
-          config: {
+          persona: {
             name: persona.name,
-            voice: persona.voice_style,
+            description: persona.description,
             personality: persona.personality,
-            skills: persona.skills || [],
-            topics: persona.topics || []
+            skills: persona.skills,
+            topics: persona.topics,
+            model_config: persona.model_config,
+            voice_style: persona.voice_style
           }
         }
       });
 
-      if (error) throw error;
-      if (!data?.client_secret) throw new Error('No client secret received');
-
-      // Extract the client secret value properly
-      const rawSecret = data.client_secret;
-      this.clientSecret = typeof rawSecret === 'object' && rawSecret !== null
-        ? rawSecret.value || rawSecret.secret || null
-        : rawSecret;
-
-      if (!this.clientSecret || typeof this.clientSecret !== 'string') {
-        console.error('Invalid client secret format:', rawSecret);
-        throw new Error('Invalid client secret format');
+      if (error || !response?.client_secret?.value) {
+        console.error('Error getting token:', error);
+        throw new Error('Failed to get ephemeral token');
       }
 
-      console.log('Successfully received chat token');
-      await this.establishWebSocketConnection();
+      const EPHEMERAL_KEY = response.client_secret.value;
 
-    } catch (error) {
-      console.error('Error initializing chat:', error);
-      this.messageHandler({
-        type: 'error',
-        error: error instanceof Error ? error : new Error('Failed to initialize chat')
+      // Create peer connection
+      this.pc = new RTCPeerConnection();
+
+      // Set up remote audio
+      this.pc.ontrack = e => {
+        console.log('Received remote track:', e.track.kind);
+        this.audioEl.srcObject = e.streams[0];
+      };
+
+      // Add local audio track
+      const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.pc.addTrack(ms.getTracks()[0]);
+
+      // Set up data channel
+      this.dc = this.pc.createDataChannel("oai-events");
+      this.dc.addEventListener("message", (e) => {
+        const event = JSON.parse(e.data);
+        console.log("Received event:", event);
+        this.onMessage(event);
       });
-      throw error;
-    }
-  }
 
-  private async establishWebSocketConnection() {
-    if (!this.clientSecret) {
-      console.error('Missing client secret');
-      throw new Error('Missing client secret');
-    }
+      // Create and set local description
+      const offer = await this.pc.createOffer();
+      await this.pc.setLocalDescription(offer);
 
-    console.log('Establishing WebSocket connection...');
-    
-    try {
-      // Create WebSocket URL with properly encoded client_secret
-      const wsUrl = new URL('wss://api.openai.com/v1/realtime');
-      wsUrl.searchParams.append('client_secret', this.clientSecret);
-      
-      console.log('Connecting to WebSocket with URL:', wsUrl.toString());
-      
-      // Initialize WebSocket with the 'openai-realtime' subprotocol
-      this.socket = new WebSocket(wsUrl.toString(), 'openai-realtime');
-      
-      this.socket.onopen = () => {
-        console.log('WebSocket connection established');
-        this.authenticate();
+      // Connect to OpenAI's Realtime API
+      const baseUrl = "https://api.openai.com/v1/realtime";
+      const model = "gpt-4o-realtime-preview-2024-12-17";
+      const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
+        method: "POST",
+        body: offer.sdp,
+        headers: {
+          Authorization: `Bearer ${EPHEMERAL_KEY}`,
+          "Content-Type": "application/sdp"
+        },
+      });
+
+      if (!sdpResponse.ok) {
+        const errorText = await sdpResponse.text();
+        throw new Error(`Failed to connect to OpenAI: ${errorText}`);
+      }
+
+      const answer = {
+        type: "answer" as RTCSdpType,
+        sdp: await sdpResponse.text(),
       };
+      
+      await this.pc.setRemoteDescription(answer);
+      console.log("WebRTC connection established");
 
-      this.socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Received WebSocket message:', data);
-          this.messageHandler(data);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-          this.messageHandler({
-            type: 'error',
-            error: new Error('Failed to parse WebSocket message')
-          });
+      // Start recording
+      this.recorder = new AudioRecorder((audioData) => {
+        if (this.dc?.readyState === 'open') {
+          this.dc.send(JSON.stringify({
+            type: 'input_audio_buffer.append',
+            audio: this.encodeAudioData(audioData)
+          }));
         }
-      };
+      });
+      await this.recorder.start();
 
-      this.socket.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        this.messageHandler({
-          type: 'error',
-          error: new Error('WebSocket connection error')
-        });
-      };
+      // Send initial system message
+      this.sendSystemMessage();
 
-      this.socket.onclose = () => {
-        console.log('WebSocket connection closed');
-        if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-          console.log('Attempting to reconnect...');
-          this.reconnectAttempts++;
-          setTimeout(() => this.establishWebSocketConnection(), 1000 * Math.pow(2, this.reconnectAttempts));
-        } else {
-          this.messageHandler({
-            type: 'error',
-            error: new Error('WebSocket connection closed')
-          });
-        }
-      };
     } catch (error) {
-      console.error('Error establishing WebSocket connection:', error);
+      console.error("Error initializing chat:", error);
       throw error;
     }
   }
 
-  private authenticate() {
-    if (!this.socket || !this.clientSecret) {
-      console.error('Cannot authenticate: missing credentials or socket connection');
+  private encodeAudioData(float32Array: Float32Array): string {
+    const int16Array = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    
+    const uint8Array = new Uint8Array(int16Array.buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    return btoa(binary);
+  }
+
+  private sendSystemMessage() {
+    if (!this.dc || this.dc.readyState !== 'open' || !this.persona) {
+      console.error('Data channel not ready or persona not set');
       return;
     }
 
-    const authMessage = {
-      type: 'auth',
-      client_secret: this.clientSecret
+    const systemMessage = {
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'system',
+        content: [
+          {
+            type: 'text',
+            text: `You are ${this.persona.name}, an AI assistant with the following personality: ${this.persona.personality}. 
+                  You have expertise in: ${JSON.stringify(this.persona.skills)}. 
+                  You should focus on discussing topics related to: ${this.persona.topics.join(', ')}.`
+          }
+        ]
+      }
     };
 
-    console.log('Sending authentication message');
-    
-    this.socket.send(JSON.stringify(authMessage));
+    console.log('Sending system message:', systemMessage);
+    this.dc.send(JSON.stringify(systemMessage));
+    this.dc.send(JSON.stringify({type: 'response.create'}));
   }
 
-  sendMessage(content: string | number[]) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket not connected');
+  sendMessage(data: number[] | Float32Array | string) {
+    if (!this.dc || this.dc.readyState !== 'open') {
+      console.error('Data channel not ready');
       return;
     }
 
-    try {
-      const message = typeof content === 'string' 
-        ? { 
-            type: 'text', 
-            content
-          }
-        : { 
-            type: 'audio', 
-            content
-          };
-      
-      this.socket.send(JSON.stringify(message));
-    } catch (error) {
-      console.error('Error sending message:', error);
-      this.messageHandler({
-        type: 'error',
-        error: new Error('Failed to send message')
-      });
+    if (typeof data === 'string') {
+      // Handle text messages
+      const message = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: data
+            }
+          ]
+        }
+      };
+      this.dc.send(JSON.stringify(message));
+      this.dc.send(JSON.stringify({type: 'response.create'}));
+    } else {
+      // Handle audio data
+      const float32Data = data instanceof Float32Array 
+        ? data 
+        : new Float32Array(data);
+
+      const encodedAudio = this.encodeAudioData(float32Data);
+      const message = {
+        type: 'input_audio_buffer.append',
+        audio: encodedAudio,
+        timestamp: Date.now()
+      };
+
+      this.dc.send(JSON.stringify(message));
     }
   }
 
   disconnect() {
-    console.log('Disconnecting WebSocket');
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
+    console.log('Disconnecting chat...');
+    this.recorder?.stop();
+    if (this.dc?.readyState === 'open') {
+      this.dc.close();
     }
-  }
-
-  updateContext(context: any) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket not connected');
-      return;
+    if (this.pc) {
+      this.pc.close();
     }
-
-    try {
-      this.socket.send(JSON.stringify({
-        type: 'context',
-        context
-      }));
-    } catch (error) {
-      console.error('Error updating context:', error);
-    }
+    this.audioEl.srcObject = null;
   }
 }

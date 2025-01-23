@@ -18,10 +18,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const requestData = await req.json();
-    const { personaId, userId, action, personaConfig } = requestData;
-
-    console.log('Request parameters:', { personaId, userId, action });
+    const { personaId, userId, action, personaConfig } = await req.json();
 
     if (!personaId || !userId) {
       console.error('Missing required parameters:', { personaId, userId });
