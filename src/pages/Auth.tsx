@@ -7,7 +7,7 @@ export default function Auth() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
       if (session) {
         navigate('/');
       }
@@ -20,16 +20,12 @@ export default function Auth() {
 
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth`
         }
       });
-      
-      if (error) {
-        console.error('Error signing in with Google:', error.message);
-      }
     } catch (error) {
       console.error('Error:', error);
     }
