@@ -76,8 +76,7 @@ export class RealtimeChat {
     try {
       this.persona = persona;
       console.log('Initializing chat with persona:', persona);
-
-      // Get ephemeral token from our Supabase Edge Function
+      
       const { data: response, error } = await supabase.functions.invoke('realtime-chat', {
         body: { 
           persona: {
