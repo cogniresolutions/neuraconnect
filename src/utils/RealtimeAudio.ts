@@ -69,7 +69,6 @@ export class RealtimeChat {
   private messageHandler: MessageHandler;
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
-  private accessToken: string | null = null;
   private clientSecret: string | null = null;
 
   constructor(messageHandler: MessageHandler) {
@@ -121,53 +120,60 @@ export class RealtimeChat {
 
     console.log('Establishing WebSocket connection...');
     
-    // Create WebSocket URL with authentication parameters
-    const wsUrl = new URL('wss://api.openai.com/v1/realtime');
-    wsUrl.searchParams.append('client_secret', this.clientSecret);
-    
-    // Initialize WebSocket with the 'openai-realtime' subprotocol
-    this.socket = new WebSocket(wsUrl.toString(), 'openai-realtime');
-    
-    this.socket.onopen = () => {
-      console.log('WebSocket connection established');
-      this.authenticate();
-    };
+    try {
+      // Create WebSocket URL with authentication parameters
+      const wsUrl = new URL('wss://api.openai.com/v1/realtime');
+      wsUrl.searchParams.append('client_secret', this.clientSecret);
+      
+      console.log('Connecting to WebSocket with URL:', wsUrl.toString());
+      
+      // Initialize WebSocket with the 'openai-realtime' subprotocol
+      this.socket = new WebSocket(wsUrl.toString(), 'openai-realtime');
+      
+      this.socket.onopen = () => {
+        console.log('WebSocket connection established');
+        this.authenticate();
+      };
 
-    this.socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('Received WebSocket message:', data);
-        this.messageHandler(data);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+      this.socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received WebSocket message:', data);
+          this.messageHandler(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+          this.messageHandler({
+            type: 'error',
+            error: new Error('Failed to parse WebSocket message')
+          });
+        }
+      };
+
+      this.socket.onerror = (event) => {
+        console.error('WebSocket error:', event);
         this.messageHandler({
           type: 'error',
-          error: new Error('Failed to parse WebSocket message')
+          error: new Error('WebSocket connection error')
         });
-      }
-    };
+      };
 
-    this.socket.onerror = (event) => {
-      console.error('WebSocket error:', event);
-      this.messageHandler({
-        type: 'error',
-        error: new Error('WebSocket connection error')
-      });
-    };
-
-    this.socket.onclose = () => {
-      console.log('WebSocket connection closed');
-      if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-        console.log('Attempting to reconnect...');
-        this.reconnectAttempts++;
-        setTimeout(() => this.establishWebSocketConnection(), 1000 * Math.pow(2, this.reconnectAttempts));
-      } else {
-        this.messageHandler({
-          type: 'error',
-          error: new Error('WebSocket connection closed')
-        });
-      }
-    };
+      this.socket.onclose = () => {
+        console.log('WebSocket connection closed');
+        if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+          console.log('Attempting to reconnect...');
+          this.reconnectAttempts++;
+          setTimeout(() => this.establishWebSocketConnection(), 1000 * Math.pow(2, this.reconnectAttempts));
+        } else {
+          this.messageHandler({
+            type: 'error',
+            error: new Error('WebSocket connection closed')
+          });
+        }
+      };
+    } catch (error) {
+      console.error('Error establishing WebSocket connection:', error);
+      throw error;
+    }
   }
 
   private authenticate() {
@@ -181,10 +187,7 @@ export class RealtimeChat {
       client_secret: this.clientSecret
     };
 
-    console.log('Sending authentication message:', {
-      ...authMessage,
-      client_secret: '[REDACTED]'
-    });
+    console.log('Sending authentication message');
     
     this.socket.send(JSON.stringify(authMessage));
   }
