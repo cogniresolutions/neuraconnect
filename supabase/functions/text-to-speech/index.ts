@@ -18,8 +18,8 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    const endpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
-    const subscriptionKey = Deno.env.get('AZURE_COGNITIVE_KEY')
+    const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')
+    const subscriptionKey = Deno.env.get('AZURE_SPEECH_KEY')
     
     console.log('Azure credentials check:', {
       hasEndpoint: !!endpoint,
@@ -31,9 +31,12 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
-    // Ensure the endpoint is in the correct format and construct the TTS URL
-    const baseUrl = endpoint.trim().replace(/\/+$/, '')
-    console.log('Base URL:', baseUrl)
+    // Extract the region from the endpoint URL and construct the TTS endpoint
+    const region = endpoint.match(/\/\/([^.]+)\./)?.[1] || 'unknown'
+    const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`
+    
+    console.log('Using TTS endpoint:', ttsEndpoint)
+    console.log('Using voice:', `en-US-${voice}Neural`)
 
     // Construct SSML
     const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
@@ -41,10 +44,9 @@ serve(async (req) => {
     </speak>`
 
     console.log('Making request to Azure')
-    console.log('Using voice:', `en-US-${voice}Neural`)
     console.log('SSML payload:', ssml)
 
-    const response = await fetch(baseUrl, {
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': subscriptionKey,
@@ -61,7 +63,7 @@ serve(async (req) => {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
-        endpoint: baseUrl,
+        endpoint: ttsEndpoint,
         headers: Object.fromEntries(response.headers.entries())
       }
       console.error('Azure TTS Error Response:', JSON.stringify(errorDetails, null, 2))
