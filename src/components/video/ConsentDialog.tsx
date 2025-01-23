@@ -27,9 +27,9 @@ export const ConsentDialog = ({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Microphone Access</AlertDialogTitle>
+          <AlertDialogTitle>Camera and Microphone Access</AlertDialogTitle>
           <AlertDialogDescription>
-            To start the call, we need access to your microphone. 
+            To start the video call, we need access to your camera and microphone. 
             This will allow you to interact with {personaName} in real-time. 
             Your privacy is important to us, and this data is only used during the call.
           </AlertDialogDescription>

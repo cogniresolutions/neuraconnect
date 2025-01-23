@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { captureVideoFrame } from '@/utils/videoCapture';
 
 interface VideoAnalysisProps {
   personaId: string;
@@ -53,27 +54,17 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
 
       try {
         setIsAnalyzing(true);
+        const imageData = captureVideoFrame(videoRef.current);
 
-        // Capture video frame
-        const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        ctx.drawImage(videoRef.current, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-
-        // Send to Azure for analysis
         const { data: analysis, error } = await supabase.functions.invoke('analyze-video', {
           body: { 
             imageData,
-            personaId
+            personaId,
+            userId: (await supabase.auth.getUser()).data.user?.id
           }
         });
 
         if (error) throw error;
-
         onAnalysisComplete(analysis);
 
       } catch (error: any) {

@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, Video, VideoOff } from 'lucide-react';
 import AIVideoInterface from './AIVideoInterface';
+import VideoCallInterface from './VideoCallInterface';
 import Avatar3D from './Avatar3D';
 
 const VideoChat = () => {
@@ -63,7 +64,11 @@ const VideoChat = () => {
 
   const handleSpeakingChange = (speaking: boolean) => {
     setIsSpeaking(speaking);
-    // Additional logic for when the speaking state changes can be added here
+  };
+
+  const handleCallStateChange = (isActive: boolean) => {
+    // Additional logic for call state changes can be added here
+    console.log('Call state changed:', isActive);
   };
 
   if (isLoading) {
@@ -100,9 +105,9 @@ const VideoChat = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {isVideoEnabled && (
           <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
-            <AIVideoInterface 
-              persona={persona} 
-              onSpeakingChange={handleSpeakingChange}
+            <VideoCallInterface 
+              persona={persona}
+              onCallStateChange={handleCallStateChange}
             />
           </div>
         )}
@@ -113,6 +118,11 @@ const VideoChat = () => {
           />
         </div>
       </div>
+
+      <AIVideoInterface 
+        persona={persona} 
+        onSpeakingChange={handleSpeakingChange}
+      />
     </div>
   );
 };
