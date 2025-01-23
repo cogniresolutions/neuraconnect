@@ -8,6 +8,8 @@ import { VideoAnalysis } from './video/VideoAnalysis';
 import { VideoDisplay } from './video/VideoDisplay';
 import { CallControls } from './video/CallControls';
 import { ConsentDialog } from './video/ConsentDialog';
+import { Mic, MicOff } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -25,6 +27,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [trainingVideo, setTrainingVideo] = useState<any>(null);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -110,50 +113,17 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const handleTranscriptionComplete = async (transcription: string) => {
-    console.log('Transcription received:', transcription);
-    if (chatRef.current) {
-      chatRef.current.sendMessage(transcription);
-    }
-  };
-
-  const speakWelcomeMessage = async () => {
-    try {
-      const welcomeMessage = `Hello! I'm ${persona.name}. How can I assist you today?`;
-      await speak(welcomeMessage, {
-        voice: persona.voice_style,
-        language: persona.language || 'en'
+  const toggleMute = () => {
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
       });
-      console.log('Welcome message spoken successfully');
-    } catch (error) {
-      console.error('Error speaking welcome message:', error);
-    }
-  };
-
-  const handleAnalysisComplete = (analysis: any) => {
-    if (analysis.emotions) {
-      const dominantEmotion = Object.entries(analysis.emotions)
-        .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0];
-      setCurrentEmotion(dominantEmotion || 'neutral');
-    }
-
-    if (chatRef.current && analysis.environment) {
-      chatRef.current.updateContext({
-        environment: analysis.environment,
-        userEmotion: currentEmotion
-      });
-    }
-  };
-
-  const startCall = async () => {
-    try {
-      setShowConsentDialog(true);
-    } catch (error: any) {
-      console.error('Error starting call:', error);
+      setIsMuted(!isMuted);
+      
       toast({
-        title: "Call Error",
-        description: error.message || "Failed to start call",
-        variant: "destructive",
+        title: isMuted ? "Microphone Unmuted" : "Microphone Muted",
+        description: isMuted ? "Others can now hear you" : "Others cannot hear you",
       });
     }
   };
@@ -312,13 +282,40 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-      <VideoDisplay
-        videoRef={videoRef}
-        isRecording={isRecording}
-        currentEmotion={currentEmotion}
-        trainingVideo={trainingVideo}
-        isCallActive={isCallActive}
-      />
+      <div className="grid grid-cols-2 gap-4">
+        {isCallActive && (
+          <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute bottom-2 right-2 flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={toggleMute}
+                className="bg-black/50 hover:bg-black/70"
+              >
+                {isMuted ? (
+                  <MicOff className="h-4 w-4 text-red-500" />
+                ) : (
+                  <Mic className="h-4 w-4 text-white" />
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+        <VideoDisplay
+          videoRef={videoRef}
+          isRecording={isRecording}
+          currentEmotion={currentEmotion}
+          trainingVideo={trainingVideo}
+          isCallActive={isCallActive}
+        />
+      </div>
       
       <VideoAnalysis
         videoRef={videoRef}
