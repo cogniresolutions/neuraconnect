@@ -97,9 +97,16 @@ export class RealtimeChat {
       if (error) throw error;
       if (!data?.client_secret) throw new Error('No client secret received');
 
-      this.clientSecret = data.client_secret;
-      console.log('Successfully received chat token');
+      // Extract the client secret value properly
+      this.clientSecret = typeof data.client_secret === 'object' 
+        ? data.client_secret.value 
+        : data.client_secret;
 
+      if (!this.clientSecret || typeof this.clientSecret !== 'string') {
+        throw new Error('Invalid client secret format');
+      }
+
+      console.log('Successfully received chat token');
       await this.establishWebSocketConnection();
 
     } catch (error) {
