@@ -4,8 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
-import { VideoAnalysis } from './video/VideoAnalysis';
-import { VideoDisplay } from './video/VideoDisplay';
 import { CallControls } from './video/CallControls';
 import { ConsentDialog } from './video/ConsentDialog';
 import { Mic, MicOff } from 'lucide-react';
@@ -24,16 +22,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentEmotion, setCurrentEmotion] = useState('neutral');
-  const [trainingVideo, setTrainingVideo] = useState<any>(null);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { speak } = useTextToSpeech();
   const { transcribe } = useSpeechToText();
 
@@ -182,15 +177,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       setShowConsentDialog(false);
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
         audio: true 
       });
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-      }
-
+      streamRef.current = stream;
       await initializeAudio(stream);
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -224,9 +214,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
       toast({
         title: "Call Error",
         description: error.message || "Failed to start call",
@@ -242,10 +229,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
-      }
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
       }
 
       if (audioSourceRef.current) {
@@ -293,34 +276,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   useEffect(() => {
-    const loadTrainingVideo = async () => {
-      try {
-        const { data: videos, error } = await supabase
-          .from('training_videos')
-          .select('*')
-          .eq('persona_id', persona.id)
-          .eq('processing_status', 'completed')
-          .limit(1)
-          .single();
-
-        if (error) throw error;
-        setTrainingVideo(videos);
-      } catch (error) {
-        console.error('Error loading training video:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load persona video",
-          variant: "destructive",
-        });
-      }
-    };
-
-    if (persona?.id) {
-      loadTrainingVideo();
-    }
-  }, [persona?.id, toast]);
-
-  useEffect(() => {
     return () => {
       if (isCallActive) {
         endCall();
@@ -330,48 +285,22 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="flex gap-2">
         {isCallActive && (
-          <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute bottom-2 right-2 flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={toggleMute}
-                className="bg-black/50 hover:bg-black/70"
-              >
-                {isMuted ? (
-                  <MicOff className="h-4 w-4 text-red-500" />
-                ) : (
-                  <Mic className="h-4 w-4 text-white" />
-                )}
-              </Button>
-            </div>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={toggleMute}
+            className="bg-black/50 hover:bg-black/70"
+          >
+            {isMuted ? (
+              <MicOff className="h-4 w-4 text-red-500" />
+            ) : (
+              <Mic className="h-4 w-4 text-white" />
+            )}
+          </Button>
         )}
-        <VideoDisplay
-          videoRef={videoRef}
-          isRecording={isRecording}
-          currentEmotion={currentEmotion}
-          trainingVideo={trainingVideo}
-          isCallActive={isCallActive}
-        />
       </div>
-      
-      <VideoAnalysis
-        videoRef={videoRef}
-        streamRef={streamRef}
-        personaId={persona.id}
-        isCallActive={isCallActive}
-        onAnalysisComplete={handleAnalysisComplete}
-      />
 
       <CallControls
         isCallActive={isCallActive}
