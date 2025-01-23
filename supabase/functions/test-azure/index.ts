@@ -57,9 +57,9 @@ async function testAzureSpeech() {
 
   try {
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    console.log('Testing Speech Services with URL:', `${baseUrl}cognitiveservices/voices/list`)
+    console.log('Testing Speech Services with URL:', `${baseUrl}cognitiveservices/v1/voices/list`)
     
-    const response = await fetch(`${baseUrl}cognitiveservices/voices/list`, {
+    const response = await fetch(`${baseUrl}cognitiveservices/v1/voices/list`, {
       method: 'GET',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
