@@ -36,16 +36,12 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Step 3: Ensure the endpoint is using tts instead of stt
-    const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
-    console.log('Using TTS endpoint:', ttsEndpoint);
-
-    // Step 4: Format voice name according to Azure standards
+    // Step 3: Format voice name according to Azure standards
     const formattedVoice = voice ? voice.charAt(0).toUpperCase() + voice.slice(1).toLowerCase() : 'Jenny';
     const voiceName = `en-US-${formattedVoice}Neural`;
     console.log('Using voice:', voiceName);
 
-    // Step 5: Prepare SSML with proper XML escaping
+    // Step 4: Prepare SSML with proper XML escaping
     const escapedText = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -57,9 +53,12 @@ serve(async (req) => {
     const ssml = `<speak version='1.0' xml:lang='en-US' xmlns='http://www.w3.org/2001/10/synthesis'><voice name='${voiceName}'>${escapedText}</voice></speak>`;
     console.log('SSML payload:', ssml);
 
-    // Step 6: Make request to Azure TTS
+    // Step 5: Make request to Azure TTS using the correct endpoint format
     console.log('Making request to Azure TTS...');
-    const response = await fetch(`${ttsEndpoint}/cognitiveservices/v1`, {
+    const ttsEndpoint = 'https://eastus.tts.speech.microsoft.com/cognitiveservices/v1';
+    console.log('Using TTS endpoint:', ttsEndpoint);
+    
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
@@ -77,13 +76,13 @@ serve(async (req) => {
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
         error: errorText,
-        endpoint: ttsEndpoint + '/cognitiveservices/v1',
+        endpoint: ttsEndpoint,
         ssml: ssml
       });
       throw new Error(`Text-to-speech synthesis failed: ${response.status} - ${errorText}`);
     }
 
-    // Step 7: Process successful response
+    // Step 6: Process successful response
     console.log('Successfully received audio response');
     const arrayBuffer = await response.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
