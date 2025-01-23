@@ -15,9 +15,9 @@ async function testAzureCognitive() {
 
   try {
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    console.log('Testing Cognitive Services with URL:', `${baseUrl}vision/v3.2/analyze`)
+    console.log('Testing Cognitive Services with URL:', `${baseUrl}computervision/imageanalysis:analyze`)
     
-    const response = await fetch(`${baseUrl}vision/v3.2/analyze?visualFeatures=Description`, {
+    const response = await fetch(`${baseUrl}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=Description`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
@@ -56,10 +56,10 @@ async function testAzureSpeech() {
   }
 
   try {
-    const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    console.log('Testing Speech Services with URL:', `${baseUrl}cognitiveservices/v1/voices/list`)
+    // For Speech Services, we need to use the base endpoint without additional path
+    console.log('Testing Speech Services with URL:', endpoint)
     
-    const response = await fetch(`${baseUrl}cognitiveservices/v1/voices/list`, {
+    const response = await fetch(`${endpoint}/cognitiveservices/voices/list`, {
       method: 'GET',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
