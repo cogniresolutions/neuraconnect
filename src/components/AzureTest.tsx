@@ -18,10 +18,14 @@ export default function AzureTest() {
   const runTest = async () => {
     setIsLoading(true);
     try {
-      console.log('Starting Azure services test...');
-      const { data, error } = await supabase.functions.invoke('test-azure');
+      console.log('Starting Azure services test from client...');
       
-      console.log('Test response:', { data, error });
+      // Make the request to the Edge Function
+      const { data, error } = await supabase.functions.invoke('test-azure', {
+        body: { test: true },
+      });
+      
+      console.log('Edge Function Response:', { data, error });
       
       if (error) {
         console.error('Supabase function error:', error);
@@ -44,6 +48,7 @@ export default function AzureTest() {
       }
 
       setTestResults(data.results);
+      console.log('Test results:', data.results);
       
       const hasErrors = data.results.some(result => result.status === 'error');
       toast({
@@ -69,6 +74,7 @@ export default function AzureTest() {
     <div className="space-y-6 p-6 bg-black/95 text-white rounded-lg">
       <div className="space-y-2">
         <h2 className="text-2xl font-bold">Azure Services Test</h2>
+        <p className="text-sm text-gray-400">Click the button below to test Azure services and check the Edge Function logs.</p>
         <Button 
           onClick={runTest}
           variant="outline"
