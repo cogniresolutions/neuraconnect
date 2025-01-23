@@ -8,7 +8,7 @@ const corsHeaders = {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -19,12 +19,14 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '')
+    // Ensure the endpoint is using tts instead of stt
+    const endpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace('stt.speech', 'tts.speech')?.replace(/\/$/, '')
     const subscriptionKey = Deno.env.get('AZURE_SPEECH_KEY')
     
     console.log('Azure credentials check:', {
       hasEndpoint: !!endpoint,
-      hasKey: !!subscriptionKey
+      hasKey: !!subscriptionKey,
+      endpoint: endpoint
     })
 
     if (!endpoint || !subscriptionKey) {
@@ -45,13 +47,14 @@ serve(async (req) => {
         .replace(/'/g, '&apos;');
     }
 
-    const ssml = `<speak version='1.0' xml:lang='en-US'><voice name='${voiceName}'>${escapeXml(text)}</voice></speak>`
-    console.log('SSML payload length:', ssml.length)
+    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='${voiceName}'><prosody rate="0%">${escapeXml(text)}</prosody></voice></speak>`
+    console.log('SSML payload:', ssml)
 
-    const ttsEndpoint = `${endpoint}/cognitiveservices/v1/synthesize/text-to-speech`
-    console.log('Making request to endpoint:', ttsEndpoint)
+    // Use the correct endpoint format
+    const ttsUrl = `${endpoint}/cognitiveservices/v1`
+    console.log('TTS URL:', ttsUrl)
 
-    const response = await fetch(ttsEndpoint, {
+    const response = await fetch(ttsUrl, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': subscriptionKey,
@@ -62,13 +65,16 @@ serve(async (req) => {
       body: ssml
     })
 
+    console.log('TTS response status:', response.status)
+    console.log('TTS response headers:', Object.fromEntries(response.headers.entries()))
+
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Azure TTS Error Response:', {
+      console.error('TTS error:', {
         status: response.status,
         statusText: response.statusText,
-        errorText,
-        endpoint: ttsEndpoint
+        error: errorText,
+        url: ttsUrl
       })
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
     }
