@@ -38,6 +38,7 @@ export const PersonaForm = ({
     issues: [] as string[],
     suggestions: [] as string[],
   });
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newDescription = e.target.value;
@@ -57,12 +58,19 @@ export const PersonaForm = ({
     });
   };
 
+  const stopCurrentAudio = () => {
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+    }
+  };
+
   const handleTestVoice = async () => {
     try {
+      stopCurrentAudio();
       setIsTestingVoice(true);
       console.log('Starting voice test...');
       
-      // First test Azure voice services connection
       const { data: azureTest, error: azureError } = await supabase.functions.invoke('azure-voice-test');
       
       if (azureError) {
@@ -97,32 +105,37 @@ export const PersonaForm = ({
         throw new Error('No audio content received');
       }
 
-      console.log('Playing audio...');
+      console.log('Creating audio element...');
       const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+      setAudioElement(audio);
       
       audio.onerror = (e) => {
         console.error('Audio playback error:', e);
         throw new Error('Failed to play audio');
       };
 
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setIsTestingVoice(false);
+      };
+
       await audio.play();
-      console.log('Audio played successfully');
+      console.log('Audio playing...');
       
       toast({
-        title: "Voice Test Successful",
-        description: "The voice test completed successfully.",
+        title: "Voice Test",
+        description: "Playing voice sample...",
       });
 
     } catch (error: any) {
       console.error('Voice test error:', error);
+      setIsSpeaking(false);
+      setIsTestingVoice(false);
       toast({
         title: "Voice Test Failed",
         description: error.message || "Failed to test voice",
         variant: "destructive",
       });
-    } finally {
-      setIsTestingVoice(false);
-      setIsSpeaking(false);
     }
   };
 
