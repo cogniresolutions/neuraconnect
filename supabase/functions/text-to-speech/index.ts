@@ -42,16 +42,14 @@ serve(async (req) => {
     const voiceName = `en-US-${voice}Neural`;
     console.log('Using voice:', voiceName);
 
-    // Construct SSML with proper XML namespace
-    const ssml = `
-      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+    // Construct SSML with proper XML namespace - exactly matching the working implementation
+    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='${voiceName}'>
           <prosody rate="0%">
             ${text}
           </prosody>
         </voice>
-      </speak>
-    `.trim();
+      </speak>`.trim();
     
     console.log('SSML payload:', ssml);
 
