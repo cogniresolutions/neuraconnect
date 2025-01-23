@@ -36,9 +36,8 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Step 3: Construct the correct endpoint URL according to Azure docs
-    const endpoint = new URL(azureSpeechEndpoint);
-    const ttsEndpoint = `${endpoint.origin}/cognitiveservices/v1`;
+    // Step 3: Ensure the endpoint is using tts instead of stt
+    const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Step 4: Format voice name according to Azure standards
@@ -60,7 +59,7 @@ serve(async (req) => {
 
     // Step 6: Make request to Azure TTS
     console.log('Making request to Azure TTS...');
-    const response = await fetch(ttsEndpoint, {
+    const response = await fetch(`${ttsEndpoint}/cognitiveservices/v1`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
@@ -78,7 +77,7 @@ serve(async (req) => {
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
         error: errorText,
-        endpoint: ttsEndpoint,
+        endpoint: ttsEndpoint + '/cognitiveservices/v1',
         ssml: ssml
       });
       throw new Error(`Text-to-speech synthesis failed: ${response.status} - ${errorText}`);
