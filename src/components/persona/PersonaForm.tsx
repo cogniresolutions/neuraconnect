@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { VoiceTest } from "./VoiceTest";
 
 interface TrainingVideo {
   id: string;
@@ -126,19 +127,22 @@ export function PersonaForm({
 
       <div className="space-y-2">
         <Label htmlFor="voice">Voice Style</Label>
-        <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a voice style" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="alloy">Alloy (Neutral)</SelectItem>
-            <SelectItem value="echo">Echo (Male)</SelectItem>
-            <SelectItem value="fable">Fable (Male)</SelectItem>
-            <SelectItem value="onyx">Onyx (Male)</SelectItem>
-            <SelectItem value="nova">Nova (Female)</SelectItem>
-            <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center">
+          <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Select a voice style" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="alloy">Alloy (Neutral)</SelectItem>
+              <SelectItem value="echo">Echo (Male)</SelectItem>
+              <SelectItem value="fable">Fable (Male)</SelectItem>
+              <SelectItem value="onyx">Onyx (Male)</SelectItem>
+              <SelectItem value="nova">Nova (Female)</SelectItem>
+              <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
+            </SelectContent>
+          </Select>
+          <VoiceTest voiceStyle={voiceStyle} />
+        </div>
       </div>
 
       <div className="space-y-4">
