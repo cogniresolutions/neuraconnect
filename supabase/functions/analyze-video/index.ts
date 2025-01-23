@@ -94,9 +94,9 @@ serve(async (req) => {
           emotion_data: faceData,
           environment_data: visionData,
           environment_context: {
-            objects: visionData.objects,
-            scenes: visionData.scenes,
-            tags: visionData.tags
+            objects: visionData.objects || [],
+            scenes: visionData.scenes || [],
+            tags: visionData.tags || []
           }
         });
 
