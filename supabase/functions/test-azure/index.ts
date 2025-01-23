@@ -6,16 +6,25 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Log the start of function execution
-  console.log('🚀 Azure Test Function Started')
-  
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request')
-    return new Response(null, { headers: corsHeaders })
-  }
-
   try {
+    console.log('🚀 Azure Test Function Started')
+    
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      console.log('Handling CORS preflight request')
+      return new Response(null, { 
+        headers: corsHeaders,
+        status: 200
+      })
+    }
+
+    // Parse request body
+    const body = await req.json().catch(error => {
+      console.error('Failed to parse request body:', error)
+      throw new Error('Invalid request body')
+    })
+    console.log('Request body:', body)
+
     // Get Azure credentials from environment
     const cognitiveEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
     const cognitiveKey = Deno.env.get('AZURE_COGNITIVE_KEY')
@@ -41,7 +50,16 @@ serve(async (req) => {
 
     if (!cognitiveEndpoint || !cognitiveKey || !speechEndpoint || !speechKey || !visionEndpoint || !visionKey) {
       console.error('❌ Missing required Azure credentials')
-      throw new Error('Missing required Azure credentials')
+      return new Response(
+        JSON.stringify({
+          error: 'Missing required Azure credentials',
+          details: 'Please check your Azure configuration in Supabase Edge Function secrets'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        }
+      )
     }
 
     const results = []
