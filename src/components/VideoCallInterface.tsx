@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Phone, PhoneOff } from 'lucide-react';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
+import VideoDisplay from './video/VideoDisplay';
+import CallControls from './video/CallControls';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -17,7 +17,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
 
@@ -26,7 +25,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       setIsLoading(true);
       console.log('Initializing call with persona:', persona);
       
-      // Initialize video stream first
+      // Initialize video stream
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: {
           width: { ideal: 1280 },
@@ -36,10 +35,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         audio: true 
       });
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-      }
+      streamRef.current = stream;
 
       // Initialize real-time chat with OpenAI
       chatRef.current = new RealtimeChat((event) => {
@@ -90,9 +86,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
       toast({
         title: "Call Error",
         description: error.message || "Failed to start call",
@@ -108,10 +101,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
-      }
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
       }
 
       if (chatRef.current) {
@@ -159,41 +148,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-      {isCallActive && (
-        <div className="relative w-[640px] h-[480px] rounded-lg overflow-hidden bg-gray-900 shadow-lg">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
-            <Button
-              onClick={endCall}
-              variant="destructive"
-              size="lg"
-              className="rounded-full h-12 w-12 p-0 hover:bg-red-600"
-            >
-              <PhoneOff className="h-6 w-6" />
-            </Button>
-          </div>
-        </div>
-      )}
-      
-      {!isCallActive && (
-        <Button
-          onClick={startCall}
-          disabled={isLoading}
-          className="bg-green-500 hover:bg-green-600 text-white rounded-full h-12 w-12 p-0"
-        >
-          {isLoading ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
-          ) : (
-            <Phone className="h-6 w-6" />
-          )}
-        </Button>
-      )}
+      {isCallActive && <VideoDisplay stream={streamRef.current} muted />}
+      <CallControls
+        isCallActive={isCallActive}
+        isLoading={isLoading}
+        onStartCall={startCall}
+        onEndCall={endCall}
+      />
     </div>
   );
 };
