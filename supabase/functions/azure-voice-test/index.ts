@@ -10,7 +10,6 @@ console.log('Azure Voice Test Function loaded');
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -31,7 +30,7 @@ serve(async (req) => {
 
     // First test the voices list endpoint
     console.log('Testing voices list endpoint...');
-    const voicesResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/voices/list`, {
+    const voicesResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/voices/list/v1`, {
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
       },
@@ -57,7 +56,7 @@ serve(async (req) => {
       </speak>
     `.trim();
 
-    const ttsResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1/tts`, {
+    const ttsResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1/synthesize`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
