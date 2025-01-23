@@ -18,7 +18,11 @@ const Auth = () => {
         if (error) throw error;
         
         if (session) {
-          navigate('/');
+          // Only attempt to sign out if there's an active session
+          const { error: signOutError } = await supabase.auth.signOut();
+          if (signOutError) {
+            console.error('Error signing out:', signOutError);
+          }
         }
       } catch (error) {
         console.error('Auth check error:', error);
