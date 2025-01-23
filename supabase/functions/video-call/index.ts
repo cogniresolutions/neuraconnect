@@ -7,145 +7,70 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('Received video call request');
-  
   if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Initializing Supabase client');
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const { personaId } = await req.json();
+    
+    if (!personaId) {
+      throw new Error('Persona ID is required');
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get persona details
+    const { data: persona, error: personaError } = await supabase
+      .from('personas')
+      .select('*')
+      .eq('id', personaId)
+      .single();
+
+    if (personaError) throw personaError;
+    if (!persona) throw new Error('Persona not found');
+
+    // Generate a unique conversation ID
+    const conversationId = crypto.randomUUID();
+
+    // Create a new tavus session
+    const { data: session, error: sessionError } = await supabase
+      .from('tavus_sessions')
+      .insert({
+        conversation_id: conversationId,
+        user_id: persona.user_id,
+        status: 'active',
+        video_call_id: crypto.randomUUID(),
+        participants: [],
+        is_active: true,
+        session_type: 'video_call'
+      })
+      .select()
+      .single();
+
+    if (sessionError) throw sessionError;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          conversationId,
+          session
+        }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-    const requestBody = await req.json();
-    console.log('Request body:', requestBody);
-    
-    const { personaId, userId, action, personaConfig } = requestBody;
-
-    if (!personaId || !userId) {
-      console.error('Missing required parameters:', { personaId, userId });
-      throw new Error('Missing required parameters');
-    }
-
-    console.log('Processing request:', { action, personaId, userId });
-
-    switch (action) {
-      case 'start': {
-        console.log('Starting new video call session...');
-        
-        // Verify persona exists and is accessible to the user
-        const { data: persona, error: personaError } = await supabase
-          .from('personas')
-          .select('*')
-          .eq('id', personaId)
-          .single();
-
-        if (personaError || !persona) {
-          console.error('Persona verification failed:', personaError);
-          throw new Error('Invalid persona or access denied');
-        }
-
-        // Check for processed training video
-        const { data: trainingVideo, error: videoError } = await supabase
-          .from('training_videos')
-          .select('*')
-          .eq('persona_id', personaId)
-          .eq('processing_status', 'completed')
-          .limit(1)
-          .single();
-
-        if (videoError || !trainingVideo) {
-          console.error('No processed training video found:', videoError);
-          throw new Error('No processed training video available');
-        }
-
-        // Generate conversation ID
-        const conversationId = crypto.randomUUID();
-        console.log('Generated conversation ID:', conversationId);
-
-        // Create session
-        const sessionData = {
-          user_id: userId,
-          conversation_id: conversationId,
-          status: 'active',
-          participants: [
-            { user_id: userId, type: 'user' },
-            { persona_id: personaId, type: 'persona', config: personaConfig }
-          ],
-          session_type: 'video_call',
-          is_active: true,
-          last_checked_at: new Date().toISOString()
-        };
-
-        console.log('Creating session with data:', sessionData);
-
-        const { data: session, error: sessionError } = await supabase
-          .from('tavus_sessions')
-          .insert(sessionData)
-          .select()
-          .single();
-
-        if (sessionError) {
-          console.error('Session creation failed:', sessionError);
-          throw sessionError;
-        }
-
-        console.log('Video call session created successfully:', session);
-
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            session,
-            message: 'Video call session started successfully' 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'end': {
-        console.log('Ending video call session...');
-        const { error: endError } = await supabase
-          .from('tavus_sessions')
-          .update({ 
-            status: 'ended', 
-            is_active: false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('is_active', true);
-
-        if (endError) {
-          console.error('Session end failed:', endError);
-          throw endError;
-        }
-
-        console.log('Video call session ended successfully');
-
-        return new Response(
-          JSON.stringify({ 
-            success: true,
-            message: 'Video call session ended successfully' 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      default:
-        console.error('Invalid action requested:', action);
-        throw new Error('Invalid action');
-    }
   } catch (error) {
-    console.error('Video call error:', error);
+    console.error('Error in video-call function:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
       }),
-      { 
+      {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
