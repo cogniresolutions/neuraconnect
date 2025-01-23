@@ -13,7 +13,7 @@ export const VoiceTest = ({ voiceStyle }: VoiceTestProps) => {
   const { toast } = useToast();
 
   const getVoiceMessage = (style: string) => {
-    const voices: Record<string, string> = {
+    const messages: Record<string, string> = {
       alloy: "Hi, I am Alloy, a neutral voice assistant",
       echo: "Hello there, I'm Echo, a male voice assistant",
       fable: "Greetings, I'm Fable, your male voice companion",
@@ -21,7 +21,7 @@ export const VoiceTest = ({ voiceStyle }: VoiceTestProps) => {
       nova: "Hello, I'm Nova, a female voice assistant",
       shimmer: "Hi there, I'm Shimmer, a female voice assistant"
     };
-    return voices[style] || `Hello, I'm ${style}`;
+    return messages[style] || `Hello, I'm ${style}`;
   };
 
   const testVoice = async () => {
@@ -39,11 +39,6 @@ export const VoiceTest = ({ voiceStyle }: VoiceTestProps) => {
       if (data?.audioContent) {
         const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
         await audio.play();
-        
-        toast({
-          title: "Voice Test",
-          description: `Testing ${voiceStyle} voice`,
-        });
       }
     } catch (error) {
       console.error('Voice test error:', error);

@@ -8,7 +8,6 @@ const corsHeaders = {
 console.log('Azure Voice Test Function loaded');
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -19,11 +18,9 @@ serve(async (req) => {
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
-    // Validate environment variables
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint
+      hasEndpoint: !!azureSpeechEndpoint
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
@@ -32,6 +29,19 @@ serve(async (req) => {
 
     // Parse the request body to get the text and voice
     const { text, voice } = await req.json();
+    
+    // Map voice styles to Azure Neural voices
+    const voiceMap: Record<string, string> = {
+      alloy: 'en-US-GuyNeural',      // Male neutral
+      echo: 'en-US-DavisNeural',     // Male
+      fable: 'en-US-TonyNeural',     // Male
+      onyx: 'en-US-JasonNeural',     // Male
+      nova: 'en-US-JennyNeural',     // Female
+      shimmer: 'en-US-AriaNeural'    // Female
+    };
+
+    const selectedVoice = voiceMap[voice] || 'en-US-JennyNeural';
+    console.log('Selected voice:', selectedVoice);
 
     // Ensure the endpoint is using tts instead of stt
     const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
@@ -41,7 +51,7 @@ serve(async (req) => {
     console.log('Testing text-to-speech synthesis...');
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='en-US-JennyNeural'>
+        <voice name='${selectedVoice}'>
           <prosody rate="0%">
             ${text}
           </prosody>
