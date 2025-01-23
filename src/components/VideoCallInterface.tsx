@@ -6,6 +6,7 @@ import CallControls from './video/CallControls';
 import AIPersonaVideo from './AIPersonaVideo';
 import { useToast } from '@/hooks/use-toast';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
+import { RealtimeChat } from '@/utils/RealtimeAudio';
 
 interface VideoCallProps {
   onCallStateChange?: (isActive: boolean) => void;
@@ -20,6 +21,7 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
   const [persona, setPersona] = useState<any>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [realtimeChat, setRealtimeChat] = useState<RealtimeChat | null>(null);
   const { toast } = useToast();
   const { speak } = useTextToSpeech();
 
@@ -52,30 +54,52 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
     }
   }, [personaId, loadPersona]);
 
-  const playWelcomeMessage = async () => {
-    try {
-      const welcomeMessage = `Hello! I'm ${persona?.name || 'your AI Assistant'}. I'm here to help you with your trading questions and provide insights based on my training data.`;
+  const handleRealtimeMessage = useCallback((event: any) => {
+    console.log('Received realtime message:', event);
+    
+    if (event.type === 'response.audio.delta') {
       setIsSpeaking(true);
+    } else if (event.type === 'response.audio.done') {
+      setIsSpeaking(false);
+    }
+  }, []);
+
+  const initializeRealtimeChat = async () => {
+    try {
+      const chat = new RealtimeChat(handleRealtimeMessage);
+      await chat.init(persona);
+      setRealtimeChat(chat);
       
-      await speak(welcomeMessage, {
-        voice: persona?.voice_style || 'Jenny'
-      });
+      // Send initial system message to introduce the persona
+      const welcomeMessage = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'system',
+          content: [
+            {
+              type: 'text',
+              text: `Hello! I'm ${persona?.name || 'your AI Assistant'}. I'm here to help you with your trading questions and provide insights based on my training data.`
+            }
+          ]
+        }
+      };
+      
+      chat.sendMessage(welcomeMessage);
     } catch (error) {
-      console.error('Error playing welcome message:', error);
+      console.error('Error initializing realtime chat:', error);
       if (retryCount < MAX_RETRIES) {
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
-          playWelcomeMessage();
+          initializeRealtimeChat();
         }, RETRY_DELAY);
       } else {
         toast({
-          title: "Audio Error",
-          description: "Unable to play welcome message. Please check your audio settings.",
+          title: "Connection Error",
+          description: "Failed to establish realtime connection. Please try again.",
           variant: "destructive",
         });
       }
-    } finally {
-      setIsSpeaking(false);
     }
   };
 
@@ -101,16 +125,8 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
       setIsCallActive(true);
       onCallStateChange?.(true);
 
-      // Initialize audio context for better performance
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(1024, 1, 1);
-      
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-
-      // Play welcome message with retry mechanism
-      await playWelcomeMessage();
+      // Initialize realtime chat with persona
+      await initializeRealtimeChat();
 
       toast({
         title: `${persona?.name || 'AI Assistant'} joined the call`,
@@ -132,6 +148,10 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
   const endCall = () => {
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
+    }
+    if (realtimeChat) {
+      realtimeChat.disconnect();
+      setRealtimeChat(null);
     }
     setLocalStream(null);
     setIsCallActive(false);

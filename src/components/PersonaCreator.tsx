@@ -374,7 +374,6 @@ const PersonaCreator = () => {
 
         {selectedPersona && (
           <VideoCallInterface
-            persona={selectedPersona}
             onCallStateChange={handleCallStateChange}
           />
         )}
