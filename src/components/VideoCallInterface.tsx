@@ -213,6 +213,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const initializeChat = async () => {
     try {
+      console.log('Checking authentication...');
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -259,8 +260,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const startCall = async () => {
+    console.log('Start call button clicked');
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current user:', user);
       
       if (!user) {
         toast({
@@ -281,16 +284,18 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       setIsLoading(true);
-      console.log('Starting call...');
+      console.log('Starting call process...');
 
       // Initialize microphone if not already enabled
       if (!isMicEnabled) {
+        console.log('Initializing microphone...');
         await initializeDevice('microphone');
       }
 
       console.log('Initializing chat...');
       await initializeChat();
 
+      console.log('Invoking video-call function...');
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
           personaId: persona.id,
