@@ -4,80 +4,40 @@ import { Auth as SupabaseAuth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, RefreshCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [sessionCheckFailed, setSessionCheckFailed] = useState(false);
-
-  const checkSession = async () => {
-    try {
-      setIsLoading(true);
-      setSessionCheckFailed(false);
-      setAuthError(null);
-
-      console.log('Starting session check...');
-      
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection timeout')), 10000); // 10 second timeout
-      });
-
-      // Create the session check promise
-      const sessionPromise = supabase.auth.getSession();
-
-      // Race between timeout and session check
-      const { data: { session }, error } = await Promise.race([
-        sessionPromise,
-        timeoutPromise.then(() => {
-          throw new Error('Connection timeout');
-        }),
-      ]);
-      
-      if (error) {
-        console.error('Session check error:', error);
-        throw error;
-      }
-
-      console.log('Session check completed:', session ? 'Logged in' : 'Not logged in');
-      if (session?.user) {
-        navigate('/', { replace: true });
-      }
-    } catch (error) {
-      console.error('Session check error:', error);
-      setSessionCheckFailed(true);
-      setAuthError(error instanceof Error ? error.message : 'Connection failed');
-      toast({
-        title: "Connection Error",
-        description: error instanceof Error && error.message === 'Connection timeout' 
-          ? "The authentication service is taking too long to respond. Please try again."
-          : "Unable to connect to the authentication service. Please check your connection and try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   useEffect(() => {
     let mounted = true;
 
-    const handleAuthChange = async (event: string, session: any) => {
-      if (!mounted) return;
-      
-      console.log('Auth state changed:', event, session);
-      
-      if (event === 'SIGNED_IN' && session) {
-        console.log('User signed in, redirecting...');
-        toast({
-          title: "Welcome!",
-          description: "You have successfully signed in.",
-        });
-        navigate('/', { replace: true });
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        if (session?.user && mounted) {
+          navigate('/', { replace: true });
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+        if (mounted) {
+          setAuthError('Failed to check authentication status');
+          toast({
+            title: "Authentication Error",
+            description: "Failed to check authentication status. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -85,38 +45,31 @@ const Auth = () => {
     checkSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
+      
+      if (event === 'SIGNED_IN' && session) {
+        toast({
+          title: "Welcome!",
+          description: "You have successfully signed in.",
+        });
+        navigate('/', { replace: true });
+      }
+    });
 
+    // Cleanup
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, [navigate, toast]);
 
-  if (sessionCheckFailed) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <p className="text-purple-200">Connection timeout - Unable to reach authentication service</p>
-          <Button 
-            onClick={checkSession}
-            variant="outline"
-            className="bg-purple-500/10 border-purple-500/20 text-purple-200 hover:bg-purple-500/20"
-          >
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            Try Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-          <p className="text-purple-200">Connecting to authentication service...</p>
+          <p className="text-purple-200">Checking authentication status...</p>
         </div>
       </div>
     );
