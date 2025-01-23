@@ -23,22 +23,43 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const startCall = async () => {
     try {
       setIsLoading(true);
+      console.log('Starting call with persona:', persona);
       
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        console.error('No authenticated user found');
+        throw new Error('User not authenticated');
+      }
 
-      const { error } = await supabase.functions.invoke('video-call', {
+      console.log('Invoking video-call function...');
+      const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
           personaId: persona.id,
           userId: user.id,
-          action: 'start'
+          action: 'start',
+          personaConfig: {
+            name: persona.name,
+            voiceStyle: persona.voice_style,
+            modelConfig: persona.model_config
+          }
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from video-call function:', error);
+        throw error;
+      }
+
+      console.log('Video call function response:', data);
 
       // Start local video
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      console.log('Requesting media stream...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      console.log('Media stream obtained:', stream.id);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
@@ -65,8 +86,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const endCall = async () => {
     try {
+      console.log('Ending call...');
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach(track => {
+          console.log('Stopping track:', track.kind);
+          track.stop();
+        });
         streamRef.current = null;
       }
       
@@ -77,6 +102,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      console.log('Invoking video-call end function...');
       const { error } = await supabase.functions.invoke('video-call', {
         body: { 
           personaId: persona.id,
