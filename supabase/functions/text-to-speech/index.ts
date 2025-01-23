@@ -37,11 +37,13 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Step 3: Ensure the endpoint is using tts instead of stt
-    const ttsEndpoint = `${azureSpeechEndpoint}/cognitiveservices/v1`;
+    // Step 3: Ensure we're using the correct TTS endpoint
+    // Remove any trailing slashes and add the correct path
+    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '');
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
-    // Step 4: Map voice name to Azure format (capitalize first letter)
+    // Step 4: Map voice name to Azure format
     const formattedVoice = voice ? voice.charAt(0).toUpperCase() + voice.slice(1).toLowerCase() : 'Jenny';
     const voiceName = `en-US-${formattedVoice}Neural`;
     console.log('Using voice:', voiceName);
