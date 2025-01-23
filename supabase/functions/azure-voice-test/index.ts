@@ -1,9 +1,11 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
+
+console.log('Azure Voice Test Function loaded');
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -13,34 +15,49 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting Azure voice test...');
+    console.log('Starting Azure Speech Services test...');
     
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint // Log the endpoint for verification
+      hasEndpoint: !!azureSpeechEndpoint
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
-      console.error('Azure Speech credentials not configured');
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Test text-to-speech with a simple SSML payload
+    // First test the voices list endpoint
+    console.log('Testing voices list endpoint...');
+    const voicesResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/voices/list`, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': azureSpeechKey,
+      },
+    });
+
+    if (!voicesResponse.ok) {
+      console.error('Failed to fetch voices:', voicesResponse.status, voicesResponse.statusText);
+      const errorText = await voicesResponse.text();
+      console.error('Error details:', errorText);
+      throw new Error(`Failed to fetch voices: ${voicesResponse.statusText}`);
+    }
+
+    const voices = await voicesResponse.json();
+    console.log('Successfully retrieved voices:', voices.length);
+
+    // Now test text-to-speech with a simple SSML payload
+    console.log('Testing text-to-speech synthesis...');
     const ssml = `
       <speak version='1.0' xml:lang='en-US'>
         <voice name='en-US-JennyNeural'>
           This is a test of the Azure Speech Services connection.
         </voice>
       </speak>
-    `;
+    `.trim();
 
-    console.log('Testing Azure Speech Services with endpoint:', azureSpeechEndpoint);
-    
-    const response = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1`, {
+    const ttsResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1/tts`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
@@ -51,21 +68,19 @@ serve(async (req) => {
       body: ssml
     });
 
-    console.log('Azure Speech Services response status:', response.status);
+    console.log('TTS response status:', ttsResponse.status);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Azure Speech Services error:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorText,
-        headers: Object.fromEntries(response.headers.entries())
+    if (!ttsResponse.ok) {
+      const errorText = await ttsResponse.text();
+      console.error('TTS error:', {
+        status: ttsResponse.status,
+        statusText: ttsResponse.statusText,
+        errorText
       });
-      throw new Error(`Failed to connect to Azure Speech Services: ${response.statusText}\n${errorText}`);
+      throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.statusText}`);
     }
 
-    // Convert audio buffer to base64
-    const arrayBuffer = await response.arrayBuffer();
+    const arrayBuffer = await ttsResponse.arrayBuffer();
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
     console.log('Successfully generated audio, length:', base64Audio.length);
@@ -73,8 +88,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: 'Azure Speech Services connection successful',
-        audioContent: base64Audio 
+        message: 'Azure Speech Services tests passed successfully',
+        voicesAvailable: voices.length,
+        audioContent: base64Audio
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -83,7 +99,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in azure-voice-test function:', error);
+    console.error('Error in Azure voice test:', error);
     return new Response(
       JSON.stringify({
         success: false,
