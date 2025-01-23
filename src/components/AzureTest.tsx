@@ -12,16 +12,32 @@ interface TestResult {
 
 export default function AzureTest() {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const runTest = async () => {
+    setIsLoading(true);
     try {
+      console.log('Starting Azure services test...');
       const { data, error } = await supabase.functions.invoke('test-azure');
       
+      console.log('Test response:', { data, error });
+      
       if (error) {
+        console.error('Supabase function error:', error);
         toast({
           title: 'Error',
-          description: 'Failed to test Azure services',
+          description: 'Failed to test Azure services: ' + error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!data?.results) {
+        console.error('Invalid response format:', data);
+        toast({
+          title: 'Error',
+          description: 'Invalid response from Azure services test',
           variant: 'destructive',
         });
         return;
@@ -29,17 +45,23 @@ export default function AzureTest() {
 
       setTestResults(data.results);
       
+      const hasErrors = data.results.some(result => result.status === 'error');
       toast({
-        title: 'Success',
-        description: 'Azure services test completed',
+        title: hasErrors ? 'Warning' : 'Success',
+        description: hasErrors 
+          ? 'Some Azure services tests failed' 
+          : 'All Azure services tests completed successfully',
+        variant: hasErrors ? 'destructive' : 'default',
       });
     } catch (error) {
       console.error('Error testing Azure services:', error);
       toast({
         title: 'Error',
-        description: 'Failed to test Azure services',
+        description: 'Failed to test Azure services: ' + (error instanceof Error ? error.message : 'Unknown error'),
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -51,8 +73,9 @@ export default function AzureTest() {
           onClick={runTest}
           variant="outline"
           className="bg-white/10 text-white hover:bg-white/20"
+          disabled={isLoading}
         >
-          Test Azure Services
+          {isLoading ? 'Testing...' : 'Test Azure Services'}
         </Button>
       </div>
       
