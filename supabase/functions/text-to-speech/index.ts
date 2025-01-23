@@ -39,74 +39,41 @@ serve(async (req) => {
 
     // Step 2: Validate Azure credentials
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    const azureSpeechRegion = 'eastus'; // Hardcoded region as per the endpoint
+    const azureSpeechRegion = 'eastus'; // Hardcoded region
 
-    console.log('Checking Azure Speech credentials:', {
+    console.log('Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      region: azureSpeechRegion
+      region: azureSpeechRegion,
     });
 
     if (!azureSpeechKey) {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Step 3: Prepare Azure endpoint
+    // Step 3: Prepare Azure endpoint and SSML
     const baseEndpoint = `https://${azureSpeechRegion}.tts.speech.microsoft.com`;
-    console.log('Base endpoint:', baseEndpoint);
-
-    // Step 4: Test Azure connectivity
-    console.log('Testing Azure Speech Services connectivity...');
-    const voicesUrl = `${baseEndpoint}/cognitiveservices/voices/list`;
-    console.log('Testing connectivity with URL:', voicesUrl);
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
     
-    const testResponse = await fetch(voicesUrl, {
-      headers: {
-        'Ocp-Apim-Subscription-Key': azureSpeechKey,
-      }
-    });
+    console.log('TTS endpoint:', ttsEndpoint);
 
-    if (!testResponse.ok) {
-      const errorText = await testResponse.text();
-      const errorDetails = {
-        status: testResponse.status,
-        statusText: testResponse.statusText,
-        headers: Object.fromEntries(testResponse.headers.entries()),
-        endpoint: baseEndpoint,
-        voicesUrl,
-        error: errorText
-      };
-      console.error('Azure connectivity test failed:', errorDetails);
-      throw new Error(`Azure Speech Services not available: ${testResponse.status} - ${errorText}`);
-    }
-
-    console.log('Azure Speech Services connectivity test passed');
-    const voices = await testResponse.json();
-    console.log('Available voices:', voices.length);
-
-    // Step 5: Prepare TTS request
     const voiceName = `en-US-${voice}Neural`;
     console.log('Using voice:', voiceName);
 
-    const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+    const ssml = `
+      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='${voiceName}'>
           <prosody rate="0%">
             ${text}
           </prosody>
         </voice>
-      </speak>`.trim();
+      </speak>
+    `.trim();
     
     console.log('SSML payload:', ssml);
 
-    // Step 6: Make TTS request
-    const ttsUrl = `${baseEndpoint}/cognitiveservices/v1`;
-    console.log('TTS URL:', ttsUrl);
-    console.log('Request headers:', {
-      'Ocp-Apim-Subscription-Key': 'present',
-      'Content-Type': 'application/ssml+xml',
-      'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
-    });
-
-    const response = await fetch(ttsUrl, {
+    // Step 4: Make TTS request with detailed error handling
+    console.log('Making request to Azure TTS...');
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
@@ -117,8 +84,8 @@ serve(async (req) => {
       body: ssml
     });
 
-    console.log('TTS response status:', response.status);
-    console.log('TTS response headers:', Object.fromEntries(response.headers.entries()));
+    console.log('Azure TTS response status:', response.status);
+    console.log('Azure TTS response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -127,15 +94,14 @@ serve(async (req) => {
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
         error: errorText,
-        url: ttsUrl,
-        ssml: ssml,
-        endpoint: baseEndpoint
+        endpoint: ttsEndpoint,
+        ssml: ssml
       };
-      console.error('TTS error details:', errorDetails);
+      console.error('Azure TTS error details:', errorDetails);
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`);
     }
 
-    // Step 7: Process and return response
+    // Step 5: Process successful response
     console.log('Successfully received audio response');
     const arrayBuffer = await response.arrayBuffer();
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
@@ -148,7 +114,7 @@ serve(async (req) => {
         audioContent: base64Audio,
         metadata: {
           voice: voiceName,
-          endpoint: baseEndpoint,
+          endpoint: ttsEndpoint,
           timestamp: new Date().toISOString()
         }
       }),
