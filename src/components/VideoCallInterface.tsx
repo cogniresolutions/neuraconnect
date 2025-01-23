@@ -57,176 +57,60 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const initializeAudio = async (stream: MediaStream) => {
-    try {
-      audioContextRef.current = new AudioContext();
-      audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-      audioSourceRef.current.connect(audioContextRef.current.destination);
-      
-      console.log('Audio initialized successfully');
-
-      await speakWelcomeMessage();
-      await initializeChat();
-
-      startAudioProcessing(stream);
-    } catch (error) {
-      console.error('Error initializing audio:', error);
-      throw error;
-    }
-  };
-
-  const startAudioProcessing = (stream: MediaStream) => {
-    if (!chatRef.current) return;
-
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const processor = audioContext.createScriptProcessor(1024, 1, 1);
-
-    source.connect(processor);
-    processor.connect(audioContext.destination);
-
-    processor.onaudioprocess = (e) => {
-      if (chatRef.current && isCallActive) {
-        const inputData = e.inputBuffer.getChannelData(0);
-        chatRef.current.sendMessage(Array.from(inputData));
-      }
-    };
-
-    audioContextRef.current = audioContext;
-    audioSourceRef.current = source;
-  };
-
-  const initializeChat = async () => {
-    try {
-      console.log('Initializing chat with persona:', persona);
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init(persona);
-      console.log('Chat initialized successfully');
-    } catch (error) {
-      console.error('Error initializing chat:', error);
-      throw error;
-    }
-  };
-
-  const toggleMute = () => {
-    if (streamRef.current) {
-      const audioTracks = streamRef.current.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsMuted(!isMuted);
-      
-      toast({
-        title: isMuted ? "Microphone Unmuted" : "Microphone Muted",
-        description: isMuted ? "Others can now hear you" : "Others cannot hear you",
-      });
-    }
-  };
-
-  const handleTranscriptionComplete = async (transcription: string) => {
-    console.log('Transcription received:', transcription);
-    if (chatRef.current) {
-      chatRef.current.sendMessage(transcription);
-    }
-  };
-
-  const speakWelcomeMessage = async () => {
-    try {
-      const welcomeMessage = `Hello! I'm ${persona.name}. How can I assist you today?`;
-      await speak(welcomeMessage, {
-        voice: persona.voice_style,
-        language: persona.language || 'en'
-      });
-      console.log('Welcome message spoken successfully');
-    } catch (error) {
-      console.error('Error speaking welcome message:', error);
-    }
-  };
-
-  const handleAnalysisComplete = (analysis: any) => {
-    if (analysis.emotions) {
-      const dominantEmotion = Object.entries(analysis.emotions)
-        .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0];
-      setCurrentEmotion(dominantEmotion || 'neutral');
-    }
-
-    if (chatRef.current && analysis.environment) {
-      chatRef.current.updateContext({
-        environment: analysis.environment,
-        userEmotion: currentEmotion
-      });
-    }
-  };
-
   const startCall = async () => {
     try {
-      setShowConsentDialog(true);
-    } catch (error: any) {
-      console.error('Error starting call:', error);
-      toast({
-        title: "Call Error",
-        description: error.message || "Failed to start call",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleConsentAccepted = async () => {
-    try {
       setIsLoading(true);
-      setShowConsentDialog(false);
-      
+      console.log('Starting call with persona:', persona);
+
+      // Get user media stream
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true 
+        audio: true,
+        video: true
       });
-      
       streamRef.current = stream;
-      await initializeAudio(stream);
 
+      // Initialize audio context and processing
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      audioContextRef.current = audioContext;
+      audioSourceRef.current = source;
+
+      // Initialize chat with persona
+      chatRef.current = new RealtimeChat(handleMessage);
+      await chatRef.current.init(persona);
+
+      // Create video call session in Supabase
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      if (!user) throw new Error('User not authenticated');
 
-      if (!persona?.id) {
-        throw new Error('Invalid persona configuration');
-      }
+      const { data, error } = await supabase.from('tavus_sessions').insert({
+        user_id: user.id,
+        conversation_id: crypto.randomUUID(),
+        status: 'active',
+        participants: [
+          { user_id: user.id, type: 'user' },
+          { persona_id: persona.id, type: 'persona' }
+        ],
+        session_type: 'video_call',
+        is_active: true
+      }).select().single();
 
-      console.log('Starting call with:', {
-        personaId: persona.id,
-        userId: user.id,
-        personaConfig: {
-          name: persona.name,
-          voiceStyle: persona.voice_style,
-          modelConfig: persona.model_config
-        }
-      });
-
-      const { data, error } = await supabase.functions.invoke('video-call', {
-        body: { 
-          personaId: persona.id,
-          userId: user.id,
-          action: 'start',
-          personaConfig: {
-            name: persona.name,
-            voiceStyle: persona.voice_style,
-            modelConfig: persona.model_config
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Video call function error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       setIsCallActive(true);
       onCallStateChange(true);
-      
+
       toast({
         title: "Call Started",
         description: `Connected with ${persona.name}`,
       });
+
+      // Speak welcome message
+      await speak(`Hello! I'm ${persona.name}. How can I assist you today?`, {
+        voice: persona.voice_style,
+        language: persona.language || 'en'
+      });
+
     } catch (error: any) {
       console.error('Error starting call:', error);
       if (streamRef.current) {
@@ -265,31 +149,18 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      if (!user) throw new Error('User not authenticated');
 
-      if (!persona?.id) {
-        throw new Error('Invalid persona configuration');
-      }
+      const { error } = await supabase.from('tavus_sessions')
+        .update({ 
+          status: 'ended',
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .eq('is_active', true);
 
-      console.log('Ending call with:', {
-        personaId: persona.id,
-        userId: user.id
-      });
-
-      const { error } = await supabase.functions.invoke('video-call', {
-        body: { 
-          personaId: persona.id,
-          userId: user.id,
-          action: 'end'
-        }
-      });
-
-      if (error) {
-        console.error('Error ending call:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       setIsCallActive(false);
       onCallStateChange(false);
@@ -304,6 +175,21 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         title: "Error",
         description: error.message || "Failed to end call",
         variant: "destructive",
+      });
+    }
+  };
+
+  const toggleMute = () => {
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted(!isMuted);
+      
+      toast({
+        title: isMuted ? "Microphone Unmuted" : "Microphone Muted",
+        description: isMuted ? "Others can now hear you" : "Others cannot hear you",
       });
     }
   };
@@ -348,7 +234,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       <ConsentDialog
         open={showConsentDialog}
         onOpenChange={setShowConsentDialog}
-        onAccept={handleConsentAccepted}
+        onAccept={startCall}
         personaName={persona.name}
       />
     </div>
