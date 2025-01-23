@@ -20,9 +20,12 @@ export default function AzureTest() {
     try {
       console.log('Starting Azure services test from client...');
       
-      // Make the request to the Edge Function
+      // Make the request to the Edge Function with a test payload
       const { data, error } = await supabase.functions.invoke('test-azure', {
         body: { test: true },
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
       
       console.log('Edge Function Response:', { data, error });

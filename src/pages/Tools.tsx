@@ -11,7 +11,9 @@ export default function Tools() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
+        return;
       }
+      console.log("User authenticated in Tools page:", session.user.id);
     };
 
     checkAuth();
