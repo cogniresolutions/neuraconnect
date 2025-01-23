@@ -35,6 +35,13 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-md space-y-8 p-8">
         <div className="text-center">
+          <div className="flex justify-center mb-6">
+            <img
+              src="https://images.unsplash.com/photo-1518770660439-4636190af475"
+              alt="Neuraconnect Logo"
+              className="w-16 h-16 object-cover rounded-lg shadow-lg animate-subtle-movement"
+            />
+          </div>
           <h1 className="text-2xl font-bold tracking-tight">Neuraconnect</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Sign in to your account to continue
