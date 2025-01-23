@@ -60,7 +60,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       loadTrainingVideo();
     }
 
-    // Cleanup function
     return () => {
       cleanupMedia();
     };
@@ -70,19 +69,27 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     setIsInitializingDevices(true);
     try {
       const constraints = {
-        video: type === 'camera',
-        audio: type === 'microphone'
+        video: type === 'camera' ? {
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } : false,
+        audio: type === 'microphone' ? {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } : false
       };
 
+      console.log(`Requesting ${type} access with constraints:`, constraints);
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log(`${type} access granted:`, stream);
 
-      if (type === 'camera') {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          streamRef.current = stream;
-          setIsCameraEnabled(true);
-        }
-      } else {
+      if (type === 'camera' && videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setIsCameraEnabled(true);
+        console.log('Camera initialized successfully');
+      } else if (type === 'microphone') {
         streamRef.current = stream;
         setIsMicEnabled(true);
         
@@ -92,6 +99,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           });
         }
         audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+        console.log('Microphone initialized successfully');
       }
 
       toast({
@@ -119,7 +127,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const toggleCamera = async () => {
     if (isCameraEnabled) {
       if (streamRef.current) {
-        streamRef.current.getVideoTracks().forEach(track => track.stop());
+        streamRef.current.getVideoTracks().forEach(track => {
+          track.stop();
+          console.log('Camera track stopped');
+        });
         setIsCameraEnabled(false);
       }
     } else {
@@ -130,7 +141,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const toggleMicrophone = async () => {
     if (isMicEnabled) {
       if (streamRef.current) {
-        streamRef.current.getAudioTracks().forEach(track => track.stop());
+        streamRef.current.getAudioTracks().forEach(track => {
+          track.stop();
+          console.log('Microphone track stopped');
+        });
         setIsMicEnabled(false);
       }
     } else {
@@ -139,6 +153,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const cleanupMedia = () => {
+    console.log('Cleaning up media resources...');
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -154,11 +169,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     if (audioSourceRef.current) {
       audioSourceRef.current.disconnect();
       audioSourceRef.current = null;
+      console.log('Audio source disconnected');
     }
     
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(console.error);
       audioContextRef.current = null;
+      console.log('Audio context closed');
     }
     
     setIsCameraEnabled(false);
@@ -225,6 +242,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const startCall = async () => {
     try {
       setIsLoading(true);
+      console.log('Starting call...');
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -235,6 +253,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (!isMicEnabled) {
         await initializeDevice('microphone');
       }
+
+      console.log('Initializing chat...');
+      await initializeChat();
 
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
@@ -249,7 +270,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from video-call function:', error);
+        throw error;
+      }
 
       setIsCallActive(true);
       onCallStateChange(true);
@@ -258,6 +282,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         title: "Call Started",
         description: `Connected with ${persona.name}`,
       });
+
+      console.log('Call started successfully');
     } catch (error: any) {
       console.error('Error starting call:', error);
       cleanupMedia();
@@ -273,12 +299,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const endCall = async () => {
     try {
+      console.log('Ending call...');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       if (chatRef.current) {
         chatRef.current.disconnect();
         chatRef.current = null;
+        console.log('Chat disconnected');
       }
 
       cleanupMedia();
@@ -300,6 +328,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         title: "Call Ended",
         description: `Disconnected from ${persona.name}`,
       });
+
+      console.log('Call ended successfully');
     } catch (error: any) {
       console.error('Error ending call:', error);
       toast({
