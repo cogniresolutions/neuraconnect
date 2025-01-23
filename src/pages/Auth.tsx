@@ -10,30 +10,43 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkUser = async () => {
+    let mounted = true;
+
+    const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        if (session?.user && mounted) {
           navigate('/', { replace: true });
         }
       } catch (error) {
-        console.error('Auth check error:', error);
-        toast({
-          title: "Authentication Error",
-          description: "Failed to check authentication status. Please try again.",
-          variant: "destructive",
-        });
+        console.error('Session check error:', error);
+        if (mounted) {
+          setAuthError('Failed to check authentication status');
+          toast({
+            title: "Authentication Error",
+            description: "Failed to check authentication status. Please try again.",
+            variant: "destructive",
+          });
+        }
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    checkUser();
+    // Initial session check
+    checkSession();
 
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session);
+      console.log('Auth state changed:', event);
       
       if (event === 'SIGNED_IN' && session) {
         toast({
@@ -44,7 +57,9 @@ const Auth = () => {
       }
     });
 
+    // Cleanup
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [navigate, toast]);
@@ -70,6 +85,9 @@ const Auth = () => {
           <p className="mt-2 text-gray-400">
             Sign in to your account or create a new one
           </p>
+          {authError && (
+            <p className="mt-2 text-red-400 text-sm">{authError}</p>
+          )}
         </div>
         
         <div className="bg-white/5 p-8 rounded-lg border border-purple-400/20 backdrop-blur-sm">
