@@ -32,10 +32,12 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
-    // Remove trailing slash if present and construct the full TTS endpoint
+    // Remove trailing slash if present
     const baseEndpoint = endpoint.replace(/\/+$/, '')
-    // The correct endpoint for Azure TTS
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/synthesize`
+    
+    // Construct the full TTS endpoint following Azure's format
+    // Format should be: https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`
 
     console.log('Using TTS endpoint:', ttsEndpoint.substring(0, 20) + '...')
 
@@ -45,6 +47,7 @@ serve(async (req) => {
     console.log('Making request to Azure')
     console.log('Using voice:', `en-US-${voice}Neural`)
     console.log('SSML payload:', ssml)
+    console.log('Full endpoint being used:', ttsEndpoint)
 
     const response = await fetch(ttsEndpoint, {
       method: 'POST',
@@ -59,13 +62,14 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Azure TTS Error Response:', {
+      const errorDetails = {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
         endpoint: ttsEndpoint.substring(0, 20) + '...',
         headers: Object.fromEntries(response.headers.entries())
-      })
+      }
+      console.error('Azure TTS Error Response:', JSON.stringify(errorDetails, null, 2))
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`)
     }
 
