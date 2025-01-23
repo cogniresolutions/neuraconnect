@@ -10,20 +10,6 @@ interface VideoCallInterfaceProps {
   onCallStateChange: (isActive: boolean) => void;
 }
 
-interface AnalysisResult {
-  emotions?: {
-    happiness?: number;
-    sadness?: number;
-    surprise?: number;
-    anger?: number;
-  };
-  environment?: {
-    description?: string;
-    tags?: string[];
-    objects?: string[];
-  };
-}
-
 const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
   onCallStateChange
@@ -31,109 +17,22 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult>({});
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
-  const analysisIntervalRef = useRef<NodeJS.Timeout>();
-
-  const analyzeVideo = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    ctx.drawImage(videoRef.current, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg');
-
-    try {
-      console.log('Starting video analysis...');
-      
-      const [emotionResponse, environmentResponse] = await Promise.all([
-        supabase.functions.invoke('analyze-emotion', {
-          body: { 
-            imageData,
-            personaId: persona.id,
-            userId: (await supabase.auth.getUser()).data.user?.id
-          }
-        }),
-        supabase.functions.invoke('analyze-environment', {
-          body: { 
-            imageData,
-            personaId: persona.id,
-            userId: (await supabase.auth.getUser()).data.user?.id
-          }
-        })
-      ]);
-
-      if (emotionResponse.error) throw emotionResponse.error;
-      if (environmentResponse.error) throw environmentResponse.error;
-
-      console.log('Analysis results:', { 
-        emotion: emotionResponse.data, 
-        environment: environmentResponse.data 
-      });
-
-      setLastAnalysis({
-        emotions: emotionResponse.data?.emotions,
-        environment: environmentResponse.data?.environment
-      });
-
-      // Store analysis in Supabase
-      const { error: dbError } = await supabase
-        .from('emotion_analysis')
-        .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          persona_id: persona.id,
-          emotion_data: emotionResponse.data,
-          environment_data: environmentResponse.data,
-          created_at: new Date().toISOString()
-        });
-
-      if (dbError) throw dbError;
-
-    } catch (error: any) {
-      console.error('Analysis error:', error);
-      toast({
-        title: "Analysis Error",
-        description: error.message || "Failed to analyze video",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleMessage = (event: any) => {
-    console.log('Received WebSocket message:', event);
-    
-    if (event.type === 'response.audio.delta') {
-      console.log('Received audio delta, persona is speaking');
-      onCallStateChange(true);
-    } else if (event.type === 'response.audio.done') {
-      console.log('Audio response completed, persona stopped speaking');
-      onCallStateChange(false);
-    } else if (event.type === 'error') {
-      console.error('WebSocket error:', event.error);
-      toast({
-        title: "Connection Error",
-        description: event.error?.message || "An error occurred during the call",
-        variant: "destructive",
-      });
-    }
-  };
 
   const startCall = async () => {
     try {
       setIsLoading(true);
       console.log('Initializing call with persona:', persona);
       
-      // Initialize video stream
+      // Initialize video stream first
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        }, 
         audio: true 
       });
       
@@ -143,11 +42,26 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       // Initialize real-time chat with OpenAI
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init(persona);
+      chatRef.current = new RealtimeChat((event) => {
+        console.log('Received WebSocket message:', event);
+        
+        if (event.type === 'response.audio.delta') {
+          console.log('Received audio delta, persona is speaking');
+          onCallStateChange(true);
+        } else if (event.type === 'response.audio.done') {
+          console.log('Audio response completed, persona stopped speaking');
+          onCallStateChange(false);
+        } else if (event.type === 'error') {
+          console.error('WebSocket error:', event.error);
+          toast({
+            title: "Connection Error",
+            description: event.error?.message || "An error occurred during the call",
+            variant: "destructive",
+          });
+        }
+      });
       
-      // Start periodic analysis
-      analysisIntervalRef.current = setInterval(analyzeVideo, 5000);
+      await chatRef.current.init(persona);
 
       // Create Supabase session record
       const { data: { user } } = await supabase.auth.getUser();
@@ -205,10 +119,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         chatRef.current = null;
       }
 
-      if (analysisIntervalRef.current) {
-        clearInterval(analysisIntervalRef.current);
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
@@ -249,60 +159,41 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-      <div className="grid grid-cols-2 gap-4">
-        {isCallActive && (
-          <>
-            <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-              <canvas
-                ref={canvasRef}
-                className="hidden"
-              />
-              {lastAnalysis.emotions && (
-                <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded">
-                  Emotion: {Object.entries(lastAnalysis.emotions)
-                    .sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0]}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-      <div className="flex gap-2">
-        {!isCallActive ? (
-          <Button
-            onClick={startCall}
-            disabled={isLoading}
-            className="bg-green-500 hover:bg-green-600 text-white"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                <Phone className="mr-2 h-4 w-4" />
-                Start Call
-              </>
-            )}
-          </Button>
-        ) : (
-          <Button
-            onClick={endCall}
-            variant="destructive"
-          >
-            <PhoneOff className="mr-2 h-4 w-4" />
-            End Call
-          </Button>
-        )}
-      </div>
+      {isCallActive && (
+        <div className="relative w-80 h-60 rounded-lg overflow-hidden bg-gray-900 shadow-lg">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
+            <Button
+              onClick={endCall}
+              variant="destructive"
+              size="lg"
+              className="rounded-full h-12 w-12 p-0 hover:bg-red-600"
+            >
+              <PhoneOff className="h-6 w-6" />
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      {!isCallActive && (
+        <Button
+          onClick={startCall}
+          disabled={isLoading}
+          className="bg-green-500 hover:bg-green-600 text-white rounded-full h-12 w-12 p-0"
+        >
+          {isLoading ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <Phone className="h-6 w-6" />
+          )}
+        </Button>
+      )}
     </div>
   );
 };
