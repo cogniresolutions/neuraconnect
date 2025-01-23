@@ -44,38 +44,44 @@ export default function AzureTest() {
   };
 
   return (
-    <div className="space-y-4">
-      <Button onClick={runTest}>
-        Test Azure Services
-      </Button>
+    <div className="space-y-6 p-6 bg-black/95 text-white rounded-lg">
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold">Azure Services Test</h2>
+        <Button 
+          onClick={runTest}
+          variant="outline"
+          className="bg-white/10 text-white hover:bg-white/20"
+        >
+          Test Azure Services
+        </Button>
+      </div>
       
       {testResults.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {testResults.map((result, index) => (
             <div
               key={index}
-              className={`p-4 rounded-lg border ${
-                result.status === 'success'
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
-              }`}
+              className="p-4 bg-white/5 rounded-lg border border-white/10"
             >
-              <h3 className="font-medium text-gray-900">{result.service}</h3>
-              <div className="mt-1 text-sm">
-                <span className={`font-medium ${
-                  result.status === 'success' ? 'text-green-700' : 'text-red-700'
+              <h3 className="text-lg font-semibold">{result.service}</h3>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-sm">Status: </span>
+                <span className={`text-sm font-medium ${
+                  result.status === 'success' ? 'text-green-400' : 'text-red-400'
                 }`}>
-                  Status: {result.status}
+                  {result.status}
                 </span>
                 {result.statusCode && (
-                  <span className="ml-2 text-gray-600">
+                  <span className="text-sm text-gray-400">
                     (Code: {result.statusCode})
                   </span>
                 )}
-                {result.error && (
-                  <p className="mt-1 text-red-600">Error: {result.error}</p>
-                )}
               </div>
+              {result.error && (
+                <p className="mt-2 text-sm text-red-400">
+                  Error: {result.error}
+                </p>
+              )}
             </div>
           ))}
         </div>
