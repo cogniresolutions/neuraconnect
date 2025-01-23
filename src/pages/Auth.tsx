@@ -51,14 +51,14 @@ export default function Auth() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Neuraconnect</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create your digital twin or sign in to continue
+            Create your digital persona or sign in to continue
           </p>
         </div>
 
         <Tabs defaultValue="signin" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
-            <TabsTrigger value="create">Create Twin</TabsTrigger>
+            <TabsTrigger value="create">Create Your Persona</TabsTrigger>
           </TabsList>
           
           <TabsContent value="signin" className="mt-8 space-y-4">
