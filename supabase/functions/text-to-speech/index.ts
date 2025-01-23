@@ -84,8 +84,11 @@ serve(async (req) => {
     // Step 6: Process successful response
     console.log('Successfully received audio response');
     const arrayBuffer = await response.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const base64Audio = btoa(String.fromCharCode(...uint8Array));
+    
+    // Convert ArrayBuffer to Base64 using a more efficient method
+    const bytes = new Uint8Array(arrayBuffer);
+    const binaryString = Array.from(bytes).map(byte => String.fromCharCode(byte)).join('');
+    const base64Audio = btoa(binaryString);
 
     console.log('Successfully converted audio to base64, length:', base64Audio.length);
 
