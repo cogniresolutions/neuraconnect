@@ -20,11 +20,9 @@ const Auth = () => {
       setSessionCheckFailed(false);
       setAuthError(null);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      clearTimeout(timeoutId);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) throw error;
 
       if (session?.user) {
         navigate('/', { replace: true });
@@ -34,8 +32,8 @@ const Auth = () => {
       setSessionCheckFailed(true);
       setAuthError('Failed to check authentication status');
       toast({
-        title: "Connection Error",
-        description: "Please check your internet connection and try again.",
+        title: "Authentication Error",
+        description: "Please try again or use a different sign-in method.",
         variant: "destructive",
       });
     } finally {
@@ -48,6 +46,8 @@ const Auth = () => {
 
     const handleAuthChange = async (event: string, session: any) => {
       if (!mounted) return;
+      
+      console.log('Auth state changed:', event, session);
       
       if (event === 'SIGNED_IN' && session) {
         toast({
@@ -74,14 +74,14 @@ const Auth = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <p className="text-purple-200">Connection timed out</p>
+          <p className="text-purple-200">Connection failed</p>
           <Button 
             onClick={checkSession}
             variant="outline"
             className="bg-purple-500/10 border-purple-500/20 text-purple-200 hover:bg-purple-500/20"
           >
             <RefreshCcw className="mr-2 h-4 w-4" />
-            Retry Connection
+            Try Again
           </Button>
         </div>
       </div>
