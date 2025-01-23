@@ -36,17 +36,10 @@ const Auth = () => {
       console.log('Auth state changed:', event, session);
       
       if (event === 'SIGNED_IN' && session) {
-        if (session.provider_token) {
-          toast({
-            title: "Welcome!",
-            description: `Signed in with Google as ${session.user?.email}`,
-          });
-        } else {
-          toast({
-            title: "Welcome!",
-            description: "You have successfully signed in.",
-          });
-        }
+        toast({
+          title: "Welcome!",
+          description: "You have successfully signed in.",
+        });
         navigate('/');
       }
     });
