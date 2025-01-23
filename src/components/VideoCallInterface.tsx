@@ -17,6 +17,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
 
@@ -140,6 +141,21 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const toggleMute = () => {
+    if (streamRef.current) {
+      const audioTrack = streamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+        
+        toast({
+          title: audioTrack.enabled ? "Microphone Unmuted" : "Microphone Muted",
+          description: audioTrack.enabled ? "Others can hear you now" : "Others cannot hear you",
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (isCallActive) {
@@ -154,8 +170,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       <CallControls
         isCallActive={isCallActive}
         isLoading={isLoading}
+        isMuted={isMuted}
         onStartCall={startCall}
         onEndCall={endCall}
+        onToggleMute={toggleMute}
       />
     </div>
   );
