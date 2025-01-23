@@ -25,6 +25,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCameraEnabled, setIsCameraEnabled] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [isInitializingDevices, setIsInitializingDevices] = useState(false);
+  const [isLoadingVideo, setIsLoadingVideo] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -36,23 +37,51 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   useEffect(() => {
     const loadTrainingVideo = async () => {
       try {
+        setIsLoadingVideo(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          toast({
+            title: "Authentication Required",
+            description: "Please sign in to start a video call",
+            variant: "destructive",
+          });
+          return;
+        }
+
         const { data: videos, error } = await supabase
           .from('training_videos')
           .select('*')
           .eq('persona_id', persona.id)
           .eq('processing_status', 'completed')
           .limit(1)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching training video:', error);
+          throw error;
+        }
+
+        if (!videos) {
+          toast({
+            title: "No Training Video",
+            description: "This persona doesn't have any processed training videos yet",
+            variant: "destructive",
+          });
+          return;
+        }
+
         setTrainingVideo(videos);
+        console.log('Training video loaded successfully:', videos);
       } catch (error: any) {
         console.error('Error loading training video:', error);
         toast({
           title: "Error",
-          description: "Failed to load persona video",
+          description: "Failed to load persona video: " + error.message,
           variant: "destructive",
         });
+      } finally {
+        setIsLoadingVideo(false);
       }
     };
 
@@ -184,6 +213,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const initializeChat = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('Authentication required');
+      }
+
       console.log('Initializing chat with persona:', persona);
       chatRef.current = new RealtimeChat(handleMessage);
       await chatRef.current.init(persona);
@@ -219,35 +254,30 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const handleTranscriptionComplete = async (transcription: string) => {
-    console.log('Transcription received:', transcription);
-    if (chatRef.current) {
-      chatRef.current.sendMessage(transcription);
-    }
-  };
-
-  const speakWelcomeMessage = async () => {
-    try {
-      const welcomeMessage = `Hello! I'm ${persona.name}. How can I assist you today?`;
-      await speak(welcomeMessage, {
-        voice: persona.voice_style,
-        language: persona.language || 'en'
-      });
-      console.log('Welcome message spoken successfully');
-    } catch (error) {
-      console.error('Error speaking welcome message:', error);
-    }
-  };
-
   const startCall = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to start a video call",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!trainingVideo) {
+        toast({
+          title: "No Training Video",
+          description: "Cannot start call without a processed training video",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setIsLoading(true);
       console.log('Starting call...');
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
 
       // Initialize microphone if not already enabled
       if (!isMicEnabled) {
@@ -360,7 +390,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
               )}
             </div>
             <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
-              {trainingVideo ? (
+              {isLoadingVideo ? (
+                <div className="absolute inset-0 flex items-center justify-center text-white">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : trainingVideo ? (
                 <AIPersonaVideo
                   trainingVideoUrl={trainingVideo.video_url}
                   expressionSegments={trainingVideo.expression_segments}
@@ -416,7 +450,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         {!isCallActive ? (
           <Button
             onClick={startCall}
-            disabled={isLoading || isInitializingDevices}
+            disabled={isLoading || isInitializingDevices || isLoadingVideo}
             className="bg-green-500 hover:bg-green-600 text-white"
           >
             {isLoading || isInitializingDevices ? (
