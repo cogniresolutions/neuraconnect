@@ -32,9 +32,9 @@ serve(async (req) => {
       throw new Error('Azure credentials not configured')
     }
 
-    // Ensure the endpoint is properly formatted
-    const baseEndpoint = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint
-    // The correct endpoint for Azure TTS should end with /cognitiveservices/v1
+    // Remove trailing slash if present and construct the full TTS endpoint
+    const baseEndpoint = endpoint.replace(/\/+$/, '')
+    // The correct endpoint for Azure TTS
     const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/speak`
 
     console.log('Using TTS endpoint:', ttsEndpoint.substring(0, 20) + '...')
