@@ -69,8 +69,9 @@ export const PersonaForm = ({
     try {
       stopCurrentAudio();
       setIsTestingVoice(true);
-      console.log('Starting voice test...');
+      console.log('Starting Azure voice test...');
       
+      // First test Azure connectivity
       const { data: azureTest, error: azureError } = await supabase.functions.invoke('azure-voice-test');
       
       if (azureError) {

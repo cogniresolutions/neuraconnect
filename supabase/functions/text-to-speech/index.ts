@@ -14,9 +14,8 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting text-to-speech synthesis...');
-    
     // Step 1: Parse and validate request
+    console.log('Starting text-to-speech synthesis...');
     const { text, voice } = await req.json();
     console.log('Request payload:', { text, voice });
 
@@ -39,11 +38,11 @@ serve(async (req) => {
     }
 
     // Step 3: Ensure the endpoint is using tts instead of stt
-    const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
+    const ttsEndpoint = `${azureSpeechEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Step 4: Map voice name to Azure format (capitalize first letter)
-    const formattedVoice = voice.charAt(0).toUpperCase() + voice.slice(1).toLowerCase();
+    const formattedVoice = voice ? voice.charAt(0).toUpperCase() + voice.slice(1).toLowerCase() : 'Jenny';
     const voiceName = `en-US-${formattedVoice}Neural`;
     console.log('Using voice:', voiceName);
 
@@ -66,7 +65,7 @@ serve(async (req) => {
 
     // Step 6: Make request to Azure TTS
     console.log('Making request to Azure TTS...');
-    const response = await fetch(`${ttsEndpoint}/cognitiveservices/v1`, {
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
