@@ -117,7 +117,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
       
-      // Updated to match new RealtimeChat interface
       chatRef.current = new RealtimeChat({
         onMessage: handleMessage,
         persona: persona

@@ -220,7 +220,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       console.log('Initializing chat with persona:', persona);
-      // Updated to match new RealtimeChat interface
       chatRef.current = new RealtimeChat({
         onMessage: handleMessage,
         persona: persona
