@@ -25,12 +25,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       setIsLoading(true);
       console.log('Initializing call with persona:', persona);
       
-      // Initialize video stream
+      // Initialize video stream with responsive constraints
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          facingMode: 'user',
+          aspectRatio: { ideal: 16/9 }
         }, 
         audio: true 
       });
@@ -80,6 +81,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         title: "Call Started",
         description: `Connected with ${persona.name}`,
       });
+
     } catch (error: any) {
       console.error('Error starting call:', error);
       if (streamRef.current) {
@@ -147,7 +149,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   }, []);
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full max-w-[90vw] md:max-w-[80vw] lg:max-w-[70vw] px-4">
       {isCallActive && <VideoDisplay stream={streamRef.current} muted />}
       <CallControls
         isCallActive={isCallActive}
