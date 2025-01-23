@@ -95,6 +95,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   }, [persona?.id, toast]);
 
   const initializeDevice = async (type: 'camera' | 'microphone') => {
+    console.log(`Initializing ${type}...`);
     setIsInitializingDevices(true);
     try {
       const constraints = {
@@ -117,7 +118,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsCameraEnabled(true);
-        console.log('Camera initialized successfully');
       } else if (type === 'microphone') {
         streamRef.current = stream;
         setIsMicEnabled(true);
@@ -128,9 +128,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           });
         }
         audioSourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-        console.log('Microphone initialized successfully');
       }
 
+      console.log(`${type} initialized successfully`);
       toast({
         title: `${type === 'camera' ? 'Camera' : 'Microphone'} Enabled`,
         description: `Successfully initialized ${type}`,
@@ -212,24 +212,35 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const initializeChat = async () => {
+    console.log('Starting chat initialization...');
     try {
-      console.log('Checking authentication...');
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('Auth check result:', user);
       
       if (!user) {
+        console.error('No authenticated user found');
         throw new Error('Authentication required');
       }
 
-      console.log('Initializing chat with persona:', persona);
+      if (chatRef.current) {
+        console.log('Cleaning up existing chat instance...');
+        chatRef.current.disconnect();
+        chatRef.current = null;
+      }
+
+      console.log('Creating new RealtimeChat instance with persona:', persona);
       chatRef.current = new RealtimeChat({
         onMessage: handleMessage,
         persona: persona
       });
       
+      console.log('Connecting to chat...');
       await chatRef.current.connect();
-      console.log('Chat initialized successfully');
+      console.log('Chat connection established successfully');
+      
+      return true;
     } catch (error) {
-      console.error('Error initializing chat:', error);
+      console.error('Chat initialization error:', error);
       throw error;
     }
   };
@@ -241,13 +252,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       try {
         const emotion = event.emotion || 'neutral';
         setCurrentEmotion(emotion);
+        console.log('Processing text response with emotion:', emotion);
 
         await speak(event.content, {
           voice: persona.voice_style,
           language: persona.language || 'en'
         });
       } catch (error) {
-        console.error('Error speaking response:', error);
+        console.error('Error processing message:', error);
       }
     } else if (event.type === 'error') {
       console.error('Chat error:', event.error);
@@ -260,31 +272,27 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const startCall = async () => {
-    console.log('Start call button clicked');
+    console.log('Start call initiated');
+    if (isLoading) {
+      console.log('Call already in progress, ignoring click');
+      return;
+    }
+
     try {
+      setIsLoading(true);
+      console.log('Checking authentication...');
       const { data: { user } } = await supabase.auth.getUser();
       console.log('Current user:', user);
       
       if (!user) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to start a video call",
-          variant: "destructive",
-        });
-        return;
+        throw new Error('Authentication required');
       }
 
       if (!trainingVideo) {
-        toast({
-          title: "No Training Video",
-          description: "Cannot start call without a processed training video",
-          variant: "destructive",
-        });
-        return;
+        throw new Error('No processed training video available');
       }
 
-      setIsLoading(true);
-      console.log('Starting call process...');
+      console.log('Starting call initialization sequence...');
 
       // Initialize microphone if not already enabled
       if (!isMicEnabled) {
@@ -292,8 +300,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         await initializeDevice('microphone');
       }
 
-      console.log('Initializing chat...');
-      await initializeChat();
+      console.log('Initializing chat connection...');
+      const chatInitialized = await initializeChat();
+      
+      if (!chatInitialized) {
+        throw new Error('Failed to initialize chat');
+      }
 
       console.log('Invoking video-call function...');
       const { data, error } = await supabase.functions.invoke('video-call', {
@@ -314,6 +326,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw error;
       }
 
+      console.log('Call started successfully:', data);
       setIsCallActive(true);
       onCallStateChange(true);
       
@@ -322,7 +335,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         description: `Connected with ${persona.name}`,
       });
 
-      console.log('Call started successfully');
     } catch (error: any) {
       console.error('Error starting call:', error);
       cleanupMedia();
