@@ -98,11 +98,13 @@ export class RealtimeChat {
       if (!data?.client_secret) throw new Error('No client secret received');
 
       // Extract the client secret value properly
-      this.clientSecret = typeof data.client_secret === 'object' 
-        ? data.client_secret.value 
-        : data.client_secret;
+      const rawSecret = data.client_secret;
+      this.clientSecret = typeof rawSecret === 'object' && rawSecret !== null
+        ? rawSecret.value || rawSecret.secret || null
+        : rawSecret;
 
       if (!this.clientSecret || typeof this.clientSecret !== 'string') {
+        console.error('Invalid client secret format:', rawSecret);
         throw new Error('Invalid client secret format');
       }
 
@@ -128,7 +130,7 @@ export class RealtimeChat {
     console.log('Establishing WebSocket connection...');
     
     try {
-      // Create WebSocket URL with authentication parameters
+      // Create WebSocket URL with properly encoded client_secret
       const wsUrl = new URL('wss://api.openai.com/v1/realtime');
       wsUrl.searchParams.append('client_secret', this.clientSecret);
       
