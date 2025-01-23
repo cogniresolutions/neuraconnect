@@ -102,26 +102,22 @@ export class RealtimeChat {
 
       const EPHEMERAL_KEY = response.client_secret.value;
 
-      // Create peer connection with specific configuration
       this.pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' }
         ]
       });
 
-      // Set up remote audio
       this.pc.ontrack = e => {
         console.log('Received remote track:', e.track.kind);
         this.audioEl.srcObject = e.streams[0];
       };
 
-      // Add local audio track
       const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
       ms.getTracks().forEach(track => {
         this.pc.addTrack(track, ms);
       });
 
-      // Set up data channel with specific options
       this.dc = this.pc.createDataChannel("oai-events", {
         ordered: true
       });
@@ -140,14 +136,12 @@ export class RealtimeChat {
         this.onMessage(event);
       };
 
-      // Create and set local description
       const offer = await this.pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: false
       });
       await this.pc.setLocalDescription(offer);
 
-      // Connect to OpenAI's Realtime API
       const baseUrl = "https://api.openai.com/v1/realtime";
       const model = "gpt-4o-realtime-preview-2024-12-17";
       const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
@@ -172,7 +166,6 @@ export class RealtimeChat {
       await this.pc.setRemoteDescription(answer);
       console.log("WebRTC connection established");
 
-      // Start recording
       this.recorder = new AudioRecorder((audioData) => {
         if (this.dc?.readyState === 'open') {
           this.dc.send(JSON.stringify({
@@ -221,7 +214,7 @@ export class RealtimeChat {
         role: 'system',
         content: [
           {
-            type: 'text',
+            type: 'input_text',
             text: `You are ${this.persona.name}, an AI assistant with the following personality: ${this.persona.personality}. 
                   You have expertise in: ${JSON.stringify(this.persona.skills)}. 
                   You should focus on discussing topics related to: ${this.persona.topics.join(', ')}.`
@@ -242,7 +235,7 @@ export class RealtimeChat {
     }
 
     if (typeof data === 'string') {
-      // Handle text messages
+      // Handle text messages with correct type
       const message = {
         type: 'conversation.item.create',
         item: {
@@ -250,7 +243,7 @@ export class RealtimeChat {
           role: 'user',
           content: [
             {
-              type: 'text',
+              type: 'input_text',
               text: data
             }
           ]
