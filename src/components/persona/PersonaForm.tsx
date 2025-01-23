@@ -62,12 +62,12 @@ export function PersonaForm({
             <SelectValue placeholder="Select a voice style" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="alloy">Alloy</SelectItem>
-            <SelectItem value="echo">Echo</SelectItem>
-            <SelectItem value="fable">Fable</SelectItem>
-            <SelectItem value="onyx">Onyx</SelectItem>
-            <SelectItem value="nova">Nova</SelectItem>
-            <SelectItem value="shimmer">Shimmer</SelectItem>
+            <SelectItem value="alloy">Alloy (Neutral)</SelectItem>
+            <SelectItem value="echo">Echo (Male)</SelectItem>
+            <SelectItem value="fable">Fable (Male)</SelectItem>
+            <SelectItem value="onyx">Onyx (Male)</SelectItem>
+            <SelectItem value="nova">Nova (Female)</SelectItem>
+            <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
           </SelectContent>
         </Select>
       </div>
