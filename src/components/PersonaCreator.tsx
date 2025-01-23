@@ -7,6 +7,16 @@ import { PersonaPreview } from "./persona/PersonaPreview";
 import { PersonaList } from "./persona/PersonaList";
 import { PersonaActions } from "./persona/PersonaActions";
 import VideoCallInterface from "./VideoCallInterface";
+import { Button } from "@/components/ui/button";
+import { Brain, CheckCircle2, Loader2, Settings } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Persona {
   id: string;
@@ -45,6 +55,8 @@ const PersonaCreator = () => {
   const [isDeploying, setIsDeploying] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
+  const [isTestingAzure, setIsTestingAzure] = useState(false);
+  const [azureTestSuccess, setAzureTestSuccess] = useState(false);
 
   useEffect(() => {
     const checkAuthAndFetchPersonas = async () => {
@@ -250,6 +262,34 @@ const PersonaCreator = () => {
     setIsCallActive(isActive);
   };
 
+  const testAzureServices = async () => {
+    try {
+      setIsTestingAzure(true);
+      const { data, error } = await supabase.functions.invoke('analyze-environment', {
+        body: { test: true }
+      });
+
+      if (error) throw error;
+
+      console.log("Azure test response:", data);
+      setAzureTestSuccess(true);
+      toast({
+        title: "Azure Services Test",
+        description: "Successfully connected to Azure AI Services!",
+      });
+    } catch (error: any) {
+      console.error("Azure test error:", error);
+      setAzureTestSuccess(false);
+      toast({
+        title: "Azure Services Test Failed",
+        description: error.message || "Failed to connect to Azure services",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingAzure(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black p-6">
       <div className="max-w-6xl mx-auto">
@@ -261,6 +301,40 @@ const PersonaCreator = () => {
             <p className="text-gray-400 mt-2">Design and customize your AI companion</p>
           </div>
           <div className="flex gap-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="bg-white/10 border-purple-400/30">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Tools
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuLabel>Developer Tools</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={testAzureServices}
+                  disabled={isTestingAzure}
+                  className="flex items-center"
+                >
+                  {isTestingAzure ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Testing Azure Services...
+                    </>
+                  ) : azureTestSuccess ? (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
+                      Azure Services Connected
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="mr-2 h-4 w-4" />
+                      Test Azure AI Services
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <PersonaActions onSignOut={handleSignOut} />
           </div>
         </div>

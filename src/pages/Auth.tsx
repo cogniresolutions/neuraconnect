@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Globe, Lock, ArrowRight, Loader2, Brain, CheckCircle2 } from "lucide-react";
+import { Globe, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,8 +11,6 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [isTestingAzure, setIsTestingAzure] = useState(false);
-  const [azureTestSuccess, setAzureTestSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,34 +73,6 @@ const Auth = () => {
     }
   };
 
-  const testAzureServices = async () => {
-    try {
-      setIsTestingAzure(true);
-      const { data, error } = await supabase.functions.invoke('analyze-environment', {
-        body: { test: true }
-      });
-
-      if (error) throw error;
-
-      console.log("Azure test response:", data);
-      setAzureTestSuccess(true);
-      toast({
-        title: "Azure Services Test",
-        description: "Successfully connected to Azure AI Services!",
-      });
-    } catch (error: any) {
-      console.error("Azure test error:", error);
-      setAzureTestSuccess(false);
-      toast({
-        title: "Azure Services Test Failed",
-        description: error.message || "Failed to connect to Azure services",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTestingAzure(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-900 via-gray-900 to-black p-4">
       <div className="w-full max-w-md space-y-8">
@@ -146,31 +116,6 @@ const Auth = () => {
                   <Globe className="mr-3 h-6 w-6 text-purple-300" />
                   Continue with Google
                   <ArrowRight className="absolute right-4 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all duration-300" />
-                </>
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              className={`w-full ${azureTestSuccess ? 'bg-green-500/10 border-green-400/30' : 'bg-blue-500/10 border-blue-400/30'} text-white hover:bg-blue-500/20 group relative overflow-hidden transition-all duration-300 h-12 text-sm`}
-              onClick={testAzureServices}
-              disabled={isTestingAzure}
-            >
-              {isTestingAzure ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Testing Azure Services...
-                </>
-              ) : azureTestSuccess ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
-                  Azure Services Connected Successfully
-                </>
-              ) : (
-                <>
-                  <Brain className="mr-2 h-4 w-4" />
-                  Test Azure AI Services Connection
                 </>
               )}
             </Button>
