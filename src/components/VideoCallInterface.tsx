@@ -278,7 +278,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       await initializeAudio(stream);
-      analysisIntervalRef.current = setInterval(performAnalysis, 1000); // Updated to 1 second interval
+      analysisIntervalRef.current = setInterval(performAnalysis, 1000);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
