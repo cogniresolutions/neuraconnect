@@ -1,13 +1,16 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { VALID_VOICES } from "@/constants/voices";
-import { validatePersonaDescription, getSuggestedDescription } from "@/utils/personaValidation";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { PlayCircle, Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Upload, Video } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface PersonaFormProps {
   name: string;
@@ -20,7 +23,7 @@ interface PersonaFormProps {
   isCreating: boolean;
 }
 
-export const PersonaForm = ({
+export function PersonaForm({
   name,
   setName,
   description,
@@ -28,195 +31,74 @@ export const PersonaForm = ({
   voiceStyle,
   setVoiceStyle,
   onSubmit,
-  isCreating
-}: PersonaFormProps) => {
-  const { toast } = useToast();
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isTestingVoice, setIsTestingVoice] = useState(false);
-  const [validationResult, setValidationResult] = useState({
-    isValid: true,
-    issues: [] as string[],
-    suggestions: [] as string[],
-  });
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newDescription = e.target.value;
-    setDescription(newDescription);
-    const result = validatePersonaDescription(newDescription);
-    setValidationResult(result);
-  };
-
-  const handleSuggestImprovement = () => {
-    const improvedDescription = getSuggestedDescription(description);
-    setDescription(improvedDescription);
-    const result = validatePersonaDescription(improvedDescription);
-    setValidationResult(result);
-    toast({
-      title: "Description Updated",
-      description: "The description has been improved with suggested changes.",
-    });
-  };
-
-  const stopCurrentAudio = () => {
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-    }
-  };
-
-  const handleTestVoice = async () => {
-    try {
-      stopCurrentAudio();
-      setIsTestingVoice(true);
-      console.log('Starting Azure voice test...');
-      
-      // First test Azure connectivity
-      const { data: azureTest, error: azureError } = await supabase.functions.invoke('azure-voice-test');
-      
-      if (azureError) {
-        console.error('Azure test error:', azureError);
-        throw new Error('Failed to connect to Azure services');
-      }
-
-      console.log('Azure test response:', azureTest);
-
-      if (!azureTest.success) {
-        throw new Error(azureTest.error || 'Azure voice services not available');
-      }
-
-      setIsSpeaking(true);
-      const testText = `Hello, I'm ${name}. ${description.split('.')[0]}.`;
-      console.log('Synthesizing speech with text:', testText);
-
-      const { data, error } = await supabase.functions.invoke('text-to-speech', {
-        body: {
-          text: testText,
-          voice: voiceStyle
-        }
-      });
-
-      if (error) {
-        console.error('Speech synthesis error:', error);
-        throw error;
-      }
-
-      if (!data?.audioContent) {
-        console.error('No audio content received');
-        throw new Error('No audio content received');
-      }
-
-      console.log('Creating audio element...');
-      const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
-      setAudioElement(audio);
-      
-      audio.onerror = (e) => {
-        console.error('Audio playback error:', e);
-        throw new Error('Failed to play audio');
-      };
-
-      audio.onended = () => {
-        setIsSpeaking(false);
-        setIsTestingVoice(false);
-      };
-
-      await audio.play();
-      console.log('Audio playing...');
-      
-      toast({
-        title: "Voice Test",
-        description: "Playing voice sample...",
-      });
-
-    } catch (error: any) {
-      console.error('Voice test error:', error);
-      setIsSpeaking(false);
-      setIsTestingVoice(false);
-      toast({
-        title: "Voice Test Failed",
-        description: error.message || "Failed to test voice",
-        variant: "destructive",
-      });
-    }
-  };
-
+  isCreating,
+}: PersonaFormProps) {
   return (
-    <div className="space-y-6">
-      <Input
-        placeholder="Persona Name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="bg-white/10 border-purple-400/30 text-white placeholder:text-gray-400"
-      />
+    <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
       <div className="space-y-2">
-        <Textarea
-          placeholder="Describe your persona's personality and capabilities..."
-          value={description}
-          onChange={handleDescriptionChange}
-          className="bg-white/10 border-purple-400/30 text-white placeholder:text-gray-400 min-h-[120px]"
+        <Label htmlFor="name">Name</Label>
+        <Input
+          id="name"
+          placeholder="Enter persona name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
         />
-        {!validationResult.isValid && (
-          <div className="text-red-400 text-sm space-y-1">
-            {validationResult.issues.map((issue, index) => (
-              <p key={index}>{issue}</p>
-            ))}
-          </div>
-        )}
-        {validationResult.suggestions.length > 0 && (
-          <Button
-            variant="outline"
-            onClick={handleSuggestImprovement}
-            className="text-purple-400 border-purple-400/30"
-          >
-            Suggest Improvement
-          </Button>
-        )}
       </div>
+
       <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          placeholder="Describe your persona"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="voice">Voice Style</Label>
         <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-          <SelectTrigger className="bg-white/10 border-purple-400/30 text-white">
-            <SelectValue placeholder="Select a voice" />
+          <SelectTrigger>
+            <SelectValue placeholder="Select a voice style" />
           </SelectTrigger>
           <SelectContent>
-            {VALID_VOICES.map((voice) => (
-              <SelectItem key={voice} value={voice}>
-                {voice}
-              </SelectItem>
-            ))}
+            <SelectItem value="alloy">Alloy</SelectItem>
+            <SelectItem value="echo">Echo</SelectItem>
+            <SelectItem value="fable">Fable</SelectItem>
+            <SelectItem value="onyx">Onyx</SelectItem>
+            <SelectItem value="nova">Nova</SelectItem>
+            <SelectItem value="shimmer">Shimmer</SelectItem>
           </SelectContent>
         </Select>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleTestVoice}
-          disabled={isTestingVoice || isSpeaking || !name || !description || !voiceStyle}
-          className="w-full text-purple-400 border-purple-400/30"
+      </div>
+
+      <div className="space-y-4">
+        <Link 
+          to="/deploy" 
+          className="flex items-center justify-center w-full p-4 text-sm text-purple-200 bg-purple-900/30 rounded-lg border border-purple-400/20 hover:bg-purple-900/40 transition-colors"
         >
-          {isTestingVoice ? (
+          <Video className="w-4 h-4 mr-2" />
+          Upload Training Video
+        </Link>
+
+        <Button
+          onClick={onSubmit}
+          disabled={isCreating || !name || !description}
+          className="w-full"
+        >
+          {isCreating ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Testing Voice...
-            </>
-          ) : isSpeaking ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Speaking...
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating Persona...
             </>
           ) : (
             <>
-              <PlayCircle className="mr-2 h-4 w-4" />
-              Test Voice
+              <Upload className="w-4 h-4 mr-2" />
+              Create Persona
             </>
           )}
         </Button>
       </div>
-      <Button
-        onClick={onSubmit}
-        disabled={isCreating || !name || !description || !voiceStyle}
-        className="w-full bg-purple-600 hover:bg-purple-700"
-      >
-        {isCreating ? "Creating..." : "Create Persona"}
-      </Button>
     </div>
   );
-};
+}
