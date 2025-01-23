@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Phone, PhoneOff } from 'lucide-react';
 import Avatar3D from './Avatar3D';
+import { useTextToSpeech } from '@/hooks/use-text-to-speech';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -21,6 +22,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const { speak } = useTextToSpeech();
 
   const initializeAudio = async (stream: MediaStream) => {
     try {
@@ -34,9 +36,25 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       audioSourceRef.current.connect(audioContextRef.current.destination);
       
       console.log('Audio initialized successfully');
+
+      // Start persona conversation
+      await speakWelcomeMessage();
     } catch (error) {
       console.error('Error initializing audio:', error);
       throw error;
+    }
+  };
+
+  const speakWelcomeMessage = async () => {
+    try {
+      const welcomeMessage = `Hello! I'm ${persona.name}. How can I assist you today?`;
+      await speak(welcomeMessage, {
+        voice: persona.voice_style,
+        language: persona.language || 'en'
+      });
+      console.log('Welcome message spoken successfully');
+    } catch (error) {
+      console.error('Error speaking welcome message:', error);
     }
   };
 
