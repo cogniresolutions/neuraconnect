@@ -59,16 +59,16 @@ async function testAzureSpeech() {
   }
 
   try {
-    // Extract the region from the endpoint URL
-    const region = endpoint.match(/\/\/([^.]+)\./)?.[1] || 'unknown'
-    const speechEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`
+    // Format the test SSML
+    const voiceName = 'en-US-JennyNeural'
+    const ssml = `<speak version='1.0' xml:lang='en-US'><voice name='${voiceName}'>This is a test message.</voice></speak>`
     
-    console.log('Testing Speech Services with URL:', speechEndpoint)
+    console.log('Testing Speech Services with SSML:', ssml)
     
-    const response = await fetch(speechEndpoint, {
+    const response = await fetch(`${endpoint}/cognitiveservices/v1/voices/list`, {
       method: 'GET',
       headers: {
-        'Ocp-Apim-Subscription-Key': key,
+        'Ocp-Apim-Subscription-Key': key
       }
     })
 
