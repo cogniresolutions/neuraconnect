@@ -50,10 +50,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         try {
           const base64Audio = (reader.result as string).split(',')[1];
           const transcription = await transcribe(base64Audio);
-          
-          if (chatRef.current) {
-            chatRef.current.sendMessage(transcription);
-          }
+          await handleTranscriptionComplete(transcription);
         } catch (error) {
           console.error('Error processing audio:', error);
           toast({
@@ -158,6 +155,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         description: event.error?.message || "An error occurred during the conversation",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleTranscriptionComplete = async (transcription: string) => {
+    console.log('Transcription received:', transcription);
+    if (chatRef.current) {
+      chatRef.current.sendMessage(transcription);
     }
   };
 

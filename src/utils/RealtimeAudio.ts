@@ -214,25 +214,44 @@ export class RealtimeChat {
     this.dc.send(JSON.stringify({type: 'response.create'}));
   }
 
-  sendMessage(audioData: number[] | Float32Array) {
+  sendMessage(data: number[] | Float32Array | string) {
     if (!this.dc || this.dc.readyState !== 'open') {
       console.error('Data channel not ready');
       return;
     }
 
-    // Convert number[] to Float32Array if needed
-    const float32Data = audioData instanceof Float32Array 
-      ? audioData 
-      : new Float32Array(audioData);
+    if (typeof data === 'string') {
+      // Handle text messages
+      const message = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: data
+            }
+          ]
+        }
+      };
+      this.dc.send(JSON.stringify(message));
+      this.dc.send(JSON.stringify({type: 'response.create'}));
+    } else {
+      // Handle audio data
+      const float32Data = data instanceof Float32Array 
+        ? data 
+        : new Float32Array(data);
 
-    const encodedAudio = this.encodeAudioData(float32Data);
-    const message = {
-      type: 'input_audio_buffer.append',
-      audio: encodedAudio,
-      timestamp: Date.now()
-    };
+      const encodedAudio = this.encodeAudioData(float32Data);
+      const message = {
+        type: 'input_audio_buffer.append',
+        audio: encodedAudio,
+        timestamp: Date.now()
+      };
 
-    this.dc.send(JSON.stringify(message));
+      this.dc.send(JSON.stringify(message));
+    }
   }
 
   disconnect() {
