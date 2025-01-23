@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Phone, PhoneOff } from 'lucide-react';
 import Avatar3D from './Avatar3D';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
+import { RealtimeChat } from '@/utils/RealtimeAudio';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -22,6 +23,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const chatRef = useRef<RealtimeChat | null>(null);
   const { speak } = useTextToSpeech();
 
   const initializeAudio = async (stream: MediaStream) => {
@@ -39,9 +41,37 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       // Start persona conversation
       await speakWelcomeMessage();
+      await initializeChat();
     } catch (error) {
       console.error('Error initializing audio:', error);
       throw error;
+    }
+  };
+
+  const initializeChat = async () => {
+    try {
+      console.log('Initializing chat with persona:', persona);
+      chatRef.current = new RealtimeChat(handleMessage);
+      await chatRef.current.init(persona);
+      console.log('Chat initialized successfully');
+    } catch (error) {
+      console.error('Error initializing chat:', error);
+      throw error;
+    }
+  };
+
+  const handleMessage = async (event: any) => {
+    console.log('Received message event:', event);
+    
+    if (event.type === 'response.text') {
+      try {
+        await speak(event.content, {
+          voice: persona.voice_style,
+          language: persona.language || 'en'
+        });
+      } catch (error) {
+        console.error('Error speaking response:', error);
+      }
     }
   };
 
@@ -165,6 +195,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (audioContextRef.current) {
         audioContextRef.current.close();
         audioContextRef.current = null;
+      }
+
+      // Clean up chat
+      if (chatRef.current) {
+        chatRef.current.disconnect();
+        chatRef.current = null;
       }
 
       const { data: { user } } = await supabase.auth.getUser();
