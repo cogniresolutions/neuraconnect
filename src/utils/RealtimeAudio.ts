@@ -98,16 +98,22 @@ export class RealtimeChat {
 
   private async establishWebSocketConnection() {
     if (!this.accessToken || !this.clientSecret) {
+      console.error('Missing authentication credentials');
       throw new Error('Missing authentication credentials');
     }
 
     console.log('Establishing WebSocket connection...');
     
+    // Create WebSocket URL with authentication parameters
     const wsUrl = new URL('wss://api.openai.com/v1/realtime');
     wsUrl.searchParams.append('authorization', `Bearer ${this.accessToken}`);
     wsUrl.searchParams.append('client_secret', this.clientSecret);
     
-    this.socket = new WebSocket(wsUrl.toString());
+    this.socket = new WebSocket(wsUrl.toString(), {
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`
+      }
+    });
     
     this.socket.onopen = () => {
       console.log('WebSocket connection established');
