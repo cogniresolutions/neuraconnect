@@ -30,14 +30,13 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Validate endpoint format - more lenient check
-    if (!azureSpeechEndpoint.startsWith('https://') || !azureSpeechEndpoint.includes('.speech.microsoft.com')) {
-      throw new Error('Invalid Azure Speech endpoint format. Expected: https://<region>.speech.microsoft.com');
-    }
+    // Ensure the endpoint is using tts instead of stt
+    const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
+    console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Test voices list endpoint
     console.log('Testing voices list endpoint...');
-    const voicesUrl = `${azureSpeechEndpoint}/cognitiveservices/voices/list`;
+    const voicesUrl = `${ttsEndpoint}/cognitiveservices/voices/list`;
     console.log('Voices URL:', voicesUrl);
     
     const voicesResponse = await fetch(voicesUrl, {
@@ -73,7 +72,7 @@ serve(async (req) => {
       </speak>
     `.trim();
 
-    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1`;
+    const ttsUrl = `${ttsEndpoint}/cognitiveservices/v1`;
     console.log('TTS URL:', ttsUrl);
     console.log('SSML Payload:', ssml);
 
