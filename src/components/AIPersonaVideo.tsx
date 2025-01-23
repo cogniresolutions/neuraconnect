@@ -20,7 +20,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
@@ -31,6 +31,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
     if (!video) return;
 
     try {
+      setIsLoading(true);
       video.src = trainingVideoUrl;
       await video.load();
       
@@ -58,6 +59,8 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
           variant: "destructive",
         });
       }
+    } finally {
+      setIsLoading(false);
     }
   }, [trainingVideoUrl, onReady, retryCount, toast]);
 
@@ -103,7 +106,7 @@ const AIPersonaVideo: React.FC<AIPersonaVideoProps> = ({
         playsInline
         muted
       />
-      {!isLoaded && (
+      {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
         </div>
