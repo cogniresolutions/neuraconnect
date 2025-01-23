@@ -258,6 +258,14 @@ const PersonaCreator = () => {
     }
   };
 
+  const handlePersonaSelect = (persona: Persona) => {
+    setSelectedPersona(persona);
+  };
+
+  const handleCallStateChange = (isActive: boolean) => {
+    setIsCallActive(isActive);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black p-6">
       <div className="max-w-6xl mx-auto">
