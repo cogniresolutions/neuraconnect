@@ -14,7 +14,8 @@ const Auth = () => {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
         if (session) {
           navigate('/');
         }
@@ -22,7 +23,7 @@ const Auth = () => {
         console.error('Auth check error:', error);
         toast({
           title: "Authentication Error",
-          description: "Failed to check authentication status",
+          description: "Failed to check authentication status. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -50,6 +51,11 @@ const Auth = () => {
           title: "Profile Updated",
           description: "Your profile has been updated successfully.",
         });
+      } else if (event === 'PASSWORD_RECOVERY') {
+        toast({
+          title: "Password Recovery",
+          description: "Check your email for password reset instructions.",
+        });
       }
     });
 
@@ -63,7 +69,7 @@ const Auth = () => {
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-          <p className="text-purple-200">Loading...</p>
+          <p className="text-purple-200">Checking authentication status...</p>
         </div>
       </div>
     );
@@ -74,7 +80,7 @@ const Auth = () => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 to-purple-400">
-            Welcome
+            Welcome Back
           </h1>
           <p className="mt-2 text-gray-400">
             Sign in to your account or create a new one
@@ -108,20 +114,24 @@ const Auth = () => {
                   padding: '0.75rem 1rem',
                   fontSize: '1rem',
                   fontWeight: '500',
+                  transition: 'all 0.2s ease',
                 },
                 input: {
                   backgroundColor: 'rgba(255, 255, 255, 0.05)',
                   border: '1px solid rgba(147, 51, 234, 0.2)',
                   color: 'white',
+                  transition: 'all 0.2s ease',
                 },
                 anchor: {
                   color: '#a855f7',
                   fontWeight: '500',
+                  transition: 'color 0.2s ease',
                 },
                 message: {
                   borderRadius: '0.5rem',
                   padding: '1rem',
                   marginBottom: '1rem',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 },
                 container: {
                   gap: '1rem',
@@ -136,11 +146,11 @@ const Auth = () => {
         <div className="text-center text-sm text-gray-400">
           <p>
             By signing in, you agree to our{' '}
-            <a href="#" className="text-purple-400 hover:text-purple-300">
+            <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors">
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="#" className="text-purple-400 hover:text-purple-300">
+            <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors">
               Privacy Policy
             </a>
           </p>
