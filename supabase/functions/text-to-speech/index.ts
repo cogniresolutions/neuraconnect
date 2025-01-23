@@ -13,7 +13,7 @@ serve(async (req) => {
 
   try {
     const { text, voice } = await req.json();
-    console.log('Starting text-to-speech synthesis...');
+    console.log('Starting text-to-speech synthesis with params:', { text, voice });
     
     if (!text) {
       throw new Error('Text is required');
@@ -23,7 +23,7 @@ serve(async (req) => {
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
-    // Validate environment variables
+    // Validate environment variables with detailed logging
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
       hasEndpoint: !!azureSpeechEndpoint,
@@ -33,6 +33,26 @@ serve(async (req) => {
     if (!azureSpeechKey || !azureSpeechEndpoint) {
       throw new Error('Azure Speech credentials not configured');
     }
+
+    // Test Azure connectivity first
+    console.log('Testing Azure Speech Services connectivity...');
+    const testResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/voices/list`, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': azureSpeechKey,
+      }
+    });
+
+    if (!testResponse.ok) {
+      const errorText = await testResponse.text();
+      console.error('Azure connectivity test failed:', {
+        status: testResponse.status,
+        statusText: testResponse.statusText,
+        error: errorText
+      });
+      throw new Error(`Azure Speech Services not available: ${testResponse.status} - ${errorText}`);
+    }
+
+    console.log('Azure Speech Services connectivity test passed');
 
     // Ensure the endpoint is using tts instead of stt
     const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
@@ -73,14 +93,15 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('TTS error:', {
+      const errorDetails = {
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
         error: errorText,
         url: ttsUrl,
         ssml: ssml
-      });
+      };
+      console.error('TTS error details:', errorDetails);
       throw new Error(`Azure TTS Error: ${response.status} - ${errorText}`);
     }
 
@@ -109,7 +130,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message
+        error: error.message,
+        timestamp: new Date().toISOString()
       }),
       {
         status: 400,
