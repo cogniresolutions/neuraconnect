@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export class RealtimeChat {
   private ws: WebSocket | null = null;
   private messageCallback: (event: any) => void;
