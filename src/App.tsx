@@ -5,9 +5,11 @@ import { Toaster } from '@/components/ui/toaster';
 import Auth from '@/pages/Auth';
 import PersonaCreator from '@/components/PersonaCreator';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Check initial auth state
@@ -16,15 +18,24 @@ const App = () => {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
-      setIsAuthenticated(!!session);
+      
+      if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        toast({
+          title: "Signed out",
+          description: "You have been successfully signed out.",
+        });
+      } else if (event === 'SIGNED_IN') {
+        setIsAuthenticated(true);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [toast]);
 
   // Show loading state while checking auth
   if (isAuthenticated === null) {

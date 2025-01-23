@@ -33,6 +33,8 @@ const Auth = () => {
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session);
+      
       if (event === 'SIGNED_IN' && session) {
         if (session.provider_token) {
           toast({
@@ -46,9 +48,6 @@ const Auth = () => {
           });
         }
         navigate('/');
-      } else if (event === 'SIGNED_OUT') {
-        // Handle sign out event if needed
-        navigate('/auth');
       }
     });
 
