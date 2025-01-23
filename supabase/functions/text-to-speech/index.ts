@@ -56,8 +56,8 @@ serve(async (req) => {
 
     console.log('SSML payload:', ssml)
 
-    // Make request to Azure TTS API
-    const response = await fetch(`${endpoint}/cognitiveservices/v1`, {
+    // Make request to Azure TTS API - Fix the endpoint URL construction
+    const response = await fetch(`${endpoint}/cognitiveservices/v1/synthesize`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': subscriptionKey,
