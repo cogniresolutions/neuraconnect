@@ -15,37 +15,29 @@ const Auth = () => {
   useEffect(() => {
     let mounted = true;
 
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) throw error;
-        
-        if (session?.user && mounted) {
-          navigate('/', { replace: true });
-        }
-      } catch (error) {
-        console.error('Session check error:', error);
-        if (mounted) {
-          setAuthError('Failed to check authentication status');
-          toast({
-            title: "Authentication Error",
-            description: "Failed to check authentication status. Please try again.",
-            variant: "destructive",
-          });
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
+    // Immediately check session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) return;
 
-    // Initial session check
-    checkSession();
+      if (error) {
+        console.error('Session check error:', error);
+        setAuthError('Failed to check authentication status');
+        toast({
+          title: "Authentication Error",
+          description: "Failed to check authentication status. Please try again.",
+          variant: "destructive",
+        });
+      } else if (session?.user) {
+        navigate('/', { replace: true });
+      }
+      
+      setIsLoading(false);
+    });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      
       console.log('Auth state changed:', event);
       
       if (event === 'SIGNED_IN' && session) {
@@ -57,7 +49,6 @@ const Auth = () => {
       }
     });
 
-    // Cleanup
     return () => {
       mounted = false;
       subscription.unsubscribe();
