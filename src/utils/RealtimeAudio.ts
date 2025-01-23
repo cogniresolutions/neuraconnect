@@ -4,6 +4,9 @@ export class RealtimeChat {
   private ws: WebSocket | null = null;
   private messageCallback: (event: any) => void;
   private context: any = {};
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 3;
+  private persona: any;
 
   constructor(callback: (event: any) => void) {
     this.messageCallback = callback;
@@ -11,11 +14,20 @@ export class RealtimeChat {
 
   async init(persona: any) {
     try {
+      this.persona = persona;
       console.log('Initializing chat with persona:', persona);
       
-      // Get chat token from our Supabase function
       const { data, error } = await supabase.functions.invoke('generate-chat-token', {
-        body: { personaId: persona.id }
+        body: { 
+          personaId: persona.id,
+          config: {
+            name: persona.name,
+            voice: persona.voice_style,
+            personality: persona.personality,
+            skills: persona.skills,
+            topics: persona.topics
+          }
+        }
       });
 
       if (error) {
@@ -24,54 +36,13 @@ export class RealtimeChat {
       }
       
       if (!data?.wsUrl) {
+        console.error('No WebSocket URL received:', data);
         throw new Error('No WebSocket URL received');
       }
 
       console.log('Connecting to WebSocket:', data.wsUrl);
       
-      this.ws = new WebSocket(data.wsUrl);
-
-      this.ws.onopen = () => {
-        console.log('WebSocket connection established');
-        // Send initial persona config
-        if (this.ws) {
-          this.ws.send(JSON.stringify({
-            type: 'config',
-            persona: {
-              name: persona.name,
-              voice: persona.voice_style,
-              personality: persona.personality,
-              skills: persona.skills,
-              topics: persona.topics
-            }
-          }));
-        }
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this.messageCallback(data);
-        } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
-        }
-      };
-
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        this.messageCallback({
-          type: 'error',
-          error: { message: 'WebSocket connection error' }
-        });
-      };
-
-      this.ws.onclose = () => {
-        console.log('WebSocket connection closed');
-        this.messageCallback({
-          type: 'error',
-          error: { message: 'WebSocket connection closed' }
-        });
-      };
+      this.setupWebSocket(data.wsUrl);
 
     } catch (error) {
       console.error('Failed to initialize chat:', error);
@@ -79,9 +50,78 @@ export class RealtimeChat {
     }
   }
 
+  private setupWebSocket(wsUrl: string) {
+    if (this.ws) {
+      this.ws.close();
+    }
+
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      console.log('WebSocket connection established');
+      this.reconnectAttempts = 0;
+      this.sendPersonaConfig();
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Received WebSocket message:', data);
+        this.messageCallback(data);
+      } catch (err) {
+        console.error('Error parsing WebSocket message:', err);
+      }
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      this.messageCallback({
+        type: 'error',
+        error: { message: 'WebSocket connection error' }
+      });
+    };
+
+    this.ws.onclose = () => {
+      console.log('WebSocket connection closed');
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+        this.reconnectAttempts++;
+        setTimeout(() => this.setupWebSocket(wsUrl), 1000 * this.reconnectAttempts);
+      } else {
+        this.messageCallback({
+          type: 'error',
+          error: { message: 'WebSocket connection closed' }
+        });
+      }
+    };
+  }
+
+  private sendPersonaConfig() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send persona config: WebSocket not connected');
+      return;
+    }
+
+    const config = {
+      type: 'config',
+      persona: {
+        id: this.persona.id,
+        name: this.persona.name,
+        voice: this.persona.voice_style,
+        personality: this.persona.personality,
+        skills: this.persona.skills,
+        topics: this.persona.topics
+      }
+    };
+
+    console.log('Sending persona config:', config);
+    this.ws.send(JSON.stringify(config));
+  }
+
   updateContext(newContext: any) {
     this.context = { ...this.context, ...newContext };
     if (this.ws?.readyState === WebSocket.OPEN) {
+      console.log('Updating context:', this.context);
       this.ws.send(JSON.stringify({
         type: 'context.update',
         context: this.context
@@ -91,7 +131,7 @@ export class RealtimeChat {
 
   sendMessage(message: any) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket not connected');
+      console.error('Cannot send message: WebSocket not connected');
       this.messageCallback({
         type: 'error',
         error: { message: 'WebSocket not connected' }
@@ -100,11 +140,13 @@ export class RealtimeChat {
     }
 
     try {
-      this.ws.send(JSON.stringify({ 
+      const payload = { 
         type: 'message', 
         content: message,
         context: this.context 
-      }));
+      };
+      console.log('Sending message:', payload);
+      this.ws.send(JSON.stringify(payload));
     } catch (error) {
       console.error('Error sending message:', error);
       this.messageCallback({
@@ -115,6 +157,7 @@ export class RealtimeChat {
   }
 
   disconnect() {
+    console.log('Disconnecting WebSocket');
     if (this.ws) {
       this.ws.close();
       this.ws = null;

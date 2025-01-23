@@ -12,11 +12,13 @@ serve(async (req) => {
   }
 
   try {
-    const { personaId } = await req.json();
+    const { personaId, config } = await req.json();
     
     if (!personaId) {
       throw new Error('personaId is required');
     }
+
+    console.log('Generating token for persona:', { personaId, config });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -31,18 +33,27 @@ serve(async (req) => {
       .single();
 
     if (personaError || !persona) {
+      console.error('Persona fetch error:', personaError);
       throw new Error('Persona not found');
     }
 
-    // Generate WebSocket URL with authentication token
-    const wsUrl = `wss://realtime-chat.lovable.ai/chat?token=${persona.id}`;
+    // Generate a secure token for the WebSocket connection
+    const token = crypto.randomUUID();
+    
+    // Generate WebSocket URL with authentication token and persona config
+    const wsUrl = `wss://realtime-chat.lovable.ai/chat?token=${token}&persona=${encodeURIComponent(JSON.stringify(config))}`;
+    
+    console.log('Generated WebSocket URL (token redacted):', wsUrl.replace(token, '[REDACTED]'));
 
     return new Response(JSON.stringify({ wsUrl }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error instanceof Error ? error.stack : undefined 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
