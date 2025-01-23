@@ -19,6 +19,11 @@ export class RealtimeChat {
     try {
       console.log('Initializing chat with persona:', persona);
       
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) throw new Error('No active session');
+
       // Get chat token from Supabase function
       const { data, error } = await supabase.functions.invoke('generate-chat-token', {
         body: { 
@@ -30,6 +35,9 @@ export class RealtimeChat {
             skills: persona.skills || [],
             topics: persona.topics || []
           }
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 
@@ -38,7 +46,7 @@ export class RealtimeChat {
 
       console.log('Successfully received chat token');
 
-      // Initialize WebSocket connection
+      // Initialize WebSocket connection with authentication
       this.socket = new WebSocket('wss://api.openai.com/v1/realtime');
       
       this.socket.onopen = () => {
@@ -46,7 +54,8 @@ export class RealtimeChat {
         if (this.socket) {
           this.socket.send(JSON.stringify({
             type: 'auth',
-            client_secret: data.client_secret
+            client_secret: data.client_secret,
+            access_token: session.access_token // Include access token for authentication
           }));
         }
       };
