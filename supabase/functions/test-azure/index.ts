@@ -16,16 +16,24 @@ async function testAzureCognitive() {
   try {
     // Ensure endpoint ends with a slash before appending the path
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    const response = await fetch(`${baseUrl}vision/v3.2/analyze`, {
+    console.log('Testing Cognitive Services with URL:', `${baseUrl}vision/v3.2/analyze`)
+    
+    const response = await fetch(`${baseUrl}vision/v3.2/analyze?visualFeatures=Description`, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Field_sparrow_in_CP.jpg/1200px-Field_sparrow_in_CP.jpg'
+        url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
       })
     })
+
+    console.log('Cognitive Services response status:', response.status)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Cognitive Services error:', errorText)
+    }
 
     return {
       service: 'Cognitive Services',
@@ -47,14 +55,22 @@ async function testAzureSpeech() {
   }
 
   try {
-    // Ensure endpoint ends with a slash before making the request
+    // Speech services requires a specific endpoint format
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
-    const response = await fetch(baseUrl, {
-      method: 'POST',
+    console.log('Testing Speech Services with URL:', baseUrl)
+    
+    const response = await fetch(`${baseUrl}cognitiveservices/voices/list`, {
+      method: 'GET',
       headers: {
         'Ocp-Apim-Subscription-Key': key,
       }
     })
+
+    console.log('Speech Services response status:', response.status)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Speech Services error:', errorText)
+    }
 
     return {
       service: 'Speech Services',
@@ -78,6 +94,8 @@ async function testAzureVision() {
   try {
     // Ensure endpoint ends with a slash before appending the path
     const baseUrl = endpoint.endsWith('/') ? endpoint : `${endpoint}/`
+    console.log('Testing Vision Services with URL:', `${baseUrl}computervision/imageanalysis:analyze`)
+    
     const response = await fetch(`${baseUrl}computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`, {
       method: 'POST',
       headers: {
@@ -85,9 +103,15 @@ async function testAzureVision() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Field_sparrow_in_CP.jpg/1200px-Field_sparrow_in_CP.jpg'
+        url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
       })
     })
+
+    console.log('Vision Services response status:', response.status)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Vision Services error:', errorText)
+    }
 
     return {
       service: 'Vision Services',
