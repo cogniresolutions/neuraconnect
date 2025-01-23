@@ -1,140 +1,125 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import VideoDisplay from './video/VideoDisplay';
-import CallControls from './video/CallControls';
-import AIPersonaVideo from './AIPersonaVideo';
+import React, { useRef, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { useTextToSpeech } from '@/hooks/use-text-to-speech';
+import { useSpeechToText } from '@/hooks/use-speech-to-text';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
+import { CallControls } from './video/CallControls';
+import { ConsentDialog } from './video/ConsentDialog';
+import { Mic, MicOff } from 'lucide-react';
+import { Button } from './ui/button';
 
-interface VideoCallProps {
-  onCallStateChange?: (isActive: boolean) => void;
+interface VideoCallInterfaceProps {
+  persona: any;
+  onCallStateChange: (isActive: boolean) => void;
 }
 
-const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => {
-  const { personaId } = useParams();
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
+  persona,
+  onCallStateChange
+}) => {
+  const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentEmotion, setCurrentEmotion] = useState('neutral');
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [persona, setPersona] = useState<any>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const [realtimeChat, setRealtimeChat] = useState<RealtimeChat | null>(null);
-  const { toast } = useToast();
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const chatRef = useRef<RealtimeChat | null>(null);
   const { speak } = useTextToSpeech();
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY = 2000;
+  const { transcribe } = useSpeechToText();
 
-  const loadPersona = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .eq('id', personaId)
-        .single();
+  const handleMessage = async (event: any) => {
+    console.log('Received message event:', event);
+    
+    if (event.type === 'response.text') {
+      try {
+        const emotion = event.emotion || 'neutral';
+        setCurrentEmotion(emotion);
 
-      if (error) throw error;
-      if (!data) {
-        toast({
-          title: "Error",
-          description: "Persona not found",
-          variant: "destructive",
+        await speak(event.content, {
+          voice: persona.voice_style,
+          language: persona.language || 'en'
         });
-        return;
+      } catch (error) {
+        console.error('Error speaking response:', error);
       }
-
-      setPersona(data);
-    } catch (error) {
-      console.error('Error loading persona:', error);
+    } else if (event.type === 'error') {
+      console.error('Chat error:', event.error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load persona",
+        title: "Chat Error",
+        description: event.error?.message || "An error occurred during the conversation",
         variant: "destructive",
       });
-    }
-  }, [personaId, toast]);
-
-  useEffect(() => {
-    if (personaId) {
-      loadPersona();
-    }
-  }, [personaId, loadPersona]);
-
-  const handleRealtimeMessage = useCallback((event: any) => {
-    console.log('Received realtime message:', event);
-    
-    if (event.type === 'response.audio.delta') {
-      setIsSpeaking(true);
-    } else if (event.type === 'response.audio.done') {
-      setIsSpeaking(false);
-    }
-  }, []);
-
-  const initializeRealtimeChat = async () => {
-    try {
-      console.log('Initializing realtime chat with persona:', persona);
-      const chat = new RealtimeChat(handleRealtimeMessage);
-      await chat.init(persona);
-      setRealtimeChat(chat);
-      
-      // Send welcome message as text
-      const welcomeText = `Hello! I'm ${persona?.name || 'your AI Assistant'}. ${persona?.description || ''} How can I help you today?`;
-      chat.sendMessage(welcomeText);
-
-    } catch (error) {
-      console.error('Error initializing realtime chat:', error);
-      if (retryCount < MAX_RETRIES) {
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          initializeRealtimeChat();
-        }, RETRY_DELAY);
-      } else {
-        toast({
-          title: "Connection Error",
-          description: "Failed to establish realtime connection. Please try again.",
-          variant: "destructive",
-        });
-      }
     }
   };
 
   const startCall = async () => {
     try {
       setIsLoading(true);
-      const constraints = {
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 24, max: 30 }
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000
-        }
-      };
+      console.log('Starting call with persona:', persona);
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      setLocalStream(stream);
+      // Get user media stream
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true,
+        video: true
+      });
+      streamRef.current = stream;
+
+      // Initialize audio context and processing
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      audioContextRef.current = audioContext;
+      audioSourceRef.current = source;
+
+      // Initialize chat with persona
+      chatRef.current = new RealtimeChat(handleMessage);
+      await chatRef.current.init(persona);
+
+      // Create video call session in Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase.from('tavus_sessions').insert({
+        user_id: user.id,
+        conversation_id: crypto.randomUUID(),
+        status: 'active',
+        participants: [
+          { user_id: user.id, type: 'user' },
+          { persona_id: persona.id, type: 'persona' }
+        ],
+        session_type: 'video_call',
+        is_active: true
+      }).select().single();
+
+      if (error) throw error;
+
       setIsCallActive(true);
-      onCallStateChange?.(true);
-
-      // Initialize realtime chat with persona
-      await initializeRealtimeChat();
+      onCallStateChange(true);
 
       toast({
-        title: `${persona?.name || 'AI Assistant'} joined the call`,
-        description: "Connection established successfully",
+        title: "Call Started",
+        description: `Connected with ${persona.name}`,
       });
 
-    } catch (error) {
+      // Speak welcome message
+      await speak(`Hello! I'm ${persona.name}. How can I assist you today?`, {
+        voice: persona.voice_style,
+        language: persona.language || 'en'
+      });
+
+    } catch (error: any) {
       console.error('Error starting call:', error);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
       toast({
-        title: "Error",
-        description: "Failed to start video call. Please check your camera and microphone permissions.",
+        title: "Call Error",
+        description: error.message || "Failed to start call",
         variant: "destructive",
       });
     } finally {
@@ -142,23 +127,61 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
     }
   };
 
-  const endCall = () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+  const endCall = async () => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+
+      if (audioSourceRef.current) {
+        audioSourceRef.current.disconnect();
+        audioSourceRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+
+      if (chatRef.current) {
+        chatRef.current.disconnect();
+        chatRef.current = null;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase.from('tavus_sessions')
+        .update({ 
+          status: 'ended',
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      setIsCallActive(false);
+      onCallStateChange(false);
+      
+      toast({
+        title: "Call Ended",
+        description: `Disconnected from ${persona.name}`,
+      });
+    } catch (error: any) {
+      console.error('Error ending call:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to end call",
+        variant: "destructive",
+      });
     }
-    if (realtimeChat) {
-      realtimeChat.disconnect();
-      setRealtimeChat(null);
-    }
-    setLocalStream(null);
-    setIsCallActive(false);
-    setIsMuted(false);
-    onCallStateChange?.(false);
   };
 
   const toggleMute = () => {
-    if (localStream) {
-      const audioTracks = localStream.getAudioTracks();
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
       audioTracks.forEach(track => {
         track.enabled = !track.enabled;
       });
@@ -171,37 +194,49 @@ const VideoCallInterface: React.FC<VideoCallProps> = ({ onCallStateChange }) => 
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (isCallActive) {
+        endCall();
+      }
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-4 items-center justify-center">
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+      <div className="flex gap-2">
         {isCallActive && (
-          <>
-            <div className="w-full lg:w-1/2">
-              <VideoDisplay stream={localStream} muted={true} />
-            </div>
-            <div className="w-full lg:w-1/2">
-              <AIPersonaVideo
-                videoUrl={persona?.avatar_model_url}
-                isPlaying={isSpeaking}
-                onReady={() => {
-                  console.log('AI Persona video ready');
-                }}
-              />
-            </div>
-          </>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={toggleMute}
+            className="bg-black/50 hover:bg-black/70"
+          >
+            {isMuted ? (
+              <MicOff className="h-4 w-4 text-red-500" />
+            ) : (
+              <Mic className="h-4 w-4 text-white" />
+            )}
+          </Button>
         )}
       </div>
-      
-      <div className="mt-4">
-        <CallControls
-          isCallActive={isCallActive}
-          isLoading={isLoading}
-          isMuted={isMuted}
-          onStartCall={startCall}
-          onEndCall={endCall}
-          onToggleMute={toggleMute}
-        />
-      </div>
+
+      <CallControls
+        isCallActive={isCallActive}
+        isLoading={isLoading}
+        isRecording={isRecording}
+        onStartCall={startCall}
+        onEndCall={endCall}
+        onStartRecording={() => setIsRecording(true)}
+        onStopRecording={() => setIsRecording(false)}
+      />
+
+      <ConsentDialog
+        open={showConsentDialog}
+        onOpenChange={setShowConsentDialog}
+        onAccept={startCall}
+        personaName={persona.name}
+      />
     </div>
   );
 };

@@ -10,14 +10,15 @@ const AZURE_COGNITIVE_ENDPOINT = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')
 const AZURE_API_KEY = Deno.env.get('AZURE_API_KEY')
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { imageData, userId, personaId } = await req.json()
+    const { image_data, user_id, persona_id } = await req.json()
 
-    if (!imageData) {
+    if (!image_data) {
       throw new Error('No image data provided')
     }
 
@@ -29,13 +30,9 @@ serve(async (req) => {
         'Ocp-Apim-Subscription-Key': AZURE_API_KEY!,
       },
       body: JSON.stringify({
-        url: imageData
+        url: image_data
       })
     })
-
-    if (!response.ok) {
-      throw new Error(`Azure Face API error: ${await response.text()}`)
-    }
 
     const emotionData = await response.json()
     console.log('Emotion analysis result:', emotionData)
@@ -47,18 +44,17 @@ serve(async (req) => {
     )
 
     // Store emotion analysis results
-    const { error: dbError } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from('emotion_analysis')
       .insert([
         {
-          user_id: userId,
-          persona_id: personaId,
-          emotion_data: emotionData,
-          created_at: new Date().toISOString()
+          user_id,
+          persona_id,
+          emotion_data: emotionData
         }
       ])
 
-    if (dbError) throw dbError
+    if (error) throw error
 
     return new Response(
       JSON.stringify({ success: true, data: emotionData }),

@@ -1,66 +1,44 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Maximize2, Minimize2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import React from 'react';
 
 interface VideoDisplayProps {
-  stream: MediaStream | null;
-  muted?: boolean;
+  stream?: MediaStream | null; // Made optional with ?
+  videoRef: React.RefObject<HTMLVideoElement>;
+  isRecording: boolean;
+  currentEmotion: string;
+  trainingVideo: any;
+  isCallActive: boolean;
+  className?: string;
 }
 
-const VideoDisplay = ({ stream, muted = false }: VideoDisplayProps) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isMaximized, setIsMaximized] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [stream]);
-
-  const toggleMaximize = () => {
-    setIsMaximized(!isMaximized);
-    toast({
-      title: !isMaximized ? "Video Maximized" : "Video Minimized",
-      description: !isMaximized ? "Video is now in full screen" : "Video returned to normal size",
-    });
-  };
-
+export const VideoDisplay: React.FC<VideoDisplayProps> = ({
+  stream,
+  videoRef,
+  isRecording,
+  currentEmotion,
+  trainingVideo,
+  isCallActive,
+  className = ""
+}) => {
   return (
-    <div 
-      className={`
-        relative transition-all duration-300 ease-in-out
-        ${isMaximized 
-          ? 'fixed inset-0 z-50 bg-black' 
-          : 'w-full max-w-[640px] aspect-video rounded-lg overflow-hidden bg-gray-900 shadow-lg'
-        }
-      `}
-    >
+    <div className={`relative aspect-video rounded-lg overflow-hidden bg-black/20 ${className}`}>
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        muted={muted}
-        className={`
-          w-full h-full object-cover
-          ${isMaximized ? 'object-contain' : 'object-cover'}
-        `}
+        muted
+        className="absolute inset-0 w-full h-full object-cover"
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggleMaximize}
-        className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full z-50"
-      >
-        {isMaximized ? (
-          <Minimize2 className="h-5 w-5" />
-        ) : (
-          <Maximize2 className="h-5 w-5" />
-        )}
-      </Button>
+      {currentEmotion && (
+        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded">
+          Emotion: {currentEmotion}
+        </div>
+      )}
+      {isRecording && (
+        <div className="absolute top-2 right-2 flex items-center gap-2 bg-red-500/50 text-white text-xs p-2 rounded">
+          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          Recording
+        </div>
+      )}
     </div>
   );
 };
-
-export default VideoDisplay;

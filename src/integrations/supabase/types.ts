@@ -322,60 +322,6 @@ export type Database = {
         }
         Relationships: []
       }
-      persona_training_materials: {
-        Row: {
-          analysis_results: Json | null
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          id: string
-          persona_id: string | null
-          status: string | null
-          uploaded_at: string
-          user_id: string | null
-        }
-        Insert: {
-          analysis_results?: Json | null
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          id?: string
-          persona_id?: string | null
-          status?: string | null
-          uploaded_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          analysis_results?: Json | null
-          file_name?: string
-          file_path?: string
-          file_size?: number
-          file_type?: string
-          id?: string
-          persona_id?: string | null
-          status?: string | null
-          uploaded_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "persona_training_materials_persona_id_fkey"
-            columns: ["persona_id"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "persona_training_materials_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       personas: {
         Row: {
           avatar_model_url: string | null
@@ -386,7 +332,6 @@ export type Database = {
           environment_analysis: boolean | null
           facial_expressions: Json | null
           id: string
-          last_analyzed_at: string | null
           model_config: Json | null
           name: string
           personality: string | null
@@ -395,7 +340,6 @@ export type Database = {
           skills: Json | null
           status: string | null
           topics: string[] | null
-          training_materials: Json | null
           updated_at: string
           user_id: string | null
           voice_style: string | null
@@ -409,7 +353,6 @@ export type Database = {
           environment_analysis?: boolean | null
           facial_expressions?: Json | null
           id?: string
-          last_analyzed_at?: string | null
           model_config?: Json | null
           name: string
           personality?: string | null
@@ -418,7 +361,6 @@ export type Database = {
           skills?: Json | null
           status?: string | null
           topics?: string[] | null
-          training_materials?: Json | null
           updated_at?: string
           user_id?: string | null
           voice_style?: string | null
@@ -432,7 +374,6 @@ export type Database = {
           environment_analysis?: boolean | null
           facial_expressions?: Json | null
           id?: string
-          last_analyzed_at?: string | null
           model_config?: Json | null
           name?: string
           personality?: string | null
@@ -441,7 +382,6 @@ export type Database = {
           skills?: Json | null
           status?: string | null
           topics?: string[] | null
-          training_materials?: Json | null
           updated_at?: string
           user_id?: string | null
           voice_style?: string | null

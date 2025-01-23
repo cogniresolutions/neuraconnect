@@ -1,5 +1,5 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Processing realtime chat request...');
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       console.error('OPENAI_API_KEY is not set');
@@ -54,7 +53,7 @@ serve(async (req) => {
         voice: mappedVoice,
         instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
                       You have expertise in: ${JSON.stringify(persona.skills)}. 
-                      You should focus on discussing topics related to: ${persona.topics?.join(', ') || 'general topics'}.`
+                      You should focus on discussing topics related to: ${persona.topics.join(', ')}.`
       }),
     });
 
@@ -63,27 +62,22 @@ serve(async (req) => {
       console.error('OpenAI API error:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorText,
-        headers: Object.fromEntries(response.headers)
+        error: errorText
       });
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      throw new Error(`OpenAI API error: ${errorText}`);
     }
 
     const data = await response.json();
-    console.log("Session created successfully:", {
-      sessionId: data.session_id,
-      expiresAt: data.expires_at
-    });
+    console.log("Session created successfully");
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Error in realtime chat:", error);
+    console.error("Error:", error);
     return new Response(JSON.stringify({ 
       error: error.message,
-      details: error.stack,
-      timestamp: new Date().toISOString()
+      details: error.stack
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

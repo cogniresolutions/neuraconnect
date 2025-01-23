@@ -1,70 +1,73 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Loader2, Phone, PhoneOff, Mic, MicOff } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Loader2, PhoneOff, Video, VideoOff } from "lucide-react";
 
 interface CallControlsProps {
   isCallActive: boolean;
   isLoading: boolean;
-  isMuted: boolean;
+  isRecording: boolean;
   onStartCall: () => void;
   onEndCall: () => void;
-  onToggleMute: () => void;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
 }
 
-const CallControls = ({ 
-  isCallActive, 
-  isLoading, 
-  isMuted,
-  onStartCall, 
+export const CallControls: React.FC<CallControlsProps> = ({
+  isCallActive,
+  isLoading,
+  isRecording,
+  onStartCall,
   onEndCall,
-  onToggleMute 
-}: CallControlsProps) => {
+  onStartRecording,
+  onStopRecording
+}) => {
   return (
-    <div className="flex gap-4">
+    <div className="flex justify-center gap-2">
+      {isRecording ? (
+        <Button
+          onClick={onStopRecording}
+          variant="destructive"
+          size="sm"
+        >
+          <VideoOff className="mr-2 h-4 w-4" />
+          Stop Recording
+        </Button>
+      ) : (
+        <Button
+          onClick={onStartRecording}
+          variant="secondary"
+          size="sm"
+          disabled={!isCallActive}
+        >
+          <Video className="mr-2 h-4 w-4" />
+          Start Recording
+        </Button>
+      )}
+      
       {!isCallActive ? (
         <Button
           onClick={onStartCall}
           disabled={isLoading}
-          className="bg-green-500 hover:bg-green-600 text-white rounded-full px-6"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           {isLoading ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Connecting...
             </>
           ) : (
-            <>
-              <Phone className="h-4 w-4 mr-2" />
-              Video Call
-            </>
+            "Start Call"
           )}
         </Button>
       ) : (
-        <div className="flex gap-3">
-          <Button
-            onClick={onToggleMute}
-            variant="secondary"
-            className="rounded-full h-12 w-12 p-0"
-            title={isMuted ? "Unmute microphone" : "Mute microphone"}
-          >
-            {isMuted ? (
-              <MicOff className="h-5 w-5" />
-            ) : (
-              <Mic className="h-5 w-5" />
-            )}
-          </Button>
-          <Button
-            onClick={onEndCall}
-            variant="destructive"
-            className="rounded-full h-12 w-12 p-0 hover:bg-red-600"
-            title="End call"
-          >
-            <PhoneOff className="h-5 w-5" />
-          </Button>
-        </div>
+        <Button
+          onClick={onEndCall}
+          variant="destructive"
+        >
+          <PhoneOff className="mr-2 h-4 w-4" />
+          End Call
+        </Button>
       )}
     </div>
   );
 };
-
-export default CallControls;

@@ -15,7 +15,6 @@ export const useTextToSpeech = () => {
     setError(null)
 
     try {
-      console.log('Generating speech for:', text);
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text,
@@ -36,7 +35,6 @@ export const useTextToSpeech = () => {
       const message = err instanceof Error ? err.message : 'Failed to generate speech'
       setError(message)
       console.error('Text-to-speech error:', err)
-      throw err
     } finally {
       setIsLoading(false)
     }

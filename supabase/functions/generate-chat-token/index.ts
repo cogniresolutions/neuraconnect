@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
@@ -13,27 +12,13 @@ serve(async (req) => {
   }
 
   try {
+    const { personaId, config } = await req.json();
+    console.log('Generating token for persona:', { personaId, config });
+
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is not set');
       throw new Error('OPENAI_API_KEY is not set');
-    }
-
-    const { personaId } = await req.json();
-    
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get persona details
-    const { data: persona, error: personaError } = await supabase
-      .from('personas')
-      .select('*')
-      .eq('id', personaId)
-      .single();
-
-    if (personaError || !persona) {
-      throw new Error('Persona not found');
     }
 
     // Request an ephemeral token from OpenAI
@@ -44,23 +29,40 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: persona.model_config?.model || "gpt-4o-mini",
-        voice: "alloy",
-        instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
-                      You have expertise in: ${JSON.stringify(persona.skills)}. 
-                      You should focus on discussing topics related to: ${persona.topics.join(', ')}.`
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: config.voice || "alloy",
+        instructions: `You are ${config.name}, an AI assistant with the following personality: ${config.personality}. 
+                      You have expertise in: ${JSON.stringify(config.skills)}. 
+                      You should focus on discussing topics related to: ${config.topics?.join(', ')}.
+                      Always respond in a natural, conversational way.`
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`OpenAI API error: ${errorText}`);
+    }
+
     const data = await response.json();
-    console.log("Session created:", data);
+    console.log("Session created successfully:", {
+      hasClientSecret: !!data.client_secret,
+      sessionId: data.session_id
+    });
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.stack
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
