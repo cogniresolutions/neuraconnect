@@ -15,7 +15,7 @@ const Auth = () => {
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        if (session?.user) {
           navigate('/');
         }
       } catch (error) {
@@ -32,9 +32,9 @@ const Auth = () => {
 
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') {
-        if (session?.provider_token) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        if (session.provider_token) {
           toast({
             title: "Welcome!",
             description: `Signed in with Google as ${session.user?.email}`,
@@ -46,6 +46,9 @@ const Auth = () => {
           });
         }
         navigate('/');
+      } else if (event === 'SIGNED_OUT') {
+        // Handle sign out event if needed
+        navigate('/auth');
       }
     });
 
