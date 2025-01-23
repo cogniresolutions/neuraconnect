@@ -11,23 +11,51 @@ export class RealtimeChat {
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
   private accessToken: string | null = null;
   private clientSecret: string | null = null;
+  private tokenExpiryTime: number | null = null;
 
   constructor(messageHandler: MessageHandler) {
     this.messageHandler = messageHandler;
     console.log('RealtimeChat initialized with message handler');
   }
 
+  private async refreshToken(): Promise<boolean> {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      if (!session) throw new Error('No active session');
+
+      this.accessToken = session.access_token;
+      this.tokenExpiryTime = new Date(session.expires_at || '').getTime();
+      console.log('Token refreshed successfully');
+      return true;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      return false;
+    }
+  }
+
+  private async validateToken(): Promise<boolean> {
+    if (!this.tokenExpiryTime || !this.accessToken) {
+      return this.refreshToken();
+    }
+
+    const currentTime = Date.now();
+    const timeUntilExpiry = this.tokenExpiryTime - currentTime;
+    const REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+
+    if (timeUntilExpiry < REFRESH_THRESHOLD) {
+      return this.refreshToken();
+    }
+
+    return true;
+  }
+
   async init(persona: any) {
     try {
       console.log('Initializing chat with persona:', persona);
       
-      // Get current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-      if (!session) throw new Error('No active session');
-      
-      this.accessToken = session.access_token;
-      console.log('Session retrieved successfully:', session.user?.id);
+      const isTokenValid = await this.validateToken();
+      if (!isTokenValid) throw new Error('Failed to validate token');
 
       // Get chat token from Supabase function
       const { data, error } = await supabase.functions.invoke('generate-chat-token', {
@@ -69,11 +97,11 @@ export class RealtimeChat {
       throw new Error('Missing authentication credentials');
     }
 
-    // Initialize WebSocket connection
-    // Construct the URL with authentication parameters properly encoded
-    const wsUrl = `wss://api.openai.com/v1/realtime?auth=${encodeURIComponent(this.accessToken)}&secret=${encodeURIComponent(this.clientSecret)}`;
+    const wsUrl = new URL('wss://api.openai.com/v1/realtime');
+    wsUrl.searchParams.append('authorization', `Bearer ${this.accessToken}`);
+    wsUrl.searchParams.append('client_secret', this.clientSecret);
     
-    this.socket = new WebSocket(wsUrl);
+    this.socket = new WebSocket(wsUrl.toString());
     
     this.socket.onopen = () => {
       console.log('WebSocket connection established');
