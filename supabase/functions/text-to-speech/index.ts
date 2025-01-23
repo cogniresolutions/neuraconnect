@@ -6,6 +6,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -87,15 +88,22 @@ serve(async (req) => {
     console.log('Successfully converted audio to base64, length:', base64Audio.length)
 
     return new Response(
-      JSON.stringify({ audioContent: base64Audio }),
+      JSON.stringify({ 
+        success: true,
+        audioContent: base64Audio 
+      }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        },
       }
     )
   } catch (error) {
     console.error('Text-to-speech error:', error)
     return new Response(
       JSON.stringify({ 
+        success: false,
         error: error.message,
         details: error instanceof Error ? error.stack : undefined,
         timestamp: new Date().toISOString()
