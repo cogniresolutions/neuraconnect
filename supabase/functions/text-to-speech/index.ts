@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice } = await req.json()
+    const { text, voice } = await req.json();
     console.log('Starting text-to-speech synthesis...');
     
     if (!text) {
-      throw new Error('Text is required')
+      throw new Error('Text is required');
     }
 
     // Get Azure credentials and ensure TTS endpoint
@@ -39,8 +39,8 @@ serve(async (req) => {
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Format voice name correctly for Azure
-    const voiceName = `en-US-${voice}Neural`
-    console.log('Using voice:', voiceName)
+    const voiceName = `en-US-${voice}Neural`;
+    console.log('Using voice:', voiceName);
 
     // Construct SSML with proper XML namespace
     const ssml = `
