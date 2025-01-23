@@ -212,6 +212,25 @@ export class RealtimeChat {
     console.log('Sending system message:', systemMessage);
     this.dc.send(JSON.stringify(systemMessage));
     this.dc.send(JSON.stringify({type: 'response.create'}));
+
+    // Send welcome message
+    const welcomeMessage = {
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: `Hello! I'm ${this.persona.name}. ${this.persona.description || ''} How can I help you today?`
+          }
+        ]
+      }
+    };
+
+    console.log('Sending welcome message:', welcomeMessage);
+    this.dc.send(JSON.stringify(welcomeMessage));
+    this.dc.send(JSON.stringify({type: 'response.create'}));
   }
 
   sendMessage(text: string) {
