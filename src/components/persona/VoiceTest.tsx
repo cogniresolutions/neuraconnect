@@ -6,22 +6,35 @@ import { useToast } from "@/hooks/use-toast";
 
 interface VoiceTestProps {
   voiceStyle: string;
+  language?: string;
 }
 
-export const VoiceTest = ({ voiceStyle }: VoiceTestProps) => {
+export const VoiceTest = ({ voiceStyle, language = 'en' }: VoiceTestProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const { toast } = useToast();
 
-  const getVoiceMessage = (style: string) => {
-    const messages: Record<string, string> = {
-      alloy: "Hi, I am Alloy, a neutral voice assistant",
-      echo: "Hello there, I'm Echo, a male voice assistant",
-      fable: "Greetings, I'm Fable, your male voice companion",
-      onyx: "Hi, I'm Onyx, a male voice assistant",
-      nova: "Hello, I'm Nova, a female voice assistant",
-      shimmer: "Hi there, I'm Shimmer, a female voice assistant"
+  const getVoiceMessage = (style: string, lang: string) => {
+    const messages: Record<string, Record<string, string>> = {
+      en: {
+        alloy: "Hi, I am Alloy, a neutral voice assistant",
+        echo: "Hello there, I'm Echo, a male voice assistant",
+        fable: "Greetings, I'm Fable, your male voice companion",
+        onyx: "Hi, I'm Onyx, a male voice assistant",
+        nova: "Hello, I'm Nova, a female voice assistant",
+        shimmer: "Hi there, I'm Shimmer, a female voice assistant"
+      },
+      es: {
+        alloy: "Hola, soy Alloy, un asistente de voz neutral",
+        echo: "Hola, soy Echo, un asistente de voz masculino",
+        fable: "Saludos, soy Fable, tu compañero de voz masculino",
+        onyx: "Hola, soy Onyx, un asistente de voz masculino",
+        nova: "Hola, soy Nova, una asistente de voz femenina",
+        shimmer: "Hola, soy Shimmer, una asistente de voz femenina"
+      },
+      // Add more languages as needed
     };
-    return messages[style] || `Hello, I'm ${style}`;
+    
+    return messages[lang]?.[style] || messages.en[style] || `Hello, I'm ${style}`;
   };
 
   const testVoice = async () => {
@@ -29,8 +42,9 @@ export const VoiceTest = ({ voiceStyle }: VoiceTestProps) => {
       setIsPlaying(true);
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
-          text: getVoiceMessage(voiceStyle),
-          voice: voiceStyle
+          text: getVoiceMessage(voiceStyle, language),
+          voice: voiceStyle,
+          language: language
         }
       });
 

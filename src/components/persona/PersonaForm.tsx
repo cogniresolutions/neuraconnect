@@ -21,6 +21,8 @@ interface PersonaFormProps {
   setDescription: (description: string) => void;
   voiceStyle: string;
   setVoiceStyle: (style: string) => void;
+  language: string;
+  setLanguage: (language: string) => void;
   onSubmit: () => void;
   isCreating: boolean;
   personaId?: string;
@@ -33,6 +35,8 @@ export function PersonaForm({
   setDescription,
   voiceStyle,
   setVoiceStyle,
+  language,
+  setLanguage,
   onSubmit,
   isCreating,
   personaId
@@ -70,6 +74,25 @@ export function PersonaForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="language">Language</Label>
+        <Select value={language} onValueChange={setLanguage}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a language" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="en">English</SelectItem>
+            <SelectItem value="es">Spanish</SelectItem>
+            <SelectItem value="fr">French</SelectItem>
+            <SelectItem value="de">German</SelectItem>
+            <SelectItem value="it">Italian</SelectItem>
+            <SelectItem value="ja">Japanese</SelectItem>
+            <SelectItem value="ko">Korean</SelectItem>
+            <SelectItem value="zh">Chinese</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
