@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Toaster } from '@/components/ui/toaster';
 import Auth from '@/pages/Auth';
 import PersonaCreator from '@/components/PersonaCreator';
+import { Loader2 } from 'lucide-react';
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -16,6 +17,7 @@ const App = () => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
       setIsAuthenticated(!!session);
     });
 
@@ -28,7 +30,10 @@ const App = () => {
   if (isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-400"></div>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+          <p className="text-purple-200">Loading application...</p>
+        </div>
       </div>
     );
   }
