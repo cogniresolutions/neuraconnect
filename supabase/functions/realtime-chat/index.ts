@@ -23,20 +23,20 @@ serve(async (req) => {
 
     // Map voice style to supported OpenAI voices
     const voiceMapping: { [key: string]: string } = {
-      'Jason': 'echo',    // Male voice
-      'Jenny': 'nova',    // Female voice
-      'Guy': 'echo',      // Male voice
-      'Aria': 'shimmer',  // Female voice
-      'Davis': 'echo',    // Male voice
-      'Jane': 'nova',     // Female voice
-      'Tony': 'echo',     // Male voice
-      'Nancy': 'shimmer', // Female voice
-      'Sara': 'nova',     // Female voice
-      'Brandon': 'echo'   // Male voice
+      'Jason': 'echo',     // Male voice
+      'Jenny': 'shimmer',  // Female voice
+      'Guy': 'echo',       // Male voice
+      'Aria': 'shimmer',   // Female voice
+      'Davis': 'echo',     // Male voice
+      'Jane': 'shimmer',   // Female voice
+      'Tony': 'echo',      // Male voice
+      'Nancy': 'shimmer',  // Female voice
+      'Sara': 'shimmer',   // Female voice
+      'Brandon': 'echo'    // Male voice
     };
 
-    // Get mapped voice or default to 'echo'
-    const mappedVoice = voiceMapping[persona.voice_style] || 'echo';
+    // Get mapped voice or default to 'alloy'
+    const mappedVoice = voiceMapping[persona.voice_style] || 'alloy';
     console.log('Mapped voice style:', persona.voice_style, 'to:', mappedVoice);
 
     // Request an ephemeral token from OpenAI with detailed error logging
