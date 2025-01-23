@@ -1,9 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export class AudioRecorder {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
-  private processor: ScriptProcessorNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
 
   constructor(private onAudioData: (audioData: Float32Array) => void) {}
@@ -23,17 +21,21 @@ export class AudioRecorder {
       this.audioContext = new AudioContext({
         sampleRate: 24000,
       });
+
+      // Load and register the audio worklet
+      await this.audioContext.audioWorklet.addModule('/audio-processor.js');
       
       this.source = this.audioContext.createMediaStreamSource(this.stream);
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-processor');
       
-      this.processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        this.onAudioData(new Float32Array(inputData));
+      this.workletNode.port.onmessage = (event) => {
+        if (event.data.type === 'audio-data') {
+          this.onAudioData(new Float32Array(event.data.audioData));
+        }
       };
       
-      this.source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+      this.source.connect(this.workletNode);
+      this.workletNode.connect(this.audioContext.destination);
     } catch (error) {
       console.error('Error accessing microphone:', error);
       throw error;
@@ -45,9 +47,9 @@ export class AudioRecorder {
       this.source.disconnect();
       this.source = null;
     }
-    if (this.processor) {
-      this.processor.disconnect();
-      this.processor = null;
+    if (this.workletNode) {
+      this.workletNode.disconnect();
+      this.workletNode = null;
     }
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
@@ -98,8 +100,12 @@ export class RealtimeChat {
 
       const EPHEMERAL_KEY = response.client_secret.value;
 
-      // Create peer connection
-      this.pc = new RTCPeerConnection();
+      // Create peer connection with specific configuration
+      this.pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' }
+        ]
+      });
 
       // Set up remote audio
       this.pc.ontrack = e => {
@@ -109,18 +115,34 @@ export class RealtimeChat {
 
       // Add local audio track
       const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.pc.addTrack(ms.getTracks()[0]);
+      ms.getTracks().forEach(track => {
+        this.pc.addTrack(track, ms);
+      });
 
-      // Set up data channel
-      this.dc = this.pc.createDataChannel("oai-events");
-      this.dc.addEventListener("message", (e) => {
+      // Set up data channel with specific options
+      this.dc = this.pc.createDataChannel("oai-events", {
+        ordered: true
+      });
+      
+      this.dc.onopen = () => {
+        console.log('Data channel opened');
+        this.sendSystemMessage();
+      };
+      
+      this.dc.onclose = () => console.log('Data channel closed');
+      this.dc.onerror = (error) => console.error('Data channel error:', error);
+      
+      this.dc.onmessage = (e) => {
         const event = JSON.parse(e.data);
         console.log("Received event:", event);
         this.onMessage(event);
-      });
+      };
 
       // Create and set local description
-      const offer = await this.pc.createOffer();
+      const offer = await this.pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: false
+      });
       await this.pc.setLocalDescription(offer);
 
       // Connect to OpenAI's Realtime API
@@ -158,9 +180,6 @@ export class RealtimeChat {
         }
       });
       await this.recorder.start();
-
-      // Send initial system message
-      this.sendSystemMessage();
 
     } catch (error) {
       console.error("Error initializing chat:", error);
