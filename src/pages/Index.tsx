@@ -33,9 +33,9 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black">
       <div className="flex items-center justify-center p-4">
         <img
-          src="https://images.unsplash.com/photo-1676299081847-824916de030a"
+          src="/lovable-uploads/e8089c0d-a187-4542-ba87-883bcc8ecd77.png"
           alt="Neuraconnect Logo"
-          className="w-16 h-16 object-cover rounded-full shadow-[0_0_15px_rgba(139,92,246,0.3)] transition-transform duration-300 hover:scale-105 border-2 border-[#9b87f5]/30"
+          className="w-20 h-20 object-contain rounded-full shadow-[0_0_20px_rgba(56,182,255,0.4)] transition-transform duration-300 hover:scale-105 border-2 border-[#38b6ff]/30"
         />
       </div>
       <PersonaCreator />
