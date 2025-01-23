@@ -21,7 +21,8 @@ serve(async (req) => {
 
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint
+      hasEndpoint: !!azureSpeechEndpoint,
+      endpoint: azureSpeechEndpoint // Log the endpoint for debugging
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
@@ -37,10 +38,14 @@ serve(async (req) => {
     });
 
     if (!voicesResponse.ok) {
-      console.error('Failed to fetch voices:', voicesResponse.status, voicesResponse.statusText);
       const errorText = await voicesResponse.text();
-      console.error('Error details:', errorText);
-      throw new Error(`Failed to fetch voices: ${voicesResponse.statusText}`);
+      console.error('Failed to fetch voices:', {
+        status: voicesResponse.status,
+        statusText: voicesResponse.statusText,
+        headers: Object.fromEntries(voicesResponse.headers.entries()),
+        error: errorText
+      });
+      throw new Error(`Failed to fetch voices: ${voicesResponse.status} - ${errorText}`);
     }
 
     const voices = await voicesResponse.json();
@@ -56,6 +61,9 @@ serve(async (req) => {
       </speak>
     `.trim();
 
+    console.log('Sending TTS request to:', `${azureSpeechEndpoint}/cognitiveservices/v1/synthesize`);
+    console.log('SSML Payload:', ssml);
+
     const ttsResponse = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1/synthesize`, {
       method: 'POST',
       headers: {
@@ -68,15 +76,17 @@ serve(async (req) => {
     });
 
     console.log('TTS response status:', ttsResponse.status);
+    console.log('TTS response headers:', Object.fromEntries(ttsResponse.headers.entries()));
 
     if (!ttsResponse.ok) {
       const errorText = await ttsResponse.text();
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
-        errorText
+        headers: Object.fromEntries(ttsResponse.headers.entries()),
+        error: errorText
       });
-      throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.statusText}`);
+      throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
 
     const arrayBuffer = await ttsResponse.arrayBuffer();
@@ -103,7 +113,11 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        details: {
+          stack: error.stack,
+          name: error.name
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
