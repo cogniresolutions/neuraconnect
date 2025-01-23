@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export class AudioRecorder {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
@@ -119,7 +117,9 @@ export class RealtimeChat {
       // Set up remote audio
       this.pc.ontrack = (e) => {
         console.log('Received remote track:', e.track.kind);
-        this.audioEl.srcObject = e.streams[0];
+        if (this.audioEl) {
+          this.audioEl.srcObject = e.streams[0];
+        }
       };
 
       // Add local audio track
@@ -185,6 +185,23 @@ export class RealtimeChat {
       } else {
         throw error;
       }
+    }
+  }
+
+  updateContext(context: any) {
+    if (!this.dc || this.dc.readyState !== 'open') {
+      console.warn('Data channel not ready for context update');
+      return;
+    }
+
+    try {
+      console.log('Updating conversation context:', context);
+      this.dc.send(JSON.stringify({
+        type: 'conversation.context.update',
+        context
+      }));
+    } catch (error) {
+      console.error('Error updating context:', error);
     }
   }
 
