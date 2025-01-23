@@ -47,21 +47,24 @@ export const PersonaCreationForm: React.FC<PersonaCreationFormProps> = ({ onSucc
       const path = `${user.id}/${crypto.randomUUID()}-${file.name}`;
 
       setUploadProgress(0);
+      
+      // Upload the file
       const { error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(path, file, {
           cacheControl: '3600',
-          upsert: false,
-          onUploadProgress: (progress) => {
-            setUploadProgress((progress.loaded / progress.total) * 100);
-          },
+          upsert: false
         });
 
       if (uploadError) throw uploadError;
 
+      // Get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from(bucket)
         .getPublicUrl(path);
+
+      // Simulate progress since we can't track it directly
+      setUploadProgress(100);
 
       return publicUrl;
     } catch (error: any) {
