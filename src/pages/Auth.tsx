@@ -34,11 +34,8 @@ const Auth = () => {
     checkUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event);
       if (event === 'SIGNED_IN') {
         if (session?.provider_token) {
-          // Handle Google sign-in specific logic if needed
-          console.log('Signed in with Google', session.user?.user_metadata);
           toast({
             title: "Welcome!",
             description: `Signed in with Google as ${session.user?.email}`,
@@ -50,21 +47,6 @@ const Auth = () => {
           });
         }
         navigate('/');
-      } else if (event === 'SIGNED_OUT') {
-        toast({
-          title: "Goodbye!",
-          description: "You have been signed out.",
-        });
-      } else if (event === 'USER_UPDATED') {
-        toast({
-          title: "Profile Updated",
-          description: "Your profile has been updated successfully.",
-        });
-      } else if (event === 'PASSWORD_RECOVERY') {
-        toast({
-          title: "Password Recovery",
-          description: "Check your email for password reset instructions.",
-        });
       }
     });
 
