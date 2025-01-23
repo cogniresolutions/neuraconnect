@@ -6,6 +6,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Log the start of function execution
   console.log('🚀 Azure Test Function Started')
   
   // Handle CORS preflight requests
