@@ -20,6 +20,7 @@ export class RealtimeChat {
 
   private async refreshToken(): Promise<boolean> {
     try {
+      console.log('Refreshing authentication token...');
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) throw error;
       if (!session) throw new Error('No active session');
@@ -36,6 +37,7 @@ export class RealtimeChat {
 
   private async validateToken(): Promise<boolean> {
     if (!this.tokenExpiryTime || !this.accessToken) {
+      console.log('No token found or token expired, refreshing...');
       return this.refreshToken();
     }
 
@@ -44,9 +46,11 @@ export class RealtimeChat {
     const REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 
     if (timeUntilExpiry < REFRESH_THRESHOLD) {
+      console.log('Token near expiry, refreshing...');
       return this.refreshToken();
     }
 
+    console.log('Token is valid');
     return true;
   }
 
@@ -57,7 +61,7 @@ export class RealtimeChat {
       const isTokenValid = await this.validateToken();
       if (!isTokenValid) throw new Error('Failed to validate token');
 
-      // Get chat token from Supabase function
+      console.log('Requesting chat token from Supabase function...');
       const { data, error } = await supabase.functions.invoke('generate-chat-token', {
         body: { 
           personaId: persona.id,
@@ -97,6 +101,8 @@ export class RealtimeChat {
       throw new Error('Missing authentication credentials');
     }
 
+    console.log('Establishing WebSocket connection...');
+    
     const wsUrl = new URL('wss://api.openai.com/v1/realtime');
     wsUrl.searchParams.append('authorization', `Bearer ${this.accessToken}`);
     wsUrl.searchParams.append('client_secret', this.clientSecret);
@@ -154,10 +160,18 @@ export class RealtimeChat {
     const authMessage = {
       type: 'auth',
       client_secret: this.clientSecret,
-      access_token: this.accessToken
+      access_token: this.accessToken,
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`
+      }
     };
 
-    console.log('Sending authentication message');
+    console.log('Sending authentication message:', {
+      ...authMessage,
+      client_secret: '[REDACTED]',
+      access_token: '[REDACTED]'
+    });
+    
     this.socket.send(JSON.stringify(authMessage));
   }
 
