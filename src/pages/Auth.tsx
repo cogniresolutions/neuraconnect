@@ -18,21 +18,14 @@ const Auth = () => {
     try {
       setIsLoading(true);
       setSessionCheckFailed(false);
-      
-      // Add timeout to the session check
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Session check timed out')), 5000);
-      });
+      setAuthError(null);
 
-      const sessionPromise = supabase.auth.getSession();
-      
-      const { data: { session }, error } = await Promise.race([
-        sessionPromise,
-        timeoutPromise
-      ]) as any;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      if (error) throw error;
-      
+      const { data: { session } } = await supabase.auth.getSession();
+      clearTimeout(timeoutId);
+
       if (session?.user) {
         navigate('/', { replace: true });
       }
@@ -41,8 +34,8 @@ const Auth = () => {
       setSessionCheckFailed(true);
       setAuthError('Failed to check authentication status');
       toast({
-        title: "Authentication Error",
-        description: "Connection timed out. Please try again.",
+        title: "Connection Error",
+        description: "Please check your internet connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -53,10 +46,8 @@ const Auth = () => {
   useEffect(() => {
     let mounted = true;
 
-    const handleAuthChange = (event: string, session: any) => {
+    const handleAuthChange = async (event: string, session: any) => {
       if (!mounted) return;
-      
-      console.log('Auth state changed:', event);
       
       if (event === 'SIGNED_IN' && session) {
         toast({
