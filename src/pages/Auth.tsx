@@ -16,7 +16,7 @@ const Auth = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          navigate('/');
+          navigate('/', { replace: true });
         }
       } catch (error) {
         console.error('Auth check error:', error);
@@ -40,7 +40,7 @@ const Auth = () => {
           title: "Welcome!",
           description: "You have successfully signed in.",
         });
-        navigate('/');
+        navigate('/', { replace: true });
       }
     });
 
