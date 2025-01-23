@@ -499,3 +499,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       </div>
     </div>
   );
+};
+
+export default VideoCallInterface;
