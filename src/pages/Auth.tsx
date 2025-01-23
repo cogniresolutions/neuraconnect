@@ -20,25 +20,42 @@ const Auth = () => {
       setSessionCheckFailed(false);
       setAuthError(null);
 
-      console.log('Checking session...');
-      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('Starting session check...');
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timeout')), 10000); // 10 second timeout
+      });
+
+      // Create the session check promise
+      const sessionPromise = supabase.auth.getSession();
+
+      // Race between timeout and session check
+      const { data: { session }, error } = await Promise.race([
+        sessionPromise,
+        timeoutPromise.then(() => {
+          throw new Error('Connection timeout');
+        }),
+      ]);
       
       if (error) {
         console.error('Session check error:', error);
         throw error;
       }
 
-      console.log('Session check result:', session ? 'Logged in' : 'Not logged in');
+      console.log('Session check completed:', session ? 'Logged in' : 'Not logged in');
       if (session?.user) {
         navigate('/', { replace: true });
       }
     } catch (error) {
       console.error('Session check error:', error);
       setSessionCheckFailed(true);
-      setAuthError('Failed to check authentication status');
+      setAuthError(error instanceof Error ? error.message : 'Connection failed');
       toast({
-        title: "Authentication Error",
-        description: "Unable to verify authentication status. Please try again.",
+        title: "Connection Error",
+        description: error instanceof Error && error.message === 'Connection timeout' 
+          ? "The authentication service is taking too long to respond. Please try again."
+          : "Unable to connect to the authentication service. Please check your connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -80,7 +97,7 @@ const Auth = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <p className="text-purple-200">Authentication service error</p>
+          <p className="text-purple-200">Connection timeout - Unable to reach authentication service</p>
           <Button 
             onClick={checkSession}
             variant="outline"
@@ -99,7 +116,7 @@ const Auth = () => {
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-          <p className="text-purple-200">Initializing authentication...</p>
+          <p className="text-purple-200">Connecting to authentication service...</p>
         </div>
       </div>
     );
