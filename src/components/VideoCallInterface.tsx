@@ -278,8 +278,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       await initializeAudio(stream);
-
-      analysisIntervalRef.current = setInterval(performAnalysis, 5000);
+      analysisIntervalRef.current = setInterval(performAnalysis, 1000); // Updated to 1 second interval
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
@@ -419,6 +418,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                   Recording
                 </div>
               )}
+              {lastAnalysis?.emotions && (
+                <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs p-2 rounded">
+                  Emotion: {currentEmotion}
+                </div>
+              )}
             </div>
             <div className="relative w-64 h-48 rounded-lg overflow-hidden bg-gray-900">
               {trainingVideo ? (
@@ -483,6 +487,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             <AlertDialogDescription>
               To start the call, we need access to your camera and microphone. 
               This will allow you to interact with {persona.name} in real-time. 
+              Your video feed will be analyzed for emotions and environment context 
+              to provide a more natural conversation experience.
               Your privacy is important to us, and this data is only used during the call.
             </AlertDialogDescription>
           </AlertDialogHeader>
