@@ -24,6 +24,8 @@ export class RealtimeChat {
       if (sessionError) throw sessionError;
       if (!session) throw new Error('No active session');
 
+      console.log('Session retrieved successfully:', session.user?.id);
+
       // Get chat token from Supabase function
       const { data, error } = await supabase.functions.invoke('generate-chat-token', {
         body: { 
