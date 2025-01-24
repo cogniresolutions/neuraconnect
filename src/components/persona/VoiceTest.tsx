@@ -14,9 +14,11 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
   const { toast } = useToast();
 
   const getVoiceMessage = (style: string) => {
-    const isFemale = ['Jenny', 'Aria', 'Jane', 'Nancy', 'Sara'].includes(style);
+    const isFemale = ['Jenny', 'Aria', 'Jane', 'Nancy', 'Sara'].some(name => 
+      style.toLowerCase().includes(name.toLowerCase())
+    );
     const gender = isFemale ? 'female' : 'male';
-    return `Hi, I'm ${style}, a ${gender} voice assistant`;
+    return `Hello! I'm your ${gender} AI assistant. My voice style is ${style}. How can I help you today?`;
   };
 
   const testVoice = async () => {
@@ -50,21 +52,21 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       console.log('Audio content length:', data.audioContent.length);
 
       // Create and play audio
-      const audio = new Audio();
+      const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
       
       // Add event listeners for debugging
       audio.addEventListener('loadeddata', () => console.log('Audio loaded'));
       audio.addEventListener('playing', () => console.log('Audio started playing'));
-      audio.addEventListener('ended', () => console.log('Audio finished playing'));
+      audio.addEventListener('ended', () => {
+        console.log('Audio finished playing');
+        setIsPlaying(false);
+      });
       audio.addEventListener('error', (e) => {
         console.error('Audio error:', e);
+        setIsPlaying(false);
         throw new Error(`Failed to play audio: ${e.type}`);
       });
 
-      // Set the audio source
-      audio.src = `data:audio/mp3;base64,${data.audioContent}`;
-      
-      // Play the audio
       await audio.play();
       
       toast({
@@ -74,13 +76,12 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
 
     } catch (error) {
       console.error('Voice test error:', error);
+      setIsPlaying(false);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to play voice sample",
         variant: "destructive",
       });
-    } finally {
-      setIsPlaying(false);
     }
   };
 
