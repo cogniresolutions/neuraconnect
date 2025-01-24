@@ -67,50 +67,34 @@ export function PersonaForm({
 }: PersonaFormProps) {
   const { toast } = useToast();
 
-  // Query voice mappings with automatic background sync and retry
-  const { data: voiceMappings, isLoading: isLoadingVoices } = useQuery({
+  // Query voice mappings using the new edge function
+  const { data: voiceMappingsResponse, isLoading: isLoadingVoices } = useQuery({
     queryKey: ['voiceMappings'],
     queryFn: async () => {
-      const { data: existingData, error: fetchError } = await supabase
-        .from('voice_mappings')
-        .select('*')
-        .order('display_name');
-      
-      if (fetchError) throw fetchError;
-
-      // If no data exists, trigger sync and fetch again
-      if (!existingData || existingData.length === 0) {
-        await supabase.functions.invoke('sync-voice-mappings');
-        
-        const { data: syncedData, error: syncError } = await supabase
-          .from('voice_mappings')
-          .select('*')
-          .order('display_name');
-          
-        if (syncError) throw syncError;
-        return syncedData as VoiceMapping[];
-      }
-
-      return existingData as VoiceMapping[];
+      const { data, error } = await supabase.functions.invoke('get-voice-mappings');
+      if (error) throw error;
+      return data;
     },
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    staleTime: 24 * 60 * 60 * 1000, // Cache for 24 hours since voice mappings rarely change
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 30000),
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
+  const voiceMappings = voiceMappingsResponse?.data || [];
+
   // Filter voices based on selected language
-  const filteredVoices = voiceMappings?.filter(
+  const filteredVoices = voiceMappings.filter(
     voice => voice.language_code === language
-  ) || [];
+  );
 
   // Handle language change with automatic voice style update
   const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage);
     
     // Set first available voice for the new language
-    const availableVoices = voiceMappings?.filter(
+    const availableVoices = voiceMappings.filter(
       voice => voice.language_code === newLanguage
-    ) || [];
+    );
     
     if (availableVoices.length > 0) {
       setVoiceStyle(availableVoices[0].voice_style);
@@ -173,7 +157,7 @@ export function PersonaForm({
             <SelectTrigger className="flex-1">
               <SelectValue placeholder={
                 isLoadingVoices ? "Loading voices..." :
-                filteredVoices.length === 0 ? "No voices available for this language" :
+                filteredVoices.length === 0 ? "Please select a language first" :
                 "Select a voice style"
               } />
             </SelectTrigger>
