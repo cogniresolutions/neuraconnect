@@ -12,7 +12,7 @@ interface VideoCallInterfaceProps {
   onCallStateChange: (isActive: boolean) => void;
 }
 
-const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
+export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
   onCallStateChange,
 }) => {
@@ -23,7 +23,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [showNameDialog, setShowNameDialog] = useState(true);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [userName, setUserName] = useState('');
-  const [currentEmotion, setCurrentEmotion] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
@@ -127,5 +126,3 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     </div>
   );
 };
-
-export default VideoCallInterface;
