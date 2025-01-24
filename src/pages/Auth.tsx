@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -15,35 +15,28 @@ const Auth = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Check if user is already authenticated
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Initial session check:', session);
+      
+      if (session) {
+        console.log('User is already authenticated, redirecting...');
+        handleAuthSuccess(session);
+      }
+    };
+
+    checkAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session);
       
       if (event === 'SIGNED_IN' && session) {
         console.log('User signed in:', session.user.email);
-        try {
-          setIsLoading(true);
-          toast({
-            title: "Welcome!",
-            description: "You've successfully signed in.",
-          });
-          navigate('/video-call');
-        } catch (err) {
-          console.error('Navigation error:', err);
-          setError('Failed to navigate after sign in. Please try again.');
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to complete sign in process. Please try again.",
-          });
-        } finally {
-          setIsLoading(false);
-        }
+        handleAuthSuccess(session);
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out');
-      } else if (event === 'USER_UPDATED') {
-        console.log('User updated');
-      } else if (event === 'TOKEN_REFRESHED') {
-        console.log('Token refreshed');
+        setError(null);
       }
     });
 
@@ -63,8 +56,52 @@ const Auth = () => {
       }
     }
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('Cleaning up auth subscriptions');
+      subscription.unsubscribe();
+    };
   }, [navigate, toast]);
+
+  const handleAuthSuccess = async (session: any) => {
+    console.log('Handling successful authentication');
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Ensure we have a user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        throw profileError;
+      }
+
+      console.log('User profile:', profile);
+      
+      toast({
+        title: "Welcome!",
+        description: "You've successfully signed in.",
+      });
+
+      // Navigate to video call page
+      console.log('Navigating to video call page');
+      navigate('/video-call');
+    } catch (err) {
+      console.error('Error in auth success handler:', err);
+      setError('Failed to complete authentication. Please try again.');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to complete sign in process. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -88,7 +125,7 @@ const Auth = () => {
           
           {isLoading ? (
             <div className="flex justify-center items-center py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
             <SupabaseAuth 
