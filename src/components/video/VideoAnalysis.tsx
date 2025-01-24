@@ -36,8 +36,9 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
         streamRef.current = stream;
 
         // Initialize speech recognition if onSpeechDetected is provided
-        if (onSpeechDetected && 'webkitSpeechRecognition' in window) {
-          const recognition = new window.webkitSpeechRecognition();
+        if (onSpeechDetected && window.webkitSpeechRecognition) {
+          const SpeechRecognition = window.webkitSpeechRecognition;
+          const recognition = new SpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
           recognition.lang = language;

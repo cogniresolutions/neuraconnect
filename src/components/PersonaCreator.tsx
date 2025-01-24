@@ -192,6 +192,7 @@ const PersonaCreator = () => {
 
         <TabsContent value="manage">
           <PersonaList
+            personas={[]} // Pass the actual personas array here
             onSelect={setSelectedPersona}
             onDelete={async (id) => {
               try {
@@ -214,6 +215,9 @@ const PersonaCreator = () => {
                 });
               }
             }}
+            onDeploy={async () => {}} // Add empty deploy handler
+            onEdit={() => {}} // Add empty edit handler
+            isDeploying={false} // Add isDeploying prop
           />
         </TabsContent>
       </Tabs>

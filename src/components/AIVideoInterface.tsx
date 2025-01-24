@@ -4,8 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 import { Loader2, Mic, MicOff, Globe } from 'lucide-react';
 import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
-import { Select } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VOICE_MAPPINGS } from '@/constants/voices';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AIVideoInterfaceProps {
   persona: any;
@@ -134,17 +135,17 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
           onValueChange={setSelectedLanguage}
           disabled={isConnected}
         >
-          <Select.Trigger className="w-[180px]">
+          <SelectTrigger className="w-[180px]">
             <Globe className="mr-2 h-4 w-4" />
             {selectedLanguage}
-          </Select.Trigger>
-          <Select.Content>
+          </SelectTrigger>
+          <SelectContent>
             {Object.keys(VOICE_MAPPINGS).map((lang) => (
-              <Select.Item key={lang} value={lang}>
+              <SelectItem key={lang} value={lang}>
                 {lang}
-              </Select.Item>
+              </SelectItem>
             ))}
-          </Select.Content>
+          </SelectContent>
         </Select>
 
         {isConnected && (

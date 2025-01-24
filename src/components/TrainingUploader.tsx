@@ -24,19 +24,29 @@ const TrainingUploader: React.FC<TrainingUploaderProps> = ({ personaId, onUpload
       setIsUploading(true);
       setUploadProgress(0);
 
-      // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const filePath = `${personaId}/${crypto.randomUUID()}.${fileExt}`;
+
+      // Custom upload with progress tracking
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percent = (event.loaded / event.total) * 100;
+          setUploadProgress(percent);
+        }
+      });
+
+      // Create a Promise to handle the upload
+      const uploadPromise = new Promise((resolve, reject) => {
+        xhr.onload = () => resolve(null);
+        xhr.onerror = () => reject(new Error('Upload failed'));
+      });
 
       const { data, error } = await supabase.storage
         .from('training_materials')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false,
-          onUploadProgress: (progress) => {
-            const percent = (progress.loaded / progress.total) * 100;
-            setUploadProgress(percent);
-          },
+          upsert: false
         });
 
       if (error) throw error;
