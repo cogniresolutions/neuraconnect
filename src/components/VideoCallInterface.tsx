@@ -33,7 +33,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const azureVideoRef = useRef<HTMLVideoElement | null>(null);
+  const azureVideoRef = useRef<HTMLVideoElement>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const [isVideoElementReady, setIsVideoElementReady] = useState(false);
   const mountedRef = useRef(false);
@@ -87,10 +87,19 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     try {
       cleanup();
 
-      if (!videoRef.current || !azureVideoRef.current) {
-        console.error('Video elements not found');
-        throw new Error('Video elements not initialized');
-      }
+      // Wait for video elements to be ready
+      await new Promise<void>((resolve) => {
+        const checkRefs = () => {
+          if (videoRef.current && azureVideoRef.current) {
+            console.log('Video elements are ready');
+            resolve();
+          } else {
+            console.log('Waiting for video elements...');
+            setTimeout(checkRefs, 100);
+          }
+        };
+        checkRefs();
+      });
 
       console.log('Requesting media stream...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -105,12 +114,14 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       console.log('Setting up media stream...');
       setStream(mediaStream);
-      videoRef.current.srcObject = mediaStream;
       
-      await videoRef.current.play().catch(error => {
-        console.error('Error playing video:', error);
-        throw error;
-      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        await videoRef.current.play().catch(error => {
+          console.error('Error playing video:', error);
+          throw error;
+        });
+      }
 
       // Initialize Azure video stream
       if (azureVideoRef.current) {
@@ -185,7 +196,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
     try {
       setIsRecording(true);
-      // Add your recording logic here
       toast({
         title: "Recording Started",
         description: "Your call is now being recorded",
@@ -204,7 +214,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const handleStopRecording = () => {
     try {
       setIsRecording(false);
-      // Add your stop recording logic here
       toast({
         title: "Recording Stopped",
         description: "Your recording has been saved",
