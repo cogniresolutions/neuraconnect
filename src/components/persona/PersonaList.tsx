@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayCircle, Trash2, Edit2, Phone, Video } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import VideoCallInterface from "@/components/VideoCallInterface";
 
 interface Persona {
   id: string;
@@ -32,16 +33,28 @@ export const PersonaList = ({
   onSelect,
   isDeploying,
 }: PersonaListProps) => {
-  const navigate = useNavigate();
+  const [selectedVideoPersona, setSelectedVideoPersona] = useState<Persona | null>(null);
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
 
-  const handleVideoCall = (personaId: string) => {
-    navigate(`/video-call/${personaId}`);
+  const handleSpeakingChange = (speaking: boolean) => {
+    console.log('Speaking state changed:', speaking);
   };
 
   return (
     <div className="space-y-6">
+      {selectedVideoPersona && (
+        <VideoCallInterface
+          persona={selectedVideoPersona}
+          onSpeakingChange={handleSpeakingChange}
+          onCallStateChange={(isActive) => {
+            if (!isActive) {
+              setSelectedVideoPersona(null);
+            }
+          }}
+        />
+      )}
+
       {createdPersonas.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-white">Created Personas</h2>
@@ -83,7 +96,7 @@ export const PersonaList = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleVideoCall(persona.id)}
+                        onClick={() => setSelectedVideoPersona(persona)}
                         className="text-indigo-400 border-indigo-400/30"
                       >
                         <Video className="h-4 w-4" />
@@ -121,7 +134,7 @@ export const PersonaList = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleVideoCall(persona.id)}
+                        onClick={() => setSelectedVideoPersona(persona)}
                         className="text-indigo-400 border-indigo-400/30"
                       >
                         <Video className="h-4 w-4" />
