@@ -20,7 +20,8 @@ serve(async (req) => {
 
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint
+      hasEndpoint: !!azureSpeechEndpoint,
+      endpoint: azureSpeechEndpoint // Log the endpoint for verification
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
@@ -38,8 +39,12 @@ serve(async (req) => {
     console.log('Request data:', { text, voice });
 
     // Extract region from endpoint URL
-    const region = azureSpeechEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
-    const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    const region = azureSpeechEndpoint.match(/https:\/\/([^.]+)\./)?.[1];
+    if (!region) {
+      throw new Error('Invalid Azure Speech endpoint format');
+    }
+
+    const ttsEndpoint = `${azureSpeechEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Prepare SSML with proper XML escaping
@@ -79,10 +84,7 @@ serve(async (req) => {
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
-        headers: Object.fromEntries(ttsResponse.headers.entries()),
-        error: errorText,
-        endpoint: ttsEndpoint,
-        ssml: ssml
+        error: errorText
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
@@ -115,11 +117,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString(),
-        details: {
-          name: error.name,
-          stack: error.stack
-        }
+        timestamp: new Date().toISOString()
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
