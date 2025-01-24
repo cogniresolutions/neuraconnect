@@ -51,8 +51,9 @@ export const PersonaCard = ({
         </div>
         
         <DeletePersonaDialog
-          isDeleting={isDeleting}
-          onConfirmDelete={handleDelete}
+          personaId={persona.id}
+          personaName={persona.name}
+          onDelete={handleDelete}
         />
       </div>
 
