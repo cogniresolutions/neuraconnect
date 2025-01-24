@@ -30,7 +30,7 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
     }
 
     const voices = VOICE_MAPPINGS[supportedLang][gender];
-    return `${lang}-${voices[0]}Neural`;
+    return voices[0];
   };
 
   const testVoice = async () => {

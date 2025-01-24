@@ -36,7 +36,7 @@ serve(async (req) => {
 
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
-        <voice name='${voice}'>
+        <voice name='Microsoft Server Speech Text to Speech Voice (${language}, ${voice})'>
           ${escapedText}
         </voice>
       </speak>

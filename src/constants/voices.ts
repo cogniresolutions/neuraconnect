@@ -11,40 +11,40 @@ export type SupportedLanguage =
 
 export const VOICE_MAPPINGS: Record<SupportedLanguage, { male: string[]; female: string[] }> = {
   'en-US': {
-    male: ['GuyNeural', 'DavisNeural', 'TonyNeural'],
-    female: ['JennyNeural', 'AriaNeural', 'NancyNeural']
+    male: ['Guy', 'Davis', 'Tony'],
+    female: ['Jenny', 'Aria', 'Nancy']
   },
   'en-GB': {
-    male: ['RyanNeural'],
-    female: ['SoniaNeural', 'LibbyNeural']
+    male: ['Ryan'],
+    female: ['Sonia', 'Libby']
   },
   'es-ES': {
-    male: ['AlvaroNeural'],
-    female: ['ElviraNeural']
+    male: ['Alvaro'],
+    female: ['Elvira']
   },
   'fr-FR': {
-    male: ['HenriNeural'],
-    female: ['DeniseNeural']
+    male: ['Henri'],
+    female: ['Denise']
   },
   'de-DE': {
-    male: ['ConradNeural'],
-    female: ['KatjaNeural']
+    male: ['Conrad'],
+    female: ['Katja']
   },
   'it-IT': {
-    male: ['DiegoNeural'],
-    female: ['ElsaNeural']
+    male: ['Diego'],
+    female: ['Elsa']
   },
   'ja-JP': {
-    male: ['KeitaNeural'],
-    female: ['NanamiNeural']
+    male: ['Keita'],
+    female: ['Nanami']
   },
   'ko-KR': {
-    male: ['InJoonNeural'],
-    female: ['SunHiNeural']
+    male: ['InJoon'],
+    female: ['SunHi']
   },
   'zh-CN': {
-    male: ['YunxiNeural'],
-    female: ['XiaoxiaoNeural']
+    male: ['Yunxi'],
+    female: ['Xiaoxiao']
   }
 };
 
