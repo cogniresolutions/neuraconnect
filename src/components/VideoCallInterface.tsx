@@ -13,6 +13,8 @@ interface VideoCallInterfaceProps {
   isVideoMode?: boolean;
 }
 
+const AZURE_CONTAINER_VIDEO_URL = "http://emma-server.dbfdh9d2gxhhgpd7.centralus.azurecontainer.io:8080/video";
+
 export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
   onCallStateChange,
@@ -29,6 +31,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const azureVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Cleanup function to stop all media tracks and reset audio
   const cleanup = () => {
@@ -46,6 +49,10 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
+    }
+    if (azureVideoRef.current) {
+      azureVideoRef.current.pause();
+      azureVideoRef.current.src = '';
     }
   };
 
@@ -78,6 +85,18 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       setStream(mediaStream);
       videoRef.current.srcObject = mediaStream;
+
+      // Start Azure Container video stream
+      if (azureVideoRef.current) {
+        azureVideoRef.current.src = AZURE_CONTAINER_VIDEO_URL;
+        try {
+          await azureVideoRef.current.play();
+          console.log('Azure video stream started');
+        } catch (error) {
+          console.error('Error playing Azure video:', error);
+          // Continue even if Azure video fails
+        }
+      }
       
       try {
         await videoRef.current.play();
@@ -226,12 +245,25 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     <div className="flex flex-col space-y-4 h-full">
       <div className="flex-1 min-h-0">
         {isCallActive ? (
-          <VideoGrid
-            videoRef={videoRef}
-            userName="You"
-            isCallActive={isCallActive}
-            persona={persona}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+            <VideoGrid
+              videoRef={videoRef}
+              userName="You"
+              isCallActive={isCallActive}
+              persona={persona}
+            />
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                ref={azureVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1.5 rounded-full">
+                <span className="text-sm font-medium">{persona.name} (AI)</span>
+              </div>
+            </div>
+          </div>
         ) : (
           <VideoDisplay
             stream={stream}
