@@ -127,16 +127,11 @@ export class RealtimeChat {
       throw new Error('Missing client secret');
     }
 
-    const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
-    if (!AZURE_OPENAI_ENDPOINT) {
-      throw new Error('Azure OpenAI endpoint not configured');
-    }
-
     console.log('Establishing WebSocket connection...');
     
     try {
       // Create WebSocket URL with Azure endpoint
-      const wsUrl = new URL(`${AZURE_OPENAI_ENDPOINT}/realtime`);
+      const wsUrl = new URL(process.env.AZURE_OPENAI_ENDPOINT + '/realtime');
       wsUrl.searchParams.append('token', this.clientSecret);
       
       console.log('Connecting to WebSocket with URL:', wsUrl.toString());
