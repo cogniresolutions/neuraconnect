@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
+import { cleanupUserSessions } from '@/utils/sessionCleanup';
 import LocalVideo from './video/LocalVideo';
 import RemoteVideo from './video/RemoteVideo';
 import VideoControls from './video/VideoControls';
@@ -29,25 +30,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
 
-  // Check and cleanup any hanging sessions on component mount
+  // Check and cleanup any hanging sessions on component mount and auth state change
   useEffect(() => {
     const cleanupHangingSessions = async () => {
       try {
-        const { data: user } = await supabase.auth.getUser();
-        if (!user.user) return;
-
-        const { error } = await supabase
-          .from('tavus_sessions')
-          .update({ 
-            status: 'ended',
-            is_active: false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.user.id)
-          .eq('is_active', true);
-
-        if (error) {
-          console.error('Error cleaning up hanging sessions:', error);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          await cleanupUserSessions(user.id);
         }
       } catch (error) {
         console.error('Error in cleanupHangingSessions:', error);
@@ -55,6 +44,18 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     };
 
     cleanupHangingSessions();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_OUT') {
+        console.log('User signed out, cleaning up sessions...');
+        await forceCleanup();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const forceCleanup = async () => {
@@ -105,6 +106,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       }
 
+      // Clean up any other hanging sessions
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        await cleanupUserSessions(user.id);
+      }
+
       setStream(null);
       setIsCallActive(false);
       onCallStateChange?.(false);
@@ -112,7 +119,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       toast({
         title: "Call Ended",
-        description: "The video call has been forcefully terminated",
+        description: "The video call has been terminated",
       });
 
     } catch (error) {
