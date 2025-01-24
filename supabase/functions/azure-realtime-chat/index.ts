@@ -18,11 +18,25 @@ serve(async (req) => {
     const AZURE_SPEECH_ENDPOINT = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
     if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT || !AZURE_SPEECH_KEY || !AZURE_SPEECH_ENDPOINT) {
+      console.error('Missing required Azure credentials:', {
+        hasOpenAIKey: !!AZURE_OPENAI_KEY,
+        hasOpenAIEndpoint: !!AZURE_OPENAI_ENDPOINT,
+        hasSpeechKey: !!AZURE_SPEECH_KEY,
+        hasSpeechEndpoint: !!AZURE_SPEECH_ENDPOINT
+      });
       throw new Error('Azure credentials are not configured');
     }
 
     const { persona } = await req.json();
-    console.log('Initializing realtime chat for persona:', persona);
+    console.log('Received request for persona:', {
+      id: persona.id,
+      name: persona.name,
+      voice_style: persona.voice_style
+    });
+
+    if (!persona || !persona.id || !persona.voice_style) {
+      throw new Error('Invalid persona data provided');
+    }
 
     // Map voice style to Azure voices
     const voiceMapping: { [key: string]: string } = {
@@ -47,9 +61,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         voice: mappedVoice,
-        instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
-                      You have expertise in: ${JSON.stringify(persona.skills)}. 
-                      You should focus on discussing topics related to: ${persona.topics.join(', ')}.
+        instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality || 'helpful and friendly'}. 
+                      ${persona.skills ? `You have expertise in: ${JSON.stringify(persona.skills)}.` : ''} 
+                      ${persona.topics ? `You should focus on discussing topics related to: ${persona.topics.join(', ')}.` : ''}
                       Always maintain the persona's character and personality throughout the conversation.`
       }),
     });
@@ -59,13 +73,14 @@ serve(async (req) => {
       console.error('Azure OpenAI API error:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorText
+        error: errorText,
+        endpoint: AZURE_OPENAI_ENDPOINT
       });
       throw new Error(`Azure OpenAI API error: ${errorText}`);
     }
 
     const data = await response.json();
-    console.log("Session created successfully with token");
+    console.log("Successfully obtained token and endpoint");
 
     // Initialize Azure Speech service configuration
     const speechConfig = {
@@ -76,13 +91,14 @@ serve(async (req) => {
     };
 
     return new Response(JSON.stringify({
-      ...data,
+      token: data.token,
+      endpoint: data.endpoint,
       speechConfig
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error in azure-realtime-chat function:", error);
     return new Response(JSON.stringify({ 
       error: error.message,
       details: error.stack
