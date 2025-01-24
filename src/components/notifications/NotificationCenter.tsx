@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, BellDot, X, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,19 +10,56 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Notification {
   id: string;
-  title: string;
-  description: string;
-  status: 'success' | 'error' | 'pending' | 'info';
-  timestamp: Date;
+  endpoint: string;
+  status: 'success' | 'error' | 'pending';
+  error_message: string | null;
+  created_at: string;
 }
 
 export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const hasUnread = notifications.length > 0;
+
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Subscribe to changes
+    const channel = supabase
+      .channel('api_monitoring_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'api_monitoring'
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchNotifications = async () => {
+    const { data, error } = await supabase
+      .from('api_monitoring')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (!error && data) {
+      setNotifications(data);
+    }
+  };
 
   const getStatusColor = (status: Notification['status']) => {
     switch (status) {
@@ -37,8 +74,22 @@ export const NotificationCenter = () => {
     }
   };
 
-  const clearNotifications = () => {
-    setNotifications([]);
+  const formatEndpoint = (endpoint: string) => {
+    return endpoint
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const clearNotifications = async () => {
+    const { error } = await supabase
+      .from('api_monitoring')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (!error) {
+      setNotifications([]);
+    }
   };
 
   return (
@@ -93,12 +144,14 @@ export const NotificationCenter = () => {
                   className={`flex items-start justify-between rounded-lg p-4 transition-colors ${getStatusColor(notification.status)}`}
                 >
                   <div className="space-y-1">
-                    <p className="font-medium">{notification.title}</p>
-                    <p className="text-sm opacity-70">
-                      {notification.description}
-                    </p>
+                    <p className="font-medium">{formatEndpoint(notification.endpoint)}</p>
+                    {notification.error_message && (
+                      <p className="text-sm opacity-70">
+                        {notification.error_message}
+                      </p>
+                    )}
                     <p className="text-xs opacity-50">
-                      {new Date(notification.timestamp).toLocaleString()}
+                      {new Date(notification.created_at).toLocaleString()}
                     </p>
                   </div>
                   <Button
@@ -106,7 +159,10 @@ export const NotificationCenter = () => {
                     size="icon"
                     className="ml-2 h-8 w-8 shrink-0"
                     onClick={() => {
-                      setNotifications(notifications.filter(n => n.id !== notification.id));
+                      const updatedNotifications = notifications.filter(
+                        n => n.id !== notification.id
+                      );
+                      setNotifications(updatedNotifications);
                     }}
                   >
                     <X className="h-4 w-4" />
