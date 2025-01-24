@@ -32,6 +32,7 @@ const AzureTest = () => {
       console.log('Azure OpenAI Response:', data);
 
       if (functionError) {
+        console.error('Function error:', functionError);
         throw new Error(functionError.message || 'Error calling Azure OpenAI');
       }
 

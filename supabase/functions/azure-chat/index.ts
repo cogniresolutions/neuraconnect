@@ -21,7 +21,7 @@ serve(async (req) => {
 
     const { message, persona } = await req.json();
     
-    if (!message || typeof message !== 'string') {
+    if (!message || typeof message !== 'string' || message.trim() === '') {
       throw new Error('Invalid message format: message must be a non-empty string');
     }
 
@@ -54,7 +54,7 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Azure OpenAI API error:', errorText);
-      throw new Error(`Azure OpenAI API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Azure OpenAI API error: ${errorText}`);
     }
 
     const data = await response.json();
