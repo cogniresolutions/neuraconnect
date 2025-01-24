@@ -24,7 +24,7 @@ serve(async (req) => {
     console.log('Request body:', body);
 
     // Get Azure credentials
-    const cognitiveEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')?.replace(/\/$/, '');
+    const cognitiveEndpoint = 'https://neuraconnect.openai.azure.com';
     const cognitiveKey = Deno.env.get('AZURE_COGNITIVE_KEY');
     const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '');
     const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
