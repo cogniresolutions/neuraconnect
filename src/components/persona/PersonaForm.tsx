@@ -66,89 +66,63 @@ export function PersonaForm({
   personaId
 }: PersonaFormProps) {
   const { toast } = useToast();
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Query voice mappings
-  const { data: voiceMappings, isLoading: isLoadingVoices, error: voiceError } = useQuery({
+  // Query voice mappings with automatic background sync
+  const { data: voiceMappings, isLoading: isLoadingVoices } = useQuery({
     queryKey: ['voiceMappings'],
     queryFn: async () => {
-      console.log('Fetching voice mappings...');
       const { data, error } = await supabase
         .from('voice_mappings')
         .select('*')
         .order('display_name');
       
-      if (error) {
-        console.error('Error fetching voice mappings:', error);
-        throw error;
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        // Silently trigger sync if no mappings exist
+        const { error: syncError } = await supabase.functions.invoke('sync-voice-mappings');
+        if (syncError) throw syncError;
+        
+        // Fetch again after sync
+        const { data: syncedData, error: refetchError } = await supabase
+          .from('voice_mappings')
+          .select('*')
+          .order('display_name');
+          
+        if (refetchError) throw refetchError;
+        return syncedData as VoiceMapping[];
       }
-      console.log('Voice mappings fetched:', data);
+
       return data as VoiceMapping[];
     },
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    retry: 2,
+    retryDelay: 1000,
   });
-
-  // Log query state
-  useEffect(() => {
-    console.log('Voice mappings state:', {
-      isLoading: isLoadingVoices,
-      error: voiceError,
-      data: voiceMappings,
-      language,
-    });
-  }, [isLoadingVoices, voiceError, voiceMappings, language]);
 
   // Filter voices based on selected language
   const filteredVoices = voiceMappings?.filter(
     voice => voice.language_code === language
   ) || [];
 
-  // Log filtered voices
-  useEffect(() => {
-    console.log('Filtered voices:', filteredVoices);
-  }, [filteredVoices]);
-
-  const syncVoiceMappings = async () => {
-    setIsSyncing(true);
-    try {
-      console.log('Syncing voice mappings...');
-      const { error } = await supabase.functions.invoke('sync-voice-mappings');
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Voice mappings synchronized successfully",
-      });
-    } catch (error: any) {
-      console.error('Error syncing voice mappings:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sync voice mappings",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleLanguageChange = async (newLanguage: string) => {
-    console.log('Language changed to:', newLanguage);
+  // Handle language change with automatic voice style update
+  const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage);
     
-    // Reset voice style when language changes
+    // Set first available voice for the new language if any exist
     if (filteredVoices.length > 0) {
       setVoiceStyle(filteredVoices[0].voice_style);
     }
-    
-    // Sync voice mappings when language changes
-    await syncVoiceMappings();
   };
 
-  // Initial sync of voice mappings
+  // Set initial voice style when voices are loaded
   useEffect(() => {
-    if (!voiceMappings || voiceMappings.length === 0) {
-      syncVoiceMappings();
+    if (isInitialLoad && filteredVoices.length > 0 && !voiceStyle) {
+      setVoiceStyle(filteredVoices[0].voice_style);
+      setIsInitialLoad(false);
     }
-  }, []);
+  }, [filteredVoices, isInitialLoad, voiceStyle, setVoiceStyle]);
 
   return (
     <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
@@ -194,13 +168,12 @@ export function PersonaForm({
           <Select 
             value={voiceStyle} 
             onValueChange={setVoiceStyle}
-            disabled={isLoadingVoices || isSyncing || filteredVoices.length === 0}
+            disabled={isLoadingVoices || filteredVoices.length === 0}
           >
             <SelectTrigger className="flex-1">
               <SelectValue placeholder={
-                isSyncing ? "Syncing voices..." :
                 isLoadingVoices ? "Loading voices..." :
-                filteredVoices.length === 0 ? "No voices available for selected language" :
+                filteredVoices.length === 0 ? "No voices available" :
                 "Select a voice style"
               } />
             </SelectTrigger>
