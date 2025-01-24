@@ -1,0 +1,122 @@
+import { useState } from "react";
+import { Bell, BellDot, X, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+
+interface Notification {
+  id: string;
+  title: string;
+  description: string;
+  status: 'success' | 'error' | 'pending' | 'info';
+  timestamp: Date;
+}
+
+export const NotificationCenter = () => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const hasUnread = notifications.length > 0;
+
+  const getStatusColor = (status: Notification['status']) => {
+    switch (status) {
+      case 'success':
+        return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
+      case 'error':
+        return 'bg-red-500/10 text-red-500 hover:bg-red-500/20';
+      case 'pending':
+        return 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20';
+      default:
+        return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
+    }
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed right-4 top-4 z-50 rounded-full bg-gray-900/50 backdrop-blur-sm hover:bg-gray-900/70"
+        >
+          {hasUnread ? (
+            <BellDot className="h-5 w-5 text-white" />
+          ) : (
+            <Bell className="h-5 w-5 text-white" />
+          )}
+          {hasUnread && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs"
+            >
+              {notifications.length}
+            </Badge>
+          )}
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-[400px] bg-gray-900/95 backdrop-blur-lg border-gray-800">
+        <SheetHeader className="border-b border-gray-800 pb-4">
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-white">Notifications</SheetTitle>
+            {notifications.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearNotifications}
+                className="text-gray-400 hover:text-white"
+              >
+                Clear all
+              </Button>
+            )}
+          </div>
+        </SheetHeader>
+        <ScrollArea className="h-[calc(100vh-8rem)] py-4">
+          {notifications.length === 0 ? (
+            <div className="flex h-32 items-center justify-center text-gray-500">
+              No notifications
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`flex items-start justify-between rounded-lg p-4 transition-colors ${getStatusColor(notification.status)}`}
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium">{notification.title}</p>
+                    <p className="text-sm opacity-70">
+                      {notification.description}
+                    </p>
+                    <p className="text-xs opacity-50">
+                      {new Date(notification.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-2 h-8 w-8 shrink-0"
+                    onClick={() => {
+                      setNotifications(notifications.filter(n => n.id !== notification.id));
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+};

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PersonaCreator from "@/components/PersonaCreator";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black">
+      <NotificationCenter />
       <div className="flex items-center justify-center p-4">
         <img
           src="/lovable-uploads/e8089c0d-a187-4542-ba87-883bcc8ecd77.png"

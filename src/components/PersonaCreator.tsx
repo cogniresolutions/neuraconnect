@@ -14,6 +14,7 @@ import TrainingUploader from "./TrainingUploader";
 import VideoCallUI from "./VideoCallUI";
 import { Upload, User, LogOut, Link } from "lucide-react";
 import TrainingMaterialUploader from "./training/TrainingMaterialUploader";
+import { NotificationCenter } from "./notifications/NotificationCenter";
 
 const PersonaCreator = () => {
   const navigate = useNavigate();
