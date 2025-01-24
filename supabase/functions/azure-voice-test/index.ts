@@ -39,7 +39,7 @@ serve(async (req) => {
     console.log('Making request to Azure TTS with SSML:', ssml);
     
     // Use the correct endpoint URL format
-    const ttsUrl = 'https://eastus.api.cognitive.microsoft.com/cognitiveservices/v1/synthesize';
+    const ttsUrl = 'https://eastus.api.cognitive.microsoft.com/cognitiveservices/v1';
     console.log('TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
