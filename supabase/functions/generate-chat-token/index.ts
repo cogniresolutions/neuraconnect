@@ -18,7 +18,7 @@ serve(async (req) => {
     // Validate Azure Speech Services first
     try {
       console.log('Testing Azure Speech Services connection...');
-      const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
+      const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '');
       const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
 
       if (!speechEndpoint || !speechKey) {
@@ -26,17 +26,15 @@ serve(async (req) => {
         throw new Error('Azure Speech credentials not configured');
       }
 
-      // Test with the synthesis endpoint which is more reliable
+      console.log('Speech endpoint:', speechEndpoint);
+      
+      // Test with the synthesis endpoint
       const testUrl = `${speechEndpoint}/cognitiveservices/v1`;
       console.log('Making request to:', testUrl);
 
-      const testSsml = `
-        <speak version='1.0' xml:lang='en-US'>
-          <voice name='en-US-JennyNeural'>
-            Test connection
-          </voice>
-        </speak>
-      `;
+      const testSsml = '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">Test connection</voice></speak>';
+      
+      console.log('Testing with SSML:', testSsml);
 
       const speechResponse = await fetch(testUrl, {
         method: 'POST',
@@ -48,13 +46,16 @@ serve(async (req) => {
         body: testSsml
       });
 
+      console.log('Speech Services response status:', speechResponse.status);
+
       if (!speechResponse.ok) {
-        const error = await speechResponse.text();
+        const errorText = await speechResponse.text();
         console.error('Speech Services validation failed:', {
           status: speechResponse.status,
-          error
+          statusText: speechResponse.statusText,
+          error: errorText
         });
-        throw new Error(`Failed to validate Azure Speech Services: ${error}`);
+        throw new Error(`Speech Services validation failed: ${speechResponse.status} - ${errorText}`);
       }
 
       console.log('Azure Speech Services validated successfully');
