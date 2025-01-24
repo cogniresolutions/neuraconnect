@@ -17,11 +17,13 @@ const AzureSpeechTest = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<TestResult[]>([]);
+  const [allSuccess, setAllSuccess] = useState(false);
 
   const testConnection = async () => {
     setIsLoading(true);
     setError(null);
     setResults([]);
+    setAllSuccess(false);
     
     try {
       console.log('Testing Azure Speech Services connection...');
@@ -45,16 +47,19 @@ const AzureSpeechTest = () => {
 
       setResults(data.results);
 
-      const speechTest = data.results.find((r: TestResult) => r.service === 'Speech Services');
-      
-      if (speechTest?.status === 'error') {
-        throw new Error(speechTest.error || 'Speech Services validation failed');
-      }
+      // Check if all tests passed
+      const allPassed = data.results.every((result: TestResult) => result.status === 'success');
+      setAllSuccess(allPassed);
 
-      toast({
-        title: "Connection Successful",
-        description: "Successfully connected to Azure Speech Services",
-      });
+      if (allPassed) {
+        toast({
+          title: "All Services Connected",
+          description: "Successfully connected to all Azure services",
+        });
+      } else {
+        const failedServices = data.results.filter((r: TestResult) => r.status === 'error');
+        throw new Error(`Failed services: ${failedServices.map(s => s.service).join(', ')}`);
+      }
 
     } catch (error: any) {
       console.error('Azure Speech test error:', error);
@@ -73,9 +78,9 @@ const AzureSpeechTest = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="w-full max-w-md space-y-4">
-        <h1 className="text-2xl font-bold text-center">Azure Speech Services Test</h1>
+        <h1 className="text-2xl font-bold text-center">Azure Services Test</h1>
         <p className="text-center text-gray-600">
-          Click the button below to test the Azure Speech Services connection
+          Click the button below to test all Azure services connections
         </p>
         
         {error && (
@@ -87,16 +92,27 @@ const AzureSpeechTest = () => {
         {results.length > 0 && (
           <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
             {results.map((result, index) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+              <div 
+                key={index} 
+                className={`flex items-center justify-between p-3 rounded border transition-colors ${
+                  result.status === 'success' 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-red-50 border-red-200'
+                }`}
+              >
                 <div className="flex items-center space-x-2">
                   {result.status === 'success' ? (
                     <CheckCircle2 className="h-5 w-5 text-green-500" />
                   ) : (
                     <XCircle className="h-5 w-5 text-red-500" />
                   )}
-                  <span>{result.service}</span>
+                  <span className={result.status === 'success' ? 'text-green-700' : 'text-red-700'}>
+                    {result.service}
+                  </span>
                 </div>
-                <span className={`text-sm ${result.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`text-sm ${
+                  result.status === 'success' ? 'text-green-600' : 'text-red-600'
+                }`}>
                   {result.status === 'success' ? 'Connected' : result.error || 'Failed'}
                 </span>
               </div>
@@ -104,18 +120,32 @@ const AzureSpeechTest = () => {
           </div>
         )}
 
+        {allSuccess && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <AlertDescription className="text-green-700 ml-2">
+              All Azure services are connected and working perfectly!
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Button
           onClick={testConnection}
           disabled={isLoading}
-          className="w-full"
+          className={`w-full ${allSuccess ? 'bg-green-500 hover:bg-green-600' : ''}`}
         >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Testing Connection...
+              Testing Connections...
+            </>
+          ) : allSuccess ? (
+            <>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              All Services Verified
             </>
           ) : (
-            'Test Azure Speech Services Connection'
+            'Test Azure Services Connection'
           )}
         </Button>
       </div>
