@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
-import { cleanupUserSessions } from '@/utils/sessionCleanup';
-import { analyzeVideoFrame } from '@/utils/videoAnalysis';
-import { Button } from './ui/button';
-import { Loader2, Video, VideoOff, Mic, MicOff } from 'lucide-react';
+import { VideoCallControls } from './video/VideoCallControls';
+import { Card } from './ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
 interface VideoCallInterfaceProps {
@@ -23,8 +21,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -33,7 +30,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const startCall = async () => {
     try {
-      setIsInitializing(true);
+      setIsLoading(true);
       console.log('Starting new video call session...');
       
       // Initialize local video stream
@@ -106,7 +103,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         variant: "destructive",
       });
     } finally {
-      setIsInitializing(false);
+      setIsLoading(false);
     }
   };
 
@@ -124,7 +121,15 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await cleanupUserSessions(user.id);
+        await supabase
+          .from('tavus_sessions')
+          .update({ 
+            status: 'ended', 
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('is_active', true);
       }
 
       setIsCallActive(false);
@@ -175,7 +180,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Local Video */}
-        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+        <Card className="relative aspect-video bg-black rounded-lg overflow-hidden">
           <video
             ref={localVideoRef}
             autoPlay
@@ -190,10 +195,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             </Avatar>
             <span className="text-sm font-medium">You</span>
           </div>
-        </div>
+        </Card>
 
         {/* Remote Video (Persona) */}
-        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+        <Card className="relative aspect-video bg-black rounded-lg overflow-hidden">
           <video
             ref={remoteVideoRef}
             autoPlay
@@ -208,51 +213,19 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             </Avatar>
             <span className="text-sm font-medium">{persona?.name}</span>
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div className="flex justify-center gap-4">
-        {!isCallActive ? (
-          <Button
-            onClick={startCall}
-            disabled={isInitializing}
-            className="bg-green-500 hover:bg-green-600"
-          >
-            {isInitializing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                <Video className="w-4 h-4 mr-2" />
-                Start Call
-              </>
-            )}
-          </Button>
-        ) : (
-          <>
-            <Button onClick={toggleAudio} variant="outline">
-              {isAudioEnabled ? (
-                <Mic className="w-4 h-4" />
-              ) : (
-                <MicOff className="w-4 h-4 text-red-500" />
-              )}
-            </Button>
-            <Button onClick={toggleVideo} variant="outline">
-              {isVideoEnabled ? (
-                <Video className="w-4 h-4" />
-              ) : (
-                <VideoOff className="w-4 h-4 text-red-500" />
-              )}
-            </Button>
-            <Button onClick={endCall} variant="destructive">
-              <VideoOff className="w-4 h-4 mr-2" />
-              End Call
-            </Button>
-          </>
-        )}
-      </div>
+      <VideoCallControls
+        isCallActive={isCallActive}
+        isAudioEnabled={isAudioEnabled}
+        isVideoEnabled={isVideoEnabled}
+        isLoading={isLoading}
+        onStartCall={startCall}
+        onEndCall={endCall}
+        onToggleAudio={toggleAudio}
+        onToggleVideo={toggleVideo}
+      />
     </div>
   );
 };
