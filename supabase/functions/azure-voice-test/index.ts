@@ -42,15 +42,16 @@ serve(async (req) => {
     const formattedVoice = voice.includes('Neural') ? voice : `${voice}Neural`;
     console.log('Formatted voice name:', formattedVoice);
 
-    // Ensure the endpoint is properly formatted - remove trailing slash if present
+    // Extract region from endpoint and construct TTS endpoint
     const baseEndpoint = azureSpeechEndpoint.endsWith('/') 
       ? azureSpeechEndpoint.slice(0, -1) 
       : azureSpeechEndpoint;
-
-    // Use the same endpoint format as in the test-azure function
+    
     const region = baseEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
     const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    
     console.log('Using TTS endpoint:', ttsEndpoint);
+    console.log('Region extracted:', region);
 
     // Prepare SSML with proper XML escaping
     const escapedText = text
@@ -70,6 +71,21 @@ serve(async (req) => {
 
     console.log('SSML Payload:', ssml);
 
+    // First test if the voices endpoint is accessible
+    const voicesResponse = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': azureSpeechKey
+      }
+    });
+
+    if (!voicesResponse.ok) {
+      console.error('Failed to access voices list:', await voicesResponse.text());
+      throw new Error(`Voice service not accessible: ${voicesResponse.status}`);
+    }
+
+    console.log('Successfully accessed voices list');
+
+    // Now attempt the TTS synthesis
     const ttsResponse = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
@@ -111,6 +127,7 @@ serve(async (req) => {
         metadata: {
           voice: formattedVoice,
           endpoint: ttsEndpoint,
+          region: region,
           timestamp: new Date().toISOString()
         }
       }),
