@@ -17,7 +17,19 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -53,6 +65,7 @@ export const PersonaList = () => {
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showAllPersonas, setShowAllPersonas] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -96,6 +109,65 @@ export const PersonaList = () => {
       supabase.removeChannel(channel);
     };
   }, [toast]);
+
+  const handleDelete = async (personaId: string) => {
+    setIsDeleting(true);
+    try {
+      // Delete training materials
+      const { error: trainingError } = await supabase
+        .from('persona_training_materials')
+        .delete()
+        .eq('persona_id', personaId);
+
+      if (trainingError) throw trainingError;
+
+      // Delete training videos
+      const { error: videosError } = await supabase
+        .from('training_videos')
+        .delete()
+        .eq('persona_id', personaId);
+
+      if (videosError) throw videosError;
+
+      // Delete emotion analysis data
+      const { error: emotionError } = await supabase
+        .from('emotion_analysis')
+        .delete()
+        .eq('persona_id', personaId);
+
+      if (emotionError) throw emotionError;
+
+      // Delete API keys associated with the persona
+      const { error: apiKeyError } = await supabase
+        .from('api_keys')
+        .delete()
+        .eq('persona_id', personaId);
+
+      if (apiKeyError) throw apiKeyError;
+
+      // Finally delete the persona
+      const { error: personaError } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', personaId);
+
+      if (personaError) throw personaError;
+
+      toast({
+        title: "Success",
+        description: "Persona and associated data deleted successfully",
+      });
+    } catch (error: any) {
+      console.error('Delete persona error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete persona",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleDeploy = async (persona: Persona) => {
     setIsDeploying(true);
@@ -179,28 +251,6 @@ export const PersonaList = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to update persona",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDelete = async (personaId: string) => {
-    try {
-      const { error } = await supabase
-        .from('personas')
-        .delete()
-        .eq('id', personaId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Persona deleted successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete persona",
         variant: "destructive",
       });
     }
@@ -306,14 +356,35 @@ export const PersonaList = () => {
                     </DialogContent>
                   </Dialog>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
-                    onClick={() => handleDelete(persona.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-gray-800 text-white">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-500 hover:bg-red-600"
+                          onClick={() => handleDelete(persona.id)}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                   
                   {persona.status === 'ready' && (
                     <Button
@@ -380,15 +451,36 @@ export const PersonaList = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
-                      onClick={() => handleDelete(persona.id)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-gray-800 text-white">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the deployed persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-500 hover:bg-red-600"
+                            onClick={() => handleDelete(persona.id)}
+                          >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                     <Button
                       onClick={() => handleRedeploy(persona)}
                       disabled={isDeploying}
