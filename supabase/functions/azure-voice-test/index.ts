@@ -44,6 +44,7 @@ serve(async (req) => {
 
     // Step 3: Check available voices
     console.log('Fetching available voices...');
+    // Fix: Use the correct voices list endpoint
     const voicesUrl = `${baseEndpoint}/cognitiveservices/voices/list`;
     console.log('Voices URL:', voicesUrl);
     
@@ -59,7 +60,8 @@ serve(async (req) => {
         status: voicesResponse.status,
         statusText: voicesResponse.statusText,
         error: errorText,
-        endpoint: voicesUrl
+        endpoint: voicesUrl,
+        region: region
       });
       throw new Error(`Failed to fetch voices: ${voicesResponse.status} - ${errorText}`);
     }
