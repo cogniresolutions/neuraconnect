@@ -6,6 +6,7 @@ import { VideoDisplay } from "./video/VideoDisplay";
 import { VideoAnalysis } from "./video/VideoAnalysis";
 import { CallControls } from "./video/CallControls";
 import { VideoGrid } from "./video/VideoGrid";
+import { RealtimeChat } from "@/utils/RealtimeAudio";
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -32,6 +33,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const azureVideoRef = useRef<HTMLVideoElement | null>(null);
+  const chatRef = useRef<RealtimeChat | null>(null);
 
   const cleanup = () => {
     if (stream) {
@@ -53,12 +55,45 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       azureVideoRef.current.pause();
       azureVideoRef.current.src = '';
     }
+    if (chatRef.current) {
+      chatRef.current.disconnect();
+      chatRef.current = null;
+    }
   };
 
-  // Effect to cleanup on unmount
   useEffect(() => {
     return cleanup;
   }, []);
+
+  const handleMessage = async (event: any) => {
+    console.log('Received WebSocket message:', event);
+    
+    if (event.type === 'response.audio.delta') {
+      console.log('Received audio delta, AI is speaking');
+      if (event.audio) {
+        try {
+          const audioData = atob(event.audio);
+          const arrayBuffer = new ArrayBuffer(audioData.length);
+          const view = new Uint8Array(arrayBuffer);
+          for (let i = 0; i < audioData.length; i++) {
+            view[i] = audioData.charCodeAt(i);
+          }
+          
+          if (!audioContextRef.current) {
+            audioContextRef.current = new AudioContext();
+          }
+          
+          const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+          const source = audioContextRef.current.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContextRef.current.destination);
+          source.start(0);
+        } catch (error) {
+          console.error('Error playing audio:', error);
+        }
+      }
+    }
+  };
 
   const startCamera = async () => {
     console.log('Starting camera...');
@@ -91,6 +126,14 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           console.error('Error playing Azure video:', error);
         }
       }
+      
+      // Initialize realtime chat
+      chatRef.current = new RealtimeChat(handleMessage);
+      await chatRef.current.init({
+        ...persona,
+        voice: persona.voice_style || 'alloy'
+      });
+      console.log('Realtime chat initialized');
       
       try {
         await videoRef.current.play();
@@ -160,45 +203,18 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const handleSpeechDetected = async (text: string) => {
-    if (!isCallActive || isProcessingAudio || !isVideoMode) return;
+    if (!isCallActive || isProcessingAudio || !chatRef.current) return;
     
-    setIsProcessingAudio(true);
+    console.log('Speech detected:', text);
     try {
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-        currentAudioRef.current = null;
-      }
-
-      const { data, error } = await supabase.functions.invoke('azure-video-chat', {
-        body: { 
-          text,
-          persona
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.audio) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
-        currentAudioRef.current = audio;
-        
-        audio.addEventListener('ended', () => {
-          if (currentAudioRef.current === audio) {
-            currentAudioRef.current = null;
-          }
-        });
-
-        await audio.play();
-      }
-    } catch (error: any) {
-      console.error('Error processing speech:', error);
+      await chatRef.current.sendMessage(text);
+    } catch (error) {
+      console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to process speech",
+        description: "Failed to send message",
         variant: "destructive",
       });
-    } finally {
-      setIsProcessingAudio(false);
     }
   };
 
@@ -272,4 +288,3 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     </div>
   );
 };
-
