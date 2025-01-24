@@ -1,103 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Auth() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
-    // Check current session on mount
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          toast({
-            title: "Error",
-            description: "Failed to check authentication status",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (session) {
-          navigate('/');
-        }
-      } catch (error) {
-        console.error('Session check error:', error);
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkSession();
-
-    // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        try {
-          navigate('/');
-        } catch (error) {
-          console.error('Navigation error:', error);
-          toast({
-            title: "Error",
-            description: "Failed to redirect after sign in",
-            variant: "destructive",
-          });
-        }
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session) {
+        navigate('/');
       }
     });
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [navigate, toast]);
+  }, [navigate]);
 
   const signInWithGoogle = async () => {
     try {
-      setIsLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
+      await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth`
         }
       });
-
-      if (error) {
-        toast({
-          title: "Sign in failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
     } catch (error) {
-      console.error('Sign in error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to initiate sign in",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Error:', error);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-900 via-gray-900 to-black">
-        <div className="text-white">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-900 via-gray-900 to-black">
@@ -121,7 +53,6 @@ export default function Auth() {
             onClick={signInWithGoogle}
             className="w-full bg-white hover:bg-gray-100 text-gray-900"
             variant="outline"
-            disabled={isLoading}
           >
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
               <path
@@ -141,7 +72,7 @@ export default function Auth() {
                 fill="#EA4335"
               />
             </svg>
-            {isLoading ? 'Signing in...' : 'Continue with Google'}
+            Continue with Google
           </Button>
         </div>
       </div>
