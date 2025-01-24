@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Upload } from "lucide-react";
 import { VoiceTest } from "./VoiceTest";
+import { PersonaAppearance } from "./PersonaAppearance";
 
 interface PersonaFormProps {
   name: string;
@@ -145,27 +146,23 @@ export function PersonaForm({
       </div>
 
       {personaId && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Profile Picture</Label>
-            <FileUpload
-              personaId={personaId}
-              type="profile"
-              onUploadComplete={handleProfilePictureUpload}
-              accept="image/*"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Training Materials</Label>
-            <FileUpload
-              personaId={personaId}
-              type="training"
-              onUploadComplete={() => {}}
-              accept=".doc,.docx,.ppt,.pptx,.xls,.xlsx,.pdf,.txt"
-            />
-          </div>
-        </div>
+        <PersonaAppearance
+          personaId={personaId}
+          onImageGenerated={(imageUrl) => {
+            // Update persona with generated image
+            if (personaId) {
+              supabase
+                .from('personas')
+                .update({ avatar_url: imageUrl })
+                .eq('id', personaId)
+                .then(({ error }) => {
+                  if (error) {
+                    console.error('Error updating persona avatar:', error);
+                  }
+                });
+            }
+          }}
+        />
       )}
 
       <Button
