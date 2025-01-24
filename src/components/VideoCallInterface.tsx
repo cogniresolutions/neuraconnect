@@ -37,6 +37,25 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const targetLanguage = persona?.model_config?.language || 'en';
 
+  const translateText = async (text: string) => {
+    const getMeasureTime = measureResponseTime();
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('azure-translate', {
+        body: { text, targetLanguage }
+      });
+
+      const responseTime = getMeasureTime();
+      await logAPIUsage('azure-translate', error ? 'error' : 'success', error, responseTime);
+
+      if (error) throw error;
+      return data.translatedText;
+    } catch (error: any) {
+      handleAPIError(error, 'Translation');
+      return text;
+    }
+  };
+
   const initializeMediaStream = async () => {
     try {
       console.log('Initializing media stream...');
@@ -64,27 +83,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.muted = true;
-        videoRef.current.volume = 1.0;
-        
-        try {
-          await videoRef.current.play();
-          setIsStreamReady(true);
-        } catch (playError) {
-          console.error('Error playing video:', playError);
-          toast({
-            title: "Error",
-            description: "Failed to play video stream. Please try again.",
-            variant: "destructive",
-          });
-        }
+        videoRef.current.muted = true; // Mute own video to prevent feedback
+        await videoRef.current.play();
+        setIsStreamReady(true);
+        console.log('Video stream is now playing');
       }
 
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const destination = audioContextRef.current.createMediaStreamDestination();
-      source.connect(destination);
-      
       return stream;
     } catch (error) {
       console.error('Error accessing media devices:', error);
@@ -96,36 +100,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       throw error;
     }
   };
-
-  const translateText = async (text: string) => {
-    const getMeasureTime = measureResponseTime();
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('azure-translate', {
-        body: { text, targetLanguage }
-      });
-
-      const responseTime = getMeasureTime();
-      await logAPIUsage('azure-translate', error ? 'error' : 'success', error, responseTime);
-
-      if (error) throw error;
-      return data.translatedText;
-    } catch (error: any) {
-      handleAPIError(error, 'Translation');
-      return text;
-    }
-  };
-
-  useEffect(() => {
-    const translateSubtitles = async () => {
-      if (subtitles && targetLanguage !== 'en') {
-        const translated = await translateText(subtitles);
-        setTranslatedSubtitles(translated);
-      }
-    };
-
-    translateSubtitles();
-  }, [subtitles, targetLanguage]);
 
   const handleAnalysisComplete = async (analysis: any) => {
     const getMeasureTime = measureResponseTime();
@@ -158,13 +132,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
 
     setIsLoading(true);
-    const getMeasureTime = measureResponseTime();
     
     try {
       console.log('Starting call...');
       await initializeMediaStream();
 
-      const { data, error } = await supabase.functions.invoke('video-call', {
+      const { error } = await supabase.functions.invoke('video-call', {
         body: { 
           action: 'start',
           personaId: persona.id,
@@ -173,9 +146,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           userName: userName
         }
       });
-
-      const responseTime = getMeasureTime();
-      await logAPIUsage('video-call-start', error ? 'error' : 'success', error, responseTime);
 
       if (error) throw error;
 
@@ -273,7 +243,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full max-w-4xl px-4">
-      {isCallActive && (
+      {isCallActive ? (
         <div className="grid grid-cols-2 gap-4 w-full">
           {/* User Video */}
           <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
@@ -309,7 +279,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 <img
                   src={persona.profile_picture_url}
                   alt={persona.name}
-                  className="max-w-full max-h-full object-contain"
+                  className="w-auto h-auto max-w-full max-h-full object-contain"
                 />
               )}
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
@@ -321,6 +291,16 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
               </div>
             </div>
           </Card>
+        </div>
+      ) : (
+        <div className="w-full aspect-video bg-black/5 backdrop-blur-lg rounded-lg flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Avatar className="w-24 h-24 mx-auto">
+              <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
+              <AvatarFallback>{persona.name[0]}</AvatarFallback>
+            </Avatar>
+            <h2 className="text-xl font-semibold">Ready to call {persona.name}</h2>
+          </div>
         </div>
       )}
 
