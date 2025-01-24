@@ -20,6 +20,7 @@ const PersonaCreator = () => {
   const [description, setDescription] = useState("");
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
   const [personas, setPersonas] = useState<any[]>([]);
 
@@ -30,7 +31,6 @@ const PersonaCreator = () => {
       if (error || !session) {
         navigate("/auth");
       } else {
-        // Fetch personas when authenticated
         fetchPersonas();
       }
     };
@@ -72,15 +72,13 @@ const PersonaCreator = () => {
     }
   };
 
-  const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setProfilePicture(file);
-  };
-
   const handleCreatePersona = async () => {
     try {
       setIsCreating(true);
+      console.log('Starting persona creation...');
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
       let profilePictureUrl = null;
       if (profilePicture) {
@@ -100,39 +98,77 @@ const PersonaCreator = () => {
         profilePictureUrl = publicUrl;
       }
 
-      const { data: persona, error: createError } = await supabase
+      // Create the persona
+      const { data: persona, error: personaError } = await supabase
         .from('personas')
         .insert({
+          user_id: user.id,
           name,
           description,
           profile_picture_url: profilePictureUrl,
-          status: 'draft'
+          status: 'ready',
+          model_config: {
+            model: "gpt-4o-mini",
+            max_tokens: 800,
+            temperature: 0.7
+          }
         })
         .select()
         .single();
 
-      if (createError) throw createError;
+      if (personaError) throw personaError;
+
+      console.log('Persona created successfully:', persona);
 
       toast({
         title: "Success",
-        description: "Persona created successfully",
+        description: "Digital persona created successfully!",
       });
 
       setName("");
       setDescription("");
       setProfilePicture(null);
       setSelectedPersona(persona);
-      fetchPersonas(); // Refresh the personas list
+      fetchPersonas();
 
     } catch (error: any) {
       console.error('Error creating persona:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to create digital persona",
         variant: "destructive",
       });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleDeploy = async (personaId: string) => {
+    setIsDeploying(true);
+    try {
+      console.log('Deploying persona:', personaId);
+      
+      const { error } = await supabase.functions.invoke('deploy-persona', {
+        body: { personaId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Persona deployed successfully",
+      });
+      
+      fetchPersonas();
+    } catch (error: any) {
+      console.error('Deploy error:', error);
+      toast({
+        title: "Deployment Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -156,7 +192,7 @@ const PersonaCreator = () => {
           <TabsTrigger value="manage">Manage Personas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="create" className="space-y-8">
+        <TabsContent value="create">
           <Card className="p-6">
             <div className="space-y-6">
               <div className="space-y-2">
@@ -203,7 +239,10 @@ const PersonaCreator = () => {
                     type="file"
                     className="hidden"
                     accept="image/*"
-                    onChange={handleProfilePictureChange}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setProfilePicture(file);
+                    }}
                   />
                 </div>
               </div>
@@ -258,7 +297,7 @@ const PersonaCreator = () => {
                   title: "Success",
                   description: "Persona deleted successfully",
                 });
-                fetchPersonas(); // Refresh the list after deletion
+                fetchPersonas();
               } catch (error: any) {
                 toast({
                   title: "Error",
@@ -267,9 +306,9 @@ const PersonaCreator = () => {
                 });
               }
             }}
-            onDeploy={async () => {}}
+            onDeploy={handleDeploy}
             onEdit={() => {}}
-            isDeploying={false}
+            isDeploying={isDeploying}
           />
         </TabsContent>
       </Tabs>
