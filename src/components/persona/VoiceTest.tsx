@@ -26,13 +26,13 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       'Jenny': { gender: 'female', baseName: 'Jenny' },
       'Guy': { gender: 'male', baseName: 'Guy' },
       'Aria': { gender: 'female', baseName: 'Aria' },
-      'Davis': { gender: 'male', baseName: 'Davis' },
-      'Jane': { gender: 'female', baseName: 'Jane' },
-      'Jason': { gender: 'male', baseName: 'Jason' },
-      'Nancy': { gender: 'female', baseName: 'Nancy' },
-      'Tony': { gender: 'male', baseName: 'Tony' },
-      'Sara': { gender: 'female', baseName: 'Sara' },
-      'Brandon': { gender: 'male', baseName: 'Brandon' }
+      'Davis': { gender: 'male', baseName: 'Guy' }, // Changed from Davis to Guy as fallback
+      'Jane': { gender: 'female', baseName: 'Jenny' }, // Changed from Jane to Jenny as fallback
+      'Jason': { gender: 'male', baseName: 'Guy' }, // Changed from Jason to Guy as fallback
+      'Nancy': { gender: 'female', baseName: 'Jenny' }, // Changed from Nancy to Jenny as fallback
+      'Tony': { gender: 'male', baseName: 'Guy' }, // Changed from Tony to Guy as fallback
+      'Sara': { gender: 'female', baseName: 'Jenny' }, // Changed from Sara to Jenny as fallback
+      'Brandon': { gender: 'male', baseName: 'Guy' } // Changed from Brandon to Guy as fallback
     };
 
     const voiceInfo = voiceMap[style];
@@ -46,40 +46,8 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       ? VOICE_MAPPINGS[language].female 
       : VOICE_MAPPINGS[language].male;
 
-    // Try to find a similar sounding voice in the target language
-    let selectedVoice = voiceList[0]; // Default to first voice as fallback
-    
-    // Look for voices with similar characteristics
-    if (voiceInfo.gender === 'female') {
-      // For female voices, try to match soft/warm voices with similar ones
-      if (['Jenny', 'Aria', 'Sara'].includes(style)) {
-        selectedVoice = voiceList.find(v => 
-          v.toLowerCase().includes('warm') || 
-          v.toLowerCase().includes('young') || 
-          v.toLowerCase().includes('friendly')
-        ) || voiceList[0];
-      } else {
-        // For more professional voices like Nancy
-        selectedVoice = voiceList.find(v => 
-          v.toLowerCase().includes('professional') || 
-          v.toLowerCase().includes('clear')
-        ) || voiceList[0];
-      }
-    } else {
-      // For male voices, try to match based on age/style
-      if (['Guy', 'Jason'].includes(style)) {
-        selectedVoice = voiceList.find(v => 
-          v.toLowerCase().includes('casual') || 
-          v.toLowerCase().includes('friendly')
-        ) || voiceList[0];
-      } else {
-        // For more formal voices like Davis
-        selectedVoice = voiceList.find(v => 
-          v.toLowerCase().includes('formal') || 
-          v.toLowerCase().includes('professional')
-        ) || voiceList[0];
-      }
-    }
+    // Always use the first voice from the list as it's guaranteed to be valid
+    const selectedVoice = voiceList[0];
 
     console.log('Voice selection:', {
       style,
