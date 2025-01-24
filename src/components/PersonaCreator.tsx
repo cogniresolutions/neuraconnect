@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonaList } from "./persona/PersonaList";
 import TrainingUploader from "./TrainingUploader";
 import VideoCallUI from "./VideoCallUI";
-import { Upload, User, LogOut } from "lucide-react";
+import { Upload, User, LogOut, Link } from "lucide-react";
 import TrainingMaterialUploader from "./training/TrainingMaterialUploader";
 
 const PersonaCreator = () => {
@@ -21,6 +21,7 @@ const PersonaCreator = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [voiceStyle, setVoiceStyle] = useState("en-US-JennyNeural");
+  const [videoUrl, setVideoUrl] = useState("");
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -112,6 +113,7 @@ const PersonaCreator = () => {
           description,
           voice_style: voiceStyle,
           profile_picture_url: profilePictureUrl,
+          video_url: videoUrl,
           status: 'ready',
           model_config: {
             model: "gpt-4o-mini",
@@ -135,6 +137,7 @@ const PersonaCreator = () => {
       setName("");
       setDescription("");
       setVoiceStyle("en-US-JennyNeural");
+      setVideoUrl("");
       setProfilePicture(null);
       setSelectedPersona(persona);
       fetchPersonas();
@@ -221,6 +224,32 @@ const PersonaCreator = () => {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe your persona"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="video-url">Video URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="video-url"
+                    type="url"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    placeholder="Enter video URL (e.g., https://tavus.video/xxx)"
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (videoUrl) {
+                        window.open(videoUrl, '_blank');
+                      }
+                    }}
+                    disabled={!videoUrl}
+                  >
+                    <Link className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">

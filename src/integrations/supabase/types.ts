@@ -560,6 +560,7 @@ export type Database = {
           training_materials: Json | null
           updated_at: string
           user_id: string | null
+          video_url: string | null
           voice_style: string | null
         }
         Insert: {
@@ -583,6 +584,7 @@ export type Database = {
           training_materials?: Json | null
           updated_at?: string
           user_id?: string | null
+          video_url?: string | null
           voice_style?: string | null
         }
         Update: {
@@ -606,6 +608,7 @@ export type Database = {
           training_materials?: Json | null
           updated_at?: string
           user_id?: string | null
+          video_url?: string | null
           voice_style?: string | null
         }
         Relationships: [
