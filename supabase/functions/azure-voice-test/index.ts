@@ -36,14 +36,14 @@ serve(async (req) => {
 
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
-        <voice name='Microsoft Server Speech Text to Speech Voice (${language}, ${voice})'>
+        <voice name='Microsoft Server Speech Text to Speech Voice (${language}, ${voice}Neural)'>
           ${escapedText}
         </voice>
       </speak>
     `;
 
     console.log('Making request to Azure TTS with SSML:', ssml);
-    const ttsUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1`;
     
     const ttsResponse = await fetch(ttsUrl, {
       method: 'POST',
