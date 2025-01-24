@@ -26,19 +26,34 @@ serve(async (req) => {
         throw new Error('Azure Speech credentials not configured');
       }
 
-      // Test with a more reliable endpoint
-      const testUrl = `${speechEndpoint}/cognitiveservices/voices/list`;
+      // Test with the synthesis endpoint which is more reliable
+      const testUrl = `${speechEndpoint}/cognitiveservices/v1`;
       console.log('Making request to:', testUrl);
 
+      const testSsml = `
+        <speak version='1.0' xml:lang='en-US'>
+          <voice name='en-US-JennyNeural'>
+            Test connection
+          </voice>
+        </speak>
+      `;
+
       const speechResponse = await fetch(testUrl, {
+        method: 'POST',
         headers: {
           'Ocp-Apim-Subscription-Key': speechKey,
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
         },
+        body: testSsml
       });
 
       if (!speechResponse.ok) {
         const error = await speechResponse.text();
-        console.error('Speech Services validation failed:', error);
+        console.error('Speech Services validation failed:', {
+          status: speechResponse.status,
+          error
+        });
         throw new Error(`Failed to validate Azure Speech Services: ${error}`);
       }
 
