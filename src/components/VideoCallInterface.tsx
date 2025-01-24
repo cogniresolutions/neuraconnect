@@ -6,7 +6,6 @@ import { ConsentDialog } from './video/ConsentDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
 import { Card } from './ui/card';
-import { Badge } from './ui/badge';
 import { Loader2, User } from 'lucide-react';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -28,33 +27,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [userName, setUserName] = useState('');
-  const [subtitles, setSubtitles] = useState<string>('');
-  const [translatedSubtitles, setTranslatedSubtitles] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isStreamReady, setIsStreamReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const targetLanguage = persona?.model_config?.language || 'en';
-
-  const translateText = async (text: string) => {
-    const getMeasureTime = measureResponseTime();
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('azure-translate', {
-        body: { text, targetLanguage }
-      });
-
-      const responseTime = getMeasureTime();
-      await logAPIUsage('azure-translate', error ? 'error' : 'success', error, responseTime);
-
-      if (error) throw error;
-      return data.translatedText;
-    } catch (error: any) {
-      handleAPIError(error, 'Translation');
-      return text;
-    }
-  };
 
   const initializeMediaStream = async () => {
     try {
@@ -73,8 +49,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
+          autoGainControl: true
         }
       });
       
@@ -83,7 +58,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.muted = true; // Mute own video to prevent feedback
+        videoRef.current.muted = true;
         await videoRef.current.play();
         setIsStreamReady(true);
         console.log('Video stream is now playing');
@@ -98,30 +73,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         variant: "destructive",
       });
       throw error;
-    }
-  };
-
-  const handleAnalysisComplete = async (analysis: any) => {
-    const getMeasureTime = measureResponseTime();
-    
-    try {
-      const { error } = await supabase
-        .from('emotion_analysis')
-        .insert([{
-          persona_id: persona.id,
-          emotion_data: analysis.emotions,
-          environment_data: analysis.environment,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        }]);
-
-      const responseTime = getMeasureTime();
-      await logAPIUsage('emotion-analysis', error ? 'error' : 'success', error, responseTime);
-
-      if (error) throw error;
-      
-      console.log('Analysis results:', analysis);
-    } catch (error: any) {
-      handleAPIError(error, 'Emotion analysis');
     }
   };
 
@@ -142,7 +93,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           action: 'start',
           personaId: persona.id,
           userId: (await supabase.auth.getUser()).data.user?.id,
-          language: targetLanguage,
           userName: userName
         }
       });
@@ -169,7 +119,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const endCall = async () => {
     setIsLoading(true);
-    const getMeasureTime = measureResponseTime();
     
     try {
       console.log('Ending call...');
@@ -179,12 +128,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           console.log('Track stopped:', track.kind);
         });
         streamRef.current = null;
-      }
-
-      if (audioContextRef.current) {
-        await audioContextRef.current.close();
-        audioContextRef.current = null;
-        console.log('Audio context closed');
       }
 
       if (videoRef.current) {
@@ -198,9 +141,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           userId: (await supabase.auth.getUser()).data.user?.id
         }
       });
-
-      const responseTime = getMeasureTime();
-      await logAPIUsage('video-call-end', error ? 'error' : 'success', error, responseTime);
 
       if (error) throw error;
 
@@ -219,7 +159,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       console.log('Cleaning up video call interface...');
@@ -230,11 +169,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         });
         streamRef.current = null;
       }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-        console.log('Audio context closed on cleanup');
-      }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
@@ -242,12 +176,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   }, []);
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full max-w-4xl px-4">
-      {isCallActive ? (
-        <div className="grid grid-cols-2 gap-4 w-full">
-          {/* User Video */}
-          <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
-            <div className="aspect-video rounded-lg overflow-hidden relative bg-black">
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/90">
+      <div className="w-full max-w-7xl p-4 space-y-4">
+        {isCallActive ? (
+          <div className="grid grid-cols-2 gap-4">
+            {/* User Video */}
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
               <video
                 ref={videoRef}
                 autoPlay
@@ -256,30 +190,28 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 className="w-full h-full object-cover transform scale-x-[-1]"
               />
               {!isStreamReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <div className="absolute inset-0 flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-white" />
                 </div>
               )}
-              <VideoAnalysis
-                personaId={persona.id}
-                onAnalysisComplete={handleAnalysisComplete}
-                onSpeechDetected={setSubtitles}
-              />
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
                 <User className="h-4 w-4" />
                 <span className="text-sm font-medium">{userName || 'You'}</span>
               </div>
+              <VideoAnalysis
+                personaId={persona.id}
+                onAnalysisComplete={() => {}}
+                onSpeechDetected={() => {}}
+              />
             </div>
-          </Card>
 
-          {/* Persona Video */}
-          <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
-            <div className="aspect-video rounded-lg overflow-hidden relative bg-black flex items-center justify-center">
+            {/* Persona Video */}
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
               {persona.profile_picture_url && (
                 <img
                   src={persona.profile_picture_url}
                   alt={persona.name}
-                  className="w-auto h-auto max-w-full max-h-full object-contain"
+                  className="w-full h-full object-cover"
                 />
               )}
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
@@ -290,30 +222,30 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 <span className="text-sm font-medium">{persona.name}</span>
               </div>
             </div>
-          </Card>
-        </div>
-      ) : (
-        <div className="w-full aspect-video bg-black/5 backdrop-blur-lg rounded-lg flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <Avatar className="w-24 h-24 mx-auto">
-              <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
-              <AvatarFallback>{persona.name[0]}</AvatarFallback>
-            </Avatar>
-            <h2 className="text-xl font-semibold">Ready to call {persona.name}</h2>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="aspect-video bg-black rounded-lg flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <Avatar className="w-24 h-24 mx-auto">
+                <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
+                <AvatarFallback>{persona.name[0]}</AvatarFallback>
+              </Avatar>
+              <h2 className="text-xl font-semibold text-white">Ready to call {persona.name}</h2>
+            </div>
+          </div>
+        )}
 
-      <div className="flex justify-center items-center gap-4">
-        <CallControls
-          isCallActive={isCallActive}
-          isLoading={isLoading}
-          isRecording={isRecording}
-          onStartCall={() => setShowConsentDialog(true)}
-          onEndCall={endCall}
-          onStartRecording={() => setIsRecording(true)}
-          onStopRecording={() => setIsRecording(false)}
-        />
+        <div className="flex justify-center gap-4">
+          <CallControls
+            isCallActive={isCallActive}
+            isLoading={isLoading}
+            isRecording={isRecording}
+            onStartCall={() => setShowConsentDialog(true)}
+            onEndCall={endCall}
+            onStartRecording={() => setIsRecording(true)}
+            onStopRecording={() => setIsRecording(false)}
+          />
+        </div>
       </div>
 
       <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
