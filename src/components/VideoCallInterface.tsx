@@ -31,6 +31,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [subtitles, setSubtitles] = useState<string>('');
   const [translatedSubtitles, setTranslatedSubtitles] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreamReady, setIsStreamReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -65,11 +66,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         videoRef.current.srcObject = stream;
         videoRef.current.muted = true; // Mute to prevent feedback
         videoRef.current.volume = 1.0;
-        videoRef.current.style.transform = 'scaleX(-1)'; // Mirror effect
         
         // Ensure video plays after setting srcObject
         try {
           await videoRef.current.play();
+          setIsStreamReady(true);
           console.log('Video element playing successfully');
         } catch (playError) {
           console.error('Error playing video:', playError);
@@ -237,6 +238,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (error) throw error;
 
       setIsCallActive(false);
+      setIsStreamReady(false);
       onCallStateChange(false);
       
       toast({
@@ -284,12 +286,16 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover"
-                style={{ transform: 'scaleX(-1)' }}
+                className="w-full h-full object-cover transform scale-x-[-1]"
               />
+              {!isStreamReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                  <Loader2 className="w-8 h-8 animate-spin text-white" />
+                </div>
+              )}
               <VideoAnalysis
                 personaId={persona.id}
-                onAnalysisComplete={handleAnalysisComplete}
+                onAnalysisComplete={() => {}}
                 onSpeechDetected={setSubtitles}
               />
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
@@ -307,18 +313,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           {/* Persona Video */}
           <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
             <div className="aspect-video rounded-lg overflow-hidden relative bg-black">
-              {persona.profile_picture_url ? (
-                <img
-                  src={persona.profile_picture_url}
-                  alt={persona.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Avatar className="w-24 h-24">
-                    <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
-                    <AvatarFallback>{persona.name[0]}</AvatarFallback>
-                  </Avatar>
+              {persona.profile_picture_url && (
+                <div className="w-full h-full">
+                  <img
+                    src={persona.profile_picture_url}
+                    alt={persona.name}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               )}
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
