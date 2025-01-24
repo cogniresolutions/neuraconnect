@@ -95,19 +95,9 @@ export class RealtimeChat {
       });
 
       if (error) throw error;
-      if (!data?.client_secret) throw new Error('No client secret received');
+      if (!data?.token) throw new Error('No token received');
 
-      // Extract the client secret value properly
-      const rawSecret = data.client_secret;
-      this.clientSecret = typeof rawSecret === 'object' && rawSecret !== null
-        ? rawSecret.value || rawSecret.secret || null
-        : rawSecret;
-
-      if (!this.clientSecret || typeof this.clientSecret !== 'string') {
-        console.error('Invalid client secret format:', rawSecret);
-        throw new Error('Invalid client secret format');
-      }
-
+      this.clientSecret = data.token;
       console.log('Successfully received chat token');
       await this.establishWebSocketConnection();
 
@@ -127,17 +117,21 @@ export class RealtimeChat {
       throw new Error('Missing client secret');
     }
 
+    const AZURE_OPENAI_ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT;
+    if (!AZURE_OPENAI_ENDPOINT) {
+      throw new Error('Azure OpenAI endpoint not configured');
+    }
+
     console.log('Establishing WebSocket connection...');
     
     try {
-      // Create WebSocket URL with properly encoded client_secret
-      const wsUrl = new URL('wss://api.openai.com/v1/realtime');
-      wsUrl.searchParams.append('client_secret', this.clientSecret);
+      // Create WebSocket URL with Azure endpoint
+      const wsUrl = new URL(`${AZURE_OPENAI_ENDPOINT}/realtime`);
+      wsUrl.searchParams.append('token', this.clientSecret);
       
       console.log('Connecting to WebSocket with URL:', wsUrl.toString());
       
-      // Initialize WebSocket with the 'openai-realtime' subprotocol
-      this.socket = new WebSocket(wsUrl.toString(), 'openai-realtime');
+      this.socket = new WebSocket(wsUrl.toString());
       
       this.socket.onopen = () => {
         console.log('WebSocket connection established');
@@ -193,11 +187,10 @@ export class RealtimeChat {
 
     const authMessage = {
       type: 'auth',
-      client_secret: this.clientSecret
+      token: this.clientSecret
     };
 
     console.log('Sending authentication message');
-    
     this.socket.send(JSON.stringify(authMessage));
   }
 

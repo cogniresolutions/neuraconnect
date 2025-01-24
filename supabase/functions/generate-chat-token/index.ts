@@ -7,52 +7,43 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { personaId, config } = await req.json();
-    console.log('Generating token for persona:', { personaId, config });
+    const AZURE_OPENAI_KEY = Deno.env.get('AZURE_OPENAI_API_KEY');
+    const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY is not set');
-      throw new Error('OPENAI_API_KEY is not set');
+    if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT) {
+      throw new Error('Azure OpenAI credentials are not configured');
     }
 
-    // Request an ephemeral token from OpenAI
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    const { personaId, config } = await req.json();
+    console.log('Generating token for persona:', personaId, 'with config:', config);
+
+    // Request a token from Azure OpenAI
+    const response = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/realtime/token?api-version=2024-02-15-preview`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "api-key": AZURE_OPENAI_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
         voice: config.voice || "alloy",
-        instructions: `You are ${config.name}, an AI assistant with the following personality: ${config.personality}. 
-                      You have expertise in: ${JSON.stringify(config.skills)}. 
-                      You should focus on discussing topics related to: ${config.topics?.join(', ')}.
-                      Always respond in a natural, conversational way.`
+        instructions: `You are ${config.name}, an AI assistant with the following personality: ${config.personality}. You have expertise in: ${JSON.stringify(config.skills)}. You should focus on discussing topics related to: ${config.topics.join(', ')}.`
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
-      throw new Error(`OpenAI API error: ${errorText}`);
+      const error = await response.text();
+      console.error('Azure OpenAI token generation error:', error);
+      throw new Error(`Failed to generate token: ${error}`);
     }
 
     const data = await response.json();
-    console.log("Session created successfully:", {
-      hasClientSecret: !!data.client_secret,
-      sessionId: data.session_id
-    });
+    console.log("Token generated successfully");
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
