@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -27,6 +28,18 @@ serve(async (req) => {
       throw new Error('User ID is required');
     }
 
+    // Verify user exists
+    const { data: userProfile, error: userError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userProfile) {
+      console.error('User verification failed:', userError);
+      throw new Error('Invalid user or access denied');
+    }
+
     switch (action) {
       case 'start': {
         if (!personaId || !personaConfig) {
@@ -40,6 +53,7 @@ serve(async (req) => {
           .from('personas')
           .select('*')
           .eq('id', personaId)
+          .eq('user_id', userId)
           .single();
 
         if (personaError || !persona) {
@@ -48,7 +62,7 @@ serve(async (req) => {
         }
 
         // End any existing active sessions for this user
-        await supabase
+        const { error: endError } = await supabase
           .from('tavus_sessions')
           .update({ 
             status: 'ended', 
@@ -58,7 +72,12 @@ serve(async (req) => {
           .eq('user_id', userId)
           .eq('is_active', true);
 
-        // Generate a unique conversation ID
+        if (endError) {
+          console.error('Error ending existing sessions:', endError);
+          // Continue anyway as this is not critical
+        }
+
+        // Generate unique IDs
         const conversationId = crypto.randomUUID();
         const videoCallId = crypto.randomUUID();
 
