@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayCircle, Trash2, Edit2, Phone, Video } from "lucide-react";
 import VideoCallInterface from "@/components/VideoCallInterface";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Persona {
   id: string;
@@ -34,19 +37,45 @@ export const PersonaList = ({
   isDeploying,
 }: PersonaListProps) => {
   const [selectedVideoPersona, setSelectedVideoPersona] = useState<Persona | null>(null);
-  const createdPersonas = personas.filter(p => p.status === 'ready');
-  const deployedPersonas = personas.filter(p => p.status === 'deployed');
+  const { toast } = useToast();
 
-  const handleSpeakingChange = (speaking: boolean) => {
-    console.log('Speaking state changed:', speaking);
-  };
+  // Use React Query to fetch personas
+  const { data: fetchedPersonas, isLoading } = useQuery({
+    queryKey: ['personas'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        toast({
+          title: "Error fetching personas",
+          description: error.message,
+          variant: "destructive",
+        });
+        throw error;
+      }
+      return data as Persona[];
+    },
+  });
+
+  const allPersonas = fetchedPersonas || personas;
+  const createdPersonas = allPersonas.filter(p => p.status === 'ready');
+  const deployedPersonas = allPersonas.filter(p => p.status === 'deployed');
+
+  if (isLoading) {
+    return <div>Loading personas...</div>;
+  }
 
   return (
     <div className="space-y-6">
       {selectedVideoPersona && (
         <VideoCallInterface
           persona={selectedVideoPersona}
-          onSpeakingChange={handleSpeakingChange}
+          onSpeakingChange={(speaking: boolean) => {
+            console.log('Speaking state changed:', speaking);
+          }}
           onCallStateChange={(isActive) => {
             if (!isActive) {
               setSelectedVideoPersona(null);
