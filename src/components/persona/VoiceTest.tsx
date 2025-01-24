@@ -25,34 +25,50 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       setIsPlaying(true);
       console.log('Testing voice with Azure Speech Services...', { voiceStyle, language });
 
+      // Format the voice name according to Azure's naming convention
+      const formattedVoice = `${language}-${voiceStyle}Neural`;
+      console.log('Using voice:', formattedVoice);
+
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
           text: getVoiceMessage(voiceStyle),
-          voice: `${language}-${voiceStyle}Neural`,
+          voice: formattedVoice,
           language: language
         }
       });
 
       console.log('Azure voice test response:', { data, error });
 
-      if (error) throw error;
-
-      if (data?.audioContent) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
-        await audio.play();
-        
-        toast({
-          title: "Voice Test",
-          description: "Voice sample played successfully",
-        });
-      } else {
-        throw new Error('No audio content received');
+      if (error) {
+        console.error('Azure voice test error:', error);
+        throw error;
       }
+
+      if (!data?.audioContent) {
+        throw new Error('No audio content received from Azure');
+      }
+
+      // Create and play audio
+      const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+      
+      // Add event listeners for better error handling
+      audio.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        throw new Error('Failed to play audio');
+      };
+
+      await audio.play();
+      
+      toast({
+        title: "Voice Test",
+        description: "Voice sample played successfully",
+      });
+
     } catch (error) {
       console.error('Voice test error:', error);
       toast({
         title: "Error",
-        description: "Failed to play voice sample",
+        description: error instanceof Error ? error.message : "Failed to play voice sample",
         variant: "destructive",
       });
     } finally {

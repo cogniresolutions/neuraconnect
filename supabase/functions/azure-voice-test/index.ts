@@ -29,24 +29,32 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const text = requestData.text || "Hello, this is a test message.";
-    const voice = requestData.voice || "en-US-JennyNeural";
+    const { text, voice, language } = requestData;
     
-    console.log('Request data:', { text, voice });
+    if (!text || !voice || !language) {
+      throw new Error('Missing required parameters: text, voice, or language');
+    }
+    
+    console.log('Request data:', { text, voice, language });
 
     // Format the TTS endpoint correctly
-    // The endpoint should be in the format: https://{region}.tts.speech.microsoft.com
     const region = azureSpeechEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
     const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
-    // Test text-to-speech with proper SSML
-    console.log('Testing text-to-speech synthesis...');
+    // Prepare SSML with proper XML escaping
+    const escapedText = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
     const ssml = `
-      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
         <voice name='${voice}'>
           <prosody rate="0%">
-            ${text}
+            ${escapedText}
           </prosody>
         </voice>
       </speak>
@@ -66,16 +74,13 @@ serve(async (req) => {
     });
 
     console.log('TTS response status:', ttsResponse.status);
-    console.log('TTS response headers:', Object.fromEntries(ttsResponse.headers.entries()));
 
     if (!ttsResponse.ok) {
       const errorText = await ttsResponse.text();
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
-        headers: Object.fromEntries(ttsResponse.headers.entries()),
-        error: errorText,
-        url: ttsEndpoint
+        error: errorText
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
@@ -102,11 +107,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString(),
-        details: {
-          stack: error.stack,
-          name: error.name
-        }
+        timestamp: new Date().toISOString()
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
