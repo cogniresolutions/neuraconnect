@@ -41,8 +41,8 @@ serve(async (req) => {
       console.log('Testing Azure OpenAI base connectivity...');
       console.log('Using endpoint:', azureOpenAIEndpoint);
       
-      // Use the deployments endpoint instead of models
-      const baseResponse = await fetch(`${azureOpenAIEndpoint}/openai/deployments?api-version=2024-02-15-preview`, {
+      // Use the base endpoint for testing connectivity
+      const baseResponse = await fetch(`${azureOpenAIEndpoint}/openai/models?api-version=2024-02-15-preview`, {
         headers: {
           'api-key': azureOpenAIKey,
           'Content-Type': 'application/json',
@@ -50,14 +50,14 @@ serve(async (req) => {
       });
 
       const baseResponseText = await baseResponse.text();
-      console.log('Base connectivity response status:', baseResponse.status);
       console.log('Base connectivity response:', baseResponseText);
+      console.log('Base connectivity response status:', baseResponse.status);
 
       results.push({
         service: 'Azure OpenAI Base Connectivity',
         status: baseResponse.ok ? 'success' : 'error',
         statusCode: baseResponse.status,
-        error: baseResponse.ok ? undefined : `Error ${baseResponse.status}: ${baseResponseText}`
+        error: baseResponse.ok ? undefined : baseResponseText
       });
     } catch (error) {
       console.error('Azure OpenAI base connectivity error:', error);
