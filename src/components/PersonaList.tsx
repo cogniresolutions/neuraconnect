@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -113,13 +112,18 @@ export const PersonaList = () => {
   const handleDelete = async (personaId: string) => {
     setIsDeleting(true);
     try {
+      console.log('Deleting persona:', personaId);
+
       // Delete training materials
       const { error: trainingError } = await supabase
         .from('persona_training_materials')
         .delete()
         .eq('persona_id', personaId);
 
-      if (trainingError) throw trainingError;
+      if (trainingError) {
+        console.error('Error deleting training materials:', trainingError);
+        throw trainingError;
+      }
 
       // Delete training videos
       const { error: videosError } = await supabase
@@ -127,7 +131,10 @@ export const PersonaList = () => {
         .delete()
         .eq('persona_id', personaId);
 
-      if (videosError) throw videosError;
+      if (videosError) {
+        console.error('Error deleting training videos:', videosError);
+        throw videosError;
+      }
 
       // Delete emotion analysis data
       const { error: emotionError } = await supabase
@@ -135,7 +142,10 @@ export const PersonaList = () => {
         .delete()
         .eq('persona_id', personaId);
 
-      if (emotionError) throw emotionError;
+      if (emotionError) {
+        console.error('Error deleting emotion analysis:', emotionError);
+        throw emotionError;
+      }
 
       // Delete API keys associated with the persona
       const { error: apiKeyError } = await supabase
@@ -143,7 +153,10 @@ export const PersonaList = () => {
         .delete()
         .eq('persona_id', personaId);
 
-      if (apiKeyError) throw apiKeyError;
+      if (apiKeyError) {
+        console.error('Error deleting API keys:', apiKeyError);
+        throw apiKeyError;
+      }
 
       // Finally delete the persona
       const { error: personaError } = await supabase
@@ -151,7 +164,10 @@ export const PersonaList = () => {
         .delete()
         .eq('id', personaId);
 
-      if (personaError) throw personaError;
+      if (personaError) {
+        console.error('Error deleting persona:', personaError);
+        throw personaError;
+      }
 
       toast({
         title: "Success",
