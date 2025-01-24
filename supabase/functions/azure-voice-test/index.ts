@@ -74,30 +74,40 @@ serve(async (req) => {
     });
 
     console.log('TTS response status:', ttsResponse.status);
+    console.log('TTS response headers:', Object.fromEntries(ttsResponse.headers.entries()));
 
     if (!ttsResponse.ok) {
       const errorText = await ttsResponse.text();
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
-        error: errorText
+        headers: Object.fromEntries(ttsResponse.headers.entries()),
+        error: errorText,
+        endpoint: ttsEndpoint,
+        ssml: ssml
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
 
+    // Process successful response
+    console.log('Successfully received audio response');
     const arrayBuffer = await ttsResponse.arrayBuffer();
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
-    console.log('Successfully generated audio, length:', base64Audio.length);
+    console.log('Successfully converted audio to base64, length:', base64Audio.length);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        audioContent: base64Audio
+        audioContent: base64Audio,
+        metadata: {
+          voice: voice,
+          endpoint: ttsEndpoint,
+          timestamp: new Date().toISOString()
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
       }
     );
 
@@ -107,7 +117,11 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        details: {
+          name: error.name,
+          stack: error.stack
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

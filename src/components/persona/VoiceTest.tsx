@@ -23,11 +23,11 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
   const testVoice = async () => {
     try {
       setIsPlaying(true);
-      console.log('Testing voice with Azure Speech Services...', { voiceStyle, language });
+      console.log('Starting voice test...', { voiceStyle, language });
 
       // Format the voice name according to Azure's naming convention
       const formattedVoice = `${language}-${voiceStyle}Neural`;
-      console.log('Using voice:', formattedVoice);
+      console.log('Formatted voice name:', formattedVoice);
 
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
@@ -45,18 +45,28 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       }
 
       if (!data?.audioContent) {
+        console.error('No audio content in response');
         throw new Error('No audio content received from Azure');
       }
 
-      // Create and play audio
-      const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
-      
-      // Add event listeners for better error handling
-      audio.onerror = (e) => {
-        console.error('Audio playback error:', e);
-        throw new Error('Failed to play audio');
-      };
+      console.log('Audio content length:', data.audioContent.length);
 
+      // Create and play audio
+      const audio = new Audio();
+      
+      // Add event listeners for debugging
+      audio.addEventListener('loadeddata', () => console.log('Audio loaded'));
+      audio.addEventListener('playing', () => console.log('Audio started playing'));
+      audio.addEventListener('ended', () => console.log('Audio finished playing'));
+      audio.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+        throw new Error(`Failed to play audio: ${e.type}`);
+      });
+
+      // Set the audio source
+      audio.src = `data:audio/mp3;base64,${data.audioContent}`;
+      
+      // Play the audio
       await audio.play();
       
       toast({
