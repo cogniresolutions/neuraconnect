@@ -47,7 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { VALID_VOICES } from "@/constants/voices";
+import { VOICE_MAPPINGS } from "@/constants/voices";
 
 type Persona = {
   id: string;
@@ -272,6 +272,10 @@ export const PersonaList = () => {
     }
   };
 
+  const allVoices = Object.values(VOICE_MAPPINGS).flatMap(
+    language => [...language.male, ...language.female]
+  ).map(voice => voice.replace('Neural', ''));
+
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
   const displayedPersonas = showAllPersonas ? personas : createdPersonas;
@@ -358,7 +362,7 @@ export const PersonaList = () => {
                             <SelectValue placeholder="Select voice style" />
                           </SelectTrigger>
                           <SelectContent>
-                            {VALID_VOICES.map((voice) => (
+                            {allVoices.map((voice) => (
                               <SelectItem key={voice} value={voice}>
                                 {voice}
                               </SelectItem>
