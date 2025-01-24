@@ -1,19 +1,32 @@
 import { supabase } from "@/integrations/supabase/client";
 
+interface TranslationResponse {
+  translatedText: string;
+  detectedLanguage?: {
+    language: string;
+    score: number;
+  };
+}
+
 export async function translateText(text: string, targetLanguage: string): Promise<string> {
   try {
-    const { data, error } = await supabase.functions.invoke('azure-translate', {
+    const { data, error } = await supabase.functions.invoke<TranslationResponse>('azure-translate', {
       body: { text, targetLanguage }
     });
 
     if (error) {
       console.error('Translation error:', error);
-      return text; // Return original text if translation fails
+      throw new Error(`Translation failed: ${error.message}`);
     }
 
-    return data?.translatedText || text;
+    if (!data?.translatedText) {
+      throw new Error('No translation received');
+    }
+
+    return data.translatedText;
   } catch (error) {
     console.error('Translation service error:', error);
-    return text; // Return original text if service fails
+    // Return original text if translation fails
+    return text;
   }
 }
