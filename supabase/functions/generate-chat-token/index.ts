@@ -6,19 +6,15 @@ const AZURE_SPEECH_KEY = Deno.env.get('AZURE_SPEECH_KEY');
 const AZURE_SPEECH_ENDPOINT = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { personaId, config } = await req.json();
     console.log('Validating Azure services for persona:', personaId);
 
-    if (!personaId) {
-      throw new Error('Persona ID is required');
-    }
-
-    // Validate all required Azure credentials
     if (!AZURE_OPENAI_API_KEY || !AZURE_OPENAI_ENDPOINT) {
       console.error('Missing Azure OpenAI credentials');
       throw new Error('Azure OpenAI credentials not configured');
@@ -29,19 +25,16 @@ Deno.serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Test Azure OpenAI Connection with specific model deployment
+    // Test Azure OpenAI Connection with specific deployment
     try {
       console.log('Testing Azure OpenAI connection...');
-      const openAiResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`, {
-        method: 'POST',
+      const deploymentName = 'gpt-4o-mini'; // Make sure this matches your actual deployment name
+      const apiVersion = '2024-02-15-preview';
+      
+      const openAiResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}?api-version=${apiVersion}`, {
         headers: {
           'api-key': AZURE_OPENAI_API_KEY,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          messages: [{ role: 'system', content: 'Test connection' }],
-          max_tokens: 5,
-        }),
       });
 
       if (!openAiResponse.ok) {
@@ -50,10 +43,11 @@ Deno.serve(async (req) => {
         throw new Error(`Failed to validate Azure OpenAI: ${error}`);
       }
 
-      console.log('Azure OpenAI connection validated successfully');
+      const deployment = await openAiResponse.json();
+      console.log('Azure OpenAI deployment validated:', deployment.id);
     } catch (error) {
       console.error('Error validating Azure OpenAI:', error);
-      throw new Error('Failed to validate Azure OpenAI deployment');
+      throw new Error(`Failed to validate Azure OpenAI deployment: ${error.message}`);
     }
 
     // Test Azure Speech Services
@@ -74,7 +68,7 @@ Deno.serve(async (req) => {
       console.log('Azure Speech Services validated successfully');
     } catch (error) {
       console.error('Error validating Azure Speech Services:', error);
-      throw new Error('Failed to validate Azure Speech Services');
+      throw new Error(`Failed to validate Azure Speech Services: ${error.message}`);
     }
 
     // If all validations pass, generate the token
