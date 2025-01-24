@@ -129,13 +129,35 @@ export const PersonaList = () => {
 
       if (error) throw error;
 
+      // Verify deletion was successful
+      const { data: verifyPersona } = await supabase
+        .from('personas')
+        .select('id')
+        .eq('id', personaId)
+        .single();
+
+      if (verifyPersona) {
+        throw new Error('Persona still exists after deletion');
+      }
+
       toast({
         title: "Success",
-        description: "Persona deletion process initiated successfully",
+        description: "Persona deletion completed successfully",
       });
 
     } catch (error: any) {
       console.error('Delete persona error:', error);
+      
+      // Refresh the personas list to ensure UI is in sync with database
+      const { data: refreshedPersonas } = await supabase
+        .from('personas')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (refreshedPersonas) {
+        setPersonas(refreshedPersonas);
+      }
+
       toast({
         title: "Error",
         description: error.message || "Failed to delete persona",

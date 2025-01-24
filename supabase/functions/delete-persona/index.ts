@@ -90,13 +90,14 @@ serve(async (req) => {
       }
     }
 
-    // Delete all related database records
+    // Delete all related database records in the correct order
     const deleteOperations = [
       supabase.from('persona_training_materials').delete().eq('persona_id', personaId),
       supabase.from('training_videos').delete().eq('persona_id', personaId),
       supabase.from('emotion_analysis').delete().eq('persona_id', personaId),
       supabase.from('api_keys').delete().eq('persona_id', personaId),
       supabase.from('persona_appearances').delete().eq('persona_id', personaId),
+      supabase.from('conversations').delete().eq('persona_id', personaId),
       supabase.from('personas').delete().eq('id', personaId)
     ];
 
@@ -116,7 +117,8 @@ serve(async (req) => {
       supabase.from('training_videos').select('id').eq('persona_id', personaId),
       supabase.from('emotion_analysis').select('id').eq('persona_id', personaId),
       supabase.from('api_keys').select('id').eq('persona_id', personaId),
-      supabase.from('persona_appearances').select('id').eq('persona_id', personaId)
+      supabase.from('persona_appearances').select('id').eq('persona_id', personaId),
+      supabase.from('conversations').select('id').eq('persona_id', personaId)
     ];
 
     const verificationResults = await Promise.all(verificationQueries);
@@ -124,9 +126,10 @@ serve(async (req) => {
 
     if (anyDataRemaining) {
       console.error('Warning: Some data still remains after deletion');
-    } else {
-      console.log('Verification complete: All data successfully deleted');
+      throw new Error('Incomplete deletion detected');
     }
+
+    console.log('Verification complete: All data successfully deleted');
 
     return new Response(
       JSON.stringify({ success: true, message: 'Deletion process completed' }),
