@@ -14,19 +14,12 @@ export async function translateText(text: string, targetLanguage: string): Promi
       body: { text, targetLanguage }
     });
 
-    if (error) {
-      console.error('Translation error:', error);
-      throw new Error(`Translation failed: ${error.message}`);
-    }
-
-    if (!data?.translatedText) {
-      throw new Error('No translation received');
-    }
-
+    if (error) throw error;
+    if (!data?.translatedText) throw new Error('No translation received');
+    
     return data.translatedText;
   } catch (error) {
-    console.error('Translation service error:', error);
-    // Return original text if translation fails
+    console.error('Translation error:', error);
     return text;
   }
 }
