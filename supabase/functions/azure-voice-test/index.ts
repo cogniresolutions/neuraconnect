@@ -7,6 +7,18 @@ const corsHeaders = {
 
 console.log('Azure Voice Test Function loaded');
 
+// Map of language codes to their corresponding voice models
+const languageVoiceMap: Record<string, string[]> = {
+  'en-US': ['Jenny', 'Guy', 'Aria', 'Davis'],
+  'ja-JP': ['Nanami', 'Keita'],
+  'es-ES': ['Elvira', 'Alvaro'],
+  'fr-FR': ['Denise', 'Henri'],
+  'de-DE': ['Katja', 'Conrad'],
+  'it-IT': ['Elsa', 'Diego'],
+  'ko-KR': ['Sun-Hi', 'In-Ho'],
+  'zh-CN': ['Xiaoxiao', 'Yunyang']
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,7 +26,13 @@ serve(async (req) => {
   }
 
   try {
-    // Step 1: Get and validate Azure credentials
+    const { text, voice, language = 'en-US' } = await req.json();
+    console.log('Request data:', { text, voice, language });
+
+    if (!text || !voice) {
+      throw new Error('Missing required fields: text and voice are required');
+    }
+
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
@@ -28,22 +46,18 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Step 2: Parse and validate request
-    const { text, voice } = await req.json();
-    console.log('Request data:', { text, voice });
-
-    if (!text || !voice) {
-      throw new Error('Missing required fields: text and voice are required');
-    }
-
-    // Extract region from endpoint (e.g., "eastus" from "https://eastus.tts.speech.microsoft.com")
+    // Extract region from endpoint
     const region = azureSpeechEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
     console.log('Using region:', region);
 
-    // Step 3: Check available voices using Speech Services endpoint
-    console.log('Fetching available voices...');
+    // Format the voice name according to Azure's naming convention
+    // Example: "Jenny" becomes "en-US-JennyNeural" for US English
+    const voiceName = `${language}-${voice}Neural`;
+    console.log('Using voice:', voiceName);
+
+    // Check available voices
     const voicesUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`;
-    console.log('Using voices list URL:', voicesUrl);
+    console.log('Fetching available voices from:', voicesUrl);
     
     const voicesResponse = await fetch(voicesUrl, {
       headers: {
@@ -56,25 +70,22 @@ serve(async (req) => {
       console.error('Error fetching voices:', {
         status: voicesResponse.status,
         statusText: voicesResponse.statusText,
-        error: errorText,
-        endpoint: voicesUrl,
-        region: region
+        error: errorText
       });
       throw new Error(`Failed to fetch voices: ${voicesResponse.status} - ${errorText}`);
     }
 
     const voices = await voicesResponse.json();
-    console.log('Available voices count:', voices.length);
+    console.log('Available voices for language:', voices.filter((v: any) => v.Locale === language).map((v: any) => v.ShortName));
 
-    // The voice parameter should already be in format "en-US-JennyNeural"
-    console.log('Checking for voice:', voice);
-    const voiceExists = voices.some((v: any) => v.ShortName === voice);
+    const voiceExists = voices.some((v: any) => v.ShortName === voiceName);
     if (!voiceExists) {
-      console.error('Available voices:', voices.map((v: any) => v.ShortName));
-      throw new Error(`Voice '${voice}' not found in available voices`);
+      console.error('Voice not found:', voiceName);
+      console.log('Available voices:', voices.map((v: any) => v.ShortName));
+      throw new Error(`Voice '${voiceName}' not found in available voices for language ${language}`);
     }
 
-    // Prepare SSML with proper escaping
+    // Prepare SSML with proper escaping and language setting
     const escapedText = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -83,17 +94,15 @@ serve(async (req) => {
       .replace(/'/g, '&apos;');
 
     const ssml = `
-      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='${voice}'>
+      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
+        <voice name='${voiceName}'>
           ${escapedText}
         </voice>
       </speak>
     `;
 
-    // Step 4: Make request to Azure Speech Services TTS endpoint
-    console.log('Making request to Azure TTS...');
+    console.log('Making request to Azure TTS with SSML:', ssml);
     const ttsUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
-    console.log('Using TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
       method: 'POST',
@@ -111,19 +120,14 @@ serve(async (req) => {
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
-        error: errorText,
-        endpoint: ttsUrl,
-        voice: voice,
-        ssml
+        error: errorText
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
 
-    // Step 5: Process successful response
     console.log('Successfully received audio response');
     const arrayBuffer = await ttsResponse.arrayBuffer();
     
-    // Convert ArrayBuffer to Base64
     const bytes = new Uint8Array(arrayBuffer);
     const binaryString = Array.from(bytes).map(byte => String.fromCharCode(byte)).join('');
     const base64Audio = btoa(binaryString);
@@ -135,7 +139,8 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice: voice,
+          voice: voiceName,
+          language,
           endpoint: ttsUrl,
           region: region,
           timestamp: new Date().toISOString()
