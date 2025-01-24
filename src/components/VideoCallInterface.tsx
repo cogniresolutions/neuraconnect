@@ -30,7 +30,13 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Effect to handle camera start/stop based on call state
   useEffect(() => {
+    if (isCallActive && !stream) {
+      startCamera();
+    }
+    
+    // Cleanup function
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -44,7 +50,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         currentAudioRef.current = null;
       }
     };
-  }, [stream]);
+  }, [isCallActive, stream]);
 
   const startCamera = async () => {
     console.log('Starting camera...');
@@ -54,12 +60,22 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         audio: true
       });
       console.log('Media stream obtained:', mediaStream);
+      
+      if (!mediaStream) {
+        throw new Error('Failed to get media stream');
+      }
+
       setStream(mediaStream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         await videoRef.current.play();
         console.log('Video playback started');
+      } else {
+        console.error('Video ref is null');
+        throw new Error('Video element not found');
       }
+      
       return true;
     } catch (error) {
       console.error('Error accessing camera:', error);
@@ -76,12 +92,13 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     console.log('Starting call...');
     setIsLoading(true);
     try {
+      // First ensure camera is started
       const cameraStarted = await startCamera();
       if (!cameraStarted) {
         throw new Error('Failed to start camera');
       }
 
-      // Create a conversation in Supabase
+      // Then create the conversation
       const { data: conversationData, error: conversationError } = await supabase.functions.invoke('create-conversation', {
         body: {
           persona_id: persona.id,
@@ -93,6 +110,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (conversationError) throw conversationError;
       console.log('Conversation created:', conversationData);
 
+      // Finally activate the call
       setIsCallActive(true);
       onCallStateChange(true);
       
@@ -102,10 +120,14 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       console.error('Error starting call:', error);
+      // Clean up if anything fails
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
       }
+      setIsCallActive(false);
+      onCallStateChange(false);
+      
       toast({
         title: "Error",
         description: error.message || "Failed to start call. Please check your camera and microphone permissions.",
@@ -227,14 +249,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         isLoading={isLoading}
         isRecording={isRecording}
         onStartCall={handleStartCall}
-        onEndCall={() => {
-          if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            setStream(null);
-          }
-          setIsCallActive(false);
-          onCallStateChange(false);
-        }}
+        onEndCall={handleEndCall}
         onStartRecording={() => setIsRecording(true)}
         onStopRecording={() => setIsRecording(false)}
       />
