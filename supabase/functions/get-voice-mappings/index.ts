@@ -54,7 +54,7 @@ serve(async (req) => {
 
       // Transform and filter voices
       const voiceMappings = voices
-        .filter((voice: any) => voice.LocaleName.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/))
+        .filter((voice: any) => voice.Locale.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/))
         .map((voice: any) => {
           const shortName = voice.ShortName.replace('Neural', '').trim()
           const displayName = shortName.split('-').pop() || ''
