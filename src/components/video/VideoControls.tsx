@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Video, VideoOff, Phone, Record, StopCircle } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Phone, Circle, StopCircle } from 'lucide-react';
 
 interface VideoControlsProps {
   isAudioEnabled: boolean;
@@ -58,7 +58,7 @@ const VideoControls = ({
         {isRecording ? (
           <StopCircle className="h-4 w-4 text-red-500" />
         ) : (
-          <Record className="h-4 w-4 text-white" />
+          <Circle className="h-4 w-4 text-white" />
         )}
       </Button>
 
