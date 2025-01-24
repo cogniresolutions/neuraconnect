@@ -5,7 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import VideoCallInterface from '@/components/VideoCallInterface';
 import AIPersonaVideo from '@/components/AIPersonaVideo';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 const VideoCall = () => {
   const { personaId } = useParams();
@@ -13,7 +14,8 @@ const VideoCall = () => {
   const { toast } = useToast();
   const [persona, setPersona] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const externalVideoUrl = "https://tavus.video/943ec60143"; // Add the Tavus video URL
+  const [isCreatingPersona, setIsCreatingPersona] = useState(false);
+  const externalVideoUrl = "https://tavus.video/943ec60143";
 
   useEffect(() => {
     const loadPersona = async () => {
@@ -34,46 +36,11 @@ const VideoCall = () => {
           }
         }
 
-        // If no persona found, create a test persona
-        const { data: user } = await supabase.auth.getUser();
-        if (!user?.user?.id) {
-          throw new Error('User not authenticated');
-        }
-
-        const testPersona = {
-          name: 'Test Persona',
-          description: 'A test persona for video call testing',
-          voice_style: 'en-US-JennyNeural',
-          personality: 'Friendly and helpful AI assistant',
-          status: 'active',
-          user_id: user.user.id,
-          skills: ['conversation', 'video chat'],
-          topics: ['general discussion', 'testing'],
-          model_config: {
-            model: 'gpt-4o-mini',
-            max_tokens: 800,
-            temperature: 0.7
-          }
-        };
-
-        const { data: newPersona, error: createError } = await supabase
-          .from('personas')
-          .insert([testPersona])
-          .select()
-          .single();
-
-        if (createError) throw createError;
-
-        setPersona(newPersona);
-        navigate(`/video-call/${newPersona.id}`);
+        // If no persona found or no ID provided, show empty state
+        setPersona(null);
         
-        toast({
-          title: "Test Persona Created",
-          description: "A test persona has been created for video call testing.",
-        });
-
       } catch (error: any) {
-        console.error('Error loading/creating persona:', error);
+        console.error('Error loading persona:', error);
         toast({
           title: "Error",
           description: error.message,
@@ -87,12 +54,102 @@ const VideoCall = () => {
     loadPersona();
   }, [personaId, navigate, toast]);
 
+  const createTestPersona = async () => {
+    try {
+      setIsCreatingPersona(true);
+      
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      const testPersona = {
+        name: 'Test Persona',
+        description: 'A test persona for video call testing',
+        voice_style: 'en-US-JennyNeural',
+        personality: 'Friendly and helpful AI assistant',
+        status: 'active',
+        user_id: user.user.id,
+        skills: ['conversation', 'video chat'],
+        topics: ['general discussion', 'testing'],
+        model_config: {
+          model: 'gpt-4o-mini',
+          max_tokens: 800,
+          temperature: 0.7
+        }
+      };
+
+      const { data: newPersona, error: createError } = await supabase
+        .from('personas')
+        .insert([testPersona])
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      setPersona(newPersona);
+      navigate(`/video-call/${newPersona.id}`);
+      
+      toast({
+        title: "Test Persona Created",
+        description: "A test persona has been created for video call testing.",
+      });
+
+    } catch (error: any) {
+      console.error('Error creating test persona:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPersona(false);
+    }
+  };
+
   const handleSpeakingChange = (speaking: boolean) => {
     console.log('Speaking state changed:', speaking);
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!persona) {
+    return (
+      <div className="container mx-auto p-4 min-h-screen">
+        <div className="max-w-2xl mx-auto mt-20">
+          <Card>
+            <CardHeader>
+              <CardTitle>Start a Video Call</CardTitle>
+              <CardDescription>
+                Create a test persona to start your video call experience
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={createTestPersona}
+                disabled={isCreatingPersona}
+                className="w-full"
+              >
+                {isCreatingPersona ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Persona...
+                  </>
+                ) : (
+                  'Create Test Persona'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -109,26 +166,24 @@ const VideoCall = () => {
         <h1 className="text-2xl font-bold">Video Call with {persona?.name}</h1>
       </div>
 
-      {persona && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
-            <AIPersonaVideo
-              trainingVideoUrl={persona.video_url}
-              expressionSegments={persona.facial_expressions}
-            />
-          </div>
-          <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
-            <VideoCallInterface
-              persona={persona}
-              onSpeakingChange={handleSpeakingChange}
-              onCallStateChange={(isActive) => {
-                console.log('Call state changed:', isActive);
-              }}
-              externalVideoUrl={externalVideoUrl}
-            />
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
+          <AIPersonaVideo
+            trainingVideoUrl={persona.video_url}
+            expressionSegments={persona.facial_expressions}
+          />
         </div>
-      )}
+        <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
+          <VideoCallInterface
+            persona={persona}
+            onSpeakingChange={handleSpeakingChange}
+            onCallStateChange={(isActive) => {
+              console.log('Call state changed:', isActive);
+            }}
+            externalVideoUrl={externalVideoUrl}
+          />
+        </div>
+      </div>
     </div>
   );
 };
