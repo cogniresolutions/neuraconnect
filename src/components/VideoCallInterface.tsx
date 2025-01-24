@@ -3,14 +3,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { VideoAnalysis } from './video/VideoAnalysis';
 import { CallControls } from './video/CallControls';
-import { ConsentDialog } from './video/ConsentDialog';
+import { VideoHeader } from './video/VideoHeader';
+import { VideoGrid } from './video/VideoGrid';
+import { DialogsContainer } from './video/DialogsContainer';
 import { supabase } from '@/integrations/supabase/client';
 import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
-import { Loader2, User, ArrowLeft } from 'lucide-react';
-import { Input } from './ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Button } from './ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
+import { Loader2 } from 'lucide-react';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -178,72 +176,21 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   return (
     <div className="fixed inset-0 flex flex-col bg-black">
-      {/* Header */}
-      <div className="flex items-center gap-4 p-4 bg-black/50 backdrop-blur-sm">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate(-1)}
-          className="text-white hover:bg-white/10"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <h1 className="text-xl font-semibold text-white">Video Call with {persona.name}</h1>
-      </div>
+      <VideoHeader personaName={persona.name} onBack={() => navigate(-1)} />
 
-      {/* Video Grid */}
-      <div className="flex-1 grid grid-cols-2 gap-4 p-4">
-        {/* User Video */}
-        <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover transform scale-x-[-1]"
-          />
-          <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
-            <User className="h-4 w-4" />
-            <span className="text-sm font-medium">{userName || 'You'}</span>
-          </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
+      ) : (
+        <VideoGrid
+          videoRef={videoRef}
+          userName={userName}
+          isCallActive={isCallActive}
+          persona={persona}
+        />
+      )}
 
-        {/* Persona Video/Image */}
-        <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
-          {!isCallActive ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <Avatar className="w-24 h-24 mx-auto">
-                  <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
-                  <AvatarFallback>{persona.name[0]}</AvatarFallback>
-                </Avatar>
-                <h2 className="text-xl font-semibold text-white">Ready to call {persona.name}</h2>
-              </div>
-            </div>
-          ) : (
-            <>
-              {persona.profile_picture_url && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <img
-                    src={persona.profile_picture_url}
-                    alt={persona.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
-                  <AvatarFallback>{persona.name[0]}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium">{persona.name}</span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Hidden Video Analysis */}
       <div className="hidden">
         <VideoAnalysis
           personaId={persona.id}
@@ -252,7 +199,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         />
       </div>
 
-      {/* Controls */}
       <div className="p-4 flex justify-center gap-4">
         <CallControls
           isCallActive={isCallActive}
@@ -265,43 +211,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         />
       </div>
 
-      {/* Dialogs */}
-      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enter Your Name</DialogTitle>
-            <DialogDescription>
-              Please enter your name to start the video call
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              placeholder="Your name"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-            />
-            <Button 
-              onClick={() => {
-                if (userName.trim()) {
-                  setShowNameDialog(false);
-                  startCall();
-                }
-              }}
-              disabled={!userName.trim()}
-            >
-              Start Call
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <ConsentDialog
-        open={showConsentDialog}
-        onOpenChange={setShowConsentDialog}
-        onAccept={() => {
-          setShowConsentDialog(false);
-          startCall();
-        }}
+      <DialogsContainer
+        showNameDialog={showNameDialog}
+        setShowNameDialog={setShowNameDialog}
+        userName={userName}
+        setUserName={setUserName}
+        showConsentDialog={showConsentDialog}
+        setShowConsentDialog={setShowConsentDialog}
+        onStartCall={startCall}
         personaName={persona.name}
       />
     </div>
