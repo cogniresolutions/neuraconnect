@@ -123,6 +123,7 @@ export class RealtimeChat {
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
   private clientSecret: string | null = null;
+  private wsEndpoint: string | null = null;
 
   constructor(messageHandler: MessageHandler) {
     this.messageHandler = messageHandler;
@@ -148,9 +149,11 @@ export class RealtimeChat {
 
       if (error) throw error;
       if (!data?.token) throw new Error('No token received');
+      if (!data?.endpoint) throw new Error('No endpoint received from token generation');
 
       this.clientSecret = data.token;
-      console.log('Successfully received chat token');
+      this.wsEndpoint = data.endpoint;
+      console.log('Successfully received chat token and endpoint');
       await this.establishWebSocketConnection();
 
     } catch (error) {
@@ -164,21 +167,16 @@ export class RealtimeChat {
   }
 
   private async establishWebSocketConnection() {
-    if (!this.clientSecret) {
-      console.error('Missing client secret');
-      throw new Error('Missing client secret');
+    if (!this.clientSecret || !this.wsEndpoint) {
+      console.error('Missing required credentials');
+      throw new Error('Missing required credentials for WebSocket connection');
     }
 
     console.log('Establishing WebSocket connection...');
     
     try {
-      const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-      if (!endpoint) {
-        throw new Error('Missing Azure OpenAI endpoint');
-      }
-
       // Ensure the endpoint is properly formatted
-      const baseUrl = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+      const baseUrl = this.wsEndpoint.endsWith('/') ? this.wsEndpoint.slice(0, -1) : this.wsEndpoint;
       const wsUrl = new URL(`${baseUrl}/openai/deployments/gpt-4o-realtime-preview/chat/realtime/stream`);
       wsUrl.searchParams.append('api-version', '2024-12-17');
       wsUrl.searchParams.append('token', this.clientSecret);

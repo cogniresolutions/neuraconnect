@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,137 +8,91 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { personaId, config } = await req.json();
-    console.log('Validating Azure services for persona:', personaId);
+    const endpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
+    const apiKey = Deno.env.get('AZURE_OPENAI_API_KEY');
+    
+    if (!endpoint) {
+      throw new Error('Azure OpenAI endpoint not configured');
+    }
 
-    // Validate Azure Speech Services first
-    try {
-      console.log('Testing Azure Speech Services connection...');
-      const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '');
-      const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
+    if (!apiKey) {
+      throw new Error('Azure OpenAI API key not configured');
+    }
 
-      if (!speechEndpoint || !speechKey) {
-        console.error('Missing Azure Speech credentials');
-        throw new Error('Azure Speech credentials not configured');
-      }
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-      console.log('Speech endpoint:', speechEndpoint);
-      
-      // Use the REST API endpoint for synthesis
-      const testUrl = `${speechEndpoint}/cognitiveservices/voices/list`;
-      console.log('Making request to:', testUrl);
+    // Get persona details
+    const { data: persona, error: personaError } = await supabase
+      .from('personas')
+      .select('*')
+      .eq('id', personaId)
+      .single();
 
-      const speechResponse = await fetch(testUrl, {
-        method: 'GET',
-        headers: {
-          'Ocp-Apim-Subscription-Key': speechKey,
-        },
+    if (personaError || !persona) {
+      throw new Error('Persona not found');
+    }
+
+    // Generate a unique session ID
+    const sessionId = crypto.randomUUID();
+
+    // Create a token payload
+    const tokenPayload = {
+      session_id: sessionId,
+      persona_id: personaId,
+      config: {
+        ...config,
+        system_prompt: persona.system_prompt,
+        knowledge_base: persona.knowledge_base,
+        conversation_style: persona.conversation_style,
+      },
+      exp: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour expiration
+    };
+
+    // Encode the token payload
+    const token = base64Encode(JSON.stringify(tokenPayload));
+
+    // Store session information
+    const { error: sessionError } = await supabase
+      .from('chat_sessions')
+      .insert({
+        id: sessionId,
+        persona_id: personaId,
+        token: token,
+        status: 'active',
+        config: tokenPayload.config
       });
 
-      console.log('Speech Services response status:', speechResponse.status);
-
-      if (!speechResponse.ok) {
-        const errorText = await speechResponse.text();
-        console.error('Speech Services validation failed:', {
-          status: speechResponse.status,
-          statusText: speechResponse.statusText,
-          error: errorText
-        });
-        throw new Error(`Speech Services validation failed: ${speechResponse.status} - ${errorText}`);
-      }
-
-      console.log('Azure Speech Services validated successfully');
-    } catch (error) {
-      console.error('Error validating Azure Speech Services:', error);
-      throw new Error(`Failed to validate Azure Speech Services: ${error.message}`);
+    if (sessionError) {
+      throw new Error(`Failed to create chat session: ${sessionError.message}`);
     }
-
-    // Then validate Azure OpenAI
-    try {
-      console.log('Testing Azure OpenAI connection...');
-      const openaiEndpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
-      const openaiKey = Deno.env.get('AZURE_OPENAI_API_KEY');
-
-      if (!openaiEndpoint || !openaiKey) {
-        console.error('Missing Azure OpenAI credentials');
-        throw new Error('Azure OpenAI credentials not configured');
-      }
-
-      const deploymentName = 'gpt-4o-mini';
-      const apiVersion = '2024-02-15-preview';
-      
-      const deploymentResponse = await fetch(
-        `${openaiEndpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`,
-        {
-          method: 'POST',
-          headers: {
-            'api-key': openaiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: [{ role: 'system', content: 'Test connection' }],
-            max_tokens: 5,
-          }),
-        }
-      );
-
-      if (!deploymentResponse.ok) {
-        const error = await deploymentResponse.text();
-        console.error('OpenAI validation failed:', error);
-        throw new Error(`Failed to validate Azure OpenAI deployment: ${error}`);
-      }
-
-      console.log('Azure OpenAI validated successfully');
-    } catch (error) {
-      console.error('Error validating Azure OpenAI:', error);
-      throw new Error(`Failed to validate Azure OpenAI: ${error.message}`);
-    }
-
-    // If all validations pass, generate the token
-    console.log('All Azure services validated successfully');
-    const token = btoa(`${Deno.env.get('AZURE_OPENAI_ENDPOINT')}:${Deno.env.get('AZURE_OPENAI_API_KEY')}`);
 
     return new Response(
-      JSON.stringify({
+      JSON.stringify({ 
         token,
-        personaId,
-        config,
-        timestamp: new Date().toISOString(),
-        status: 'success',
-        services: {
-          openai: true,
-          speech: true
-        }
+        endpoint,
+        session_id: sessionId
       }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
       }
     );
-
   } catch (error) {
-    console.error('Error in generate-chat-token:', error);
+    console.error('Error generating chat token:', error);
     return new Response(
-      JSON.stringify({
-        error: error.message,
-        status: 'error',
-        timestamp: new Date().toISOString()
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+      JSON.stringify({ error: error.message }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
       }
     );
   }
