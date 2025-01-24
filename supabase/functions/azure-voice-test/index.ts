@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice, language = 'en-US' } = await req.json();
+    const { text, voice, language } = await req.json();
     console.log('Request data:', { text, voice, language });
 
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
