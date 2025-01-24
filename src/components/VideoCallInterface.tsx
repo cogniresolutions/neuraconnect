@@ -90,6 +90,58 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const initializeAudioContext = async (mediaStream: MediaStream) => {
+    try {
+      // Create new AudioContext
+      audioContextRef.current = new AudioContext();
+      
+      // Create source from media stream
+      const source = audioContextRef.current.createMediaStreamSource(mediaStream);
+      
+      // Create analyzer node for detecting speech
+      const analyser = audioContextRef.current.createAnalyser();
+      analyser.fftSize = 2048;
+      
+      // Connect nodes
+      source.connect(analyser);
+      
+      // Create media stream destination for output
+      const destination = audioContextRef.current.createMediaStreamDestination();
+      analyser.connect(destination);
+      
+      // Add the audio track to the stream
+      const audioTrack = destination.stream.getAudioTracks()[0];
+      if (stream) {
+        stream.addTrack(audioTrack);
+      }
+      
+      console.log('Audio context initialized successfully');
+      
+      // Set up speech detection
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      const checkAudioLevel = () => {
+        if (!mountedRef.current) return;
+        
+        analyser.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+        const isSpeaking = average > 30; // Adjust threshold as needed
+        onSpeakingChange(isSpeaking);
+        
+        if (mountedRef.current) {
+          requestAnimationFrame(checkAudioLevel);
+        }
+      };
+      
+      checkAudioLevel();
+      
+    } catch (error) {
+      console.error('Error initializing audio context:', error);
+      throw error;
+    }
+  };
+
   const startCamera = async () => {
     if (isInitializing) {
       console.log('Already initializing camera...');
@@ -146,8 +198,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       setStream(mediaStream);
-      setIsCallActive(true);
-      onCallStateChange?.(true);
+      
+      // Initialize audio context after getting media stream
+      await initializeAudioContext(mediaStream);
       
       if (localVideoRef.current) {
         console.log('Connecting stream to local video element');
@@ -164,6 +217,16 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         console.error('Local video reference not found');
         throw new Error('Video element not initialized');
       }
+      
+      // Set up remote video with the same stream for now
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = mediaStream;
+        await remoteVideoRef.current.play();
+        console.log('Remote video playback started successfully');
+      }
+
+      setIsCallActive(true);
+      onCallStateChange?.(true);
       
       toast({
         title: "Call Connected",
