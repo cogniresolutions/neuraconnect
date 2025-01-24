@@ -1,64 +1,66 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 console.log('Azure Voice Test Function loaded');
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Starting Azure Speech Services test...');
-    
+    // Step 1: Get and validate Azure credentials
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint
+      hasEndpoint: !!azureSpeechEndpoint
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Parse the request body
-    const requestData = await req.json();
-    const { text, voice } = requestData;
-    
-    if (!text || !voice) {
-      throw new Error('Missing required parameters: text or voice');
-    }
-
+    // Step 2: Parse and validate request
+    const { text, voice } = await req.json();
     console.log('Request data:', { text, voice });
+
+    if (!text || !voice) {
+      throw new Error('Missing required fields: text and voice are required');
+    }
 
     // Extract region from endpoint
     const baseEndpoint = azureSpeechEndpoint.endsWith('/') 
       ? azureSpeechEndpoint.slice(0, -1) 
       : azureSpeechEndpoint;
-    
-    const region = baseEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
-    console.log('Region extracted:', region);
+    const region = baseEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
+    console.log('Extracted region:', region);
 
-    // Test voices endpoint first
-    console.log('Testing voices endpoint...');
-    const voicesEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`;
-    const voicesResponse = await fetch(voicesEndpoint, {
-      headers: {
-        'Ocp-Apim-Subscription-Key': azureSpeechKey
+    // Step 3: Check available voices
+    console.log('Fetching available voices...');
+    const voicesResponse = await fetch(
+      `${baseEndpoint}/cognitiveservices/voices/list`,
+      {
+        headers: {
+          'Ocp-Apim-Subscription-Key': azureSpeechKey,
+        },
       }
-    });
+    );
 
     if (!voicesResponse.ok) {
-      const voicesError = await voicesResponse.text();
-      console.error('Voices endpoint error:', voicesError);
-      throw new Error(`Voice service not accessible: ${voicesResponse.status} - ${voicesError}`);
+      const errorText = await voicesResponse.text();
+      console.error('Error fetching voices:', {
+        status: voicesResponse.status,
+        statusText: voicesResponse.statusText,
+        error: errorText
+      });
+      throw new Error(`Failed to fetch voices: ${voicesResponse.status} - ${errorText}`);
     }
 
     const voices = await voicesResponse.json();
@@ -84,27 +86,26 @@ serve(async (req) => {
           ${escapedText}
         </voice>
       </speak>
-    `.trim();
+    `;
 
-    console.log('SSML Payload:', ssml);
-
-    // Perform TTS synthesis
-    const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    // Step 4: Make request to Azure TTS
+    console.log('Making request to Azure TTS...');
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
-
-    const ttsResponse = await fetch(ttsEndpoint, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': azureSpeechKey,
-        'Content-Type': 'application/ssml+xml',
-        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
-        'User-Agent': 'LovableAI'
-      },
-      body: ssml
-    });
-
-    console.log('TTS response status:', ttsResponse.status);
-    console.log('TTS response headers:', Object.fromEntries(ttsResponse.headers.entries()));
+    
+    const ttsResponse = await fetch(
+      `${ttsEndpoint}/speak`,
+      {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': azureSpeechKey,
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+          'User-Agent': 'LovableAI'
+        },
+        body: ssml
+      }
+    );
 
     if (!ttsResponse.ok) {
       const errorText = await ttsResponse.text();
@@ -119,10 +120,14 @@ serve(async (req) => {
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
 
-    // Process successful response
+    // Step 5: Process successful response
     console.log('Successfully received audio response');
     const arrayBuffer = await ttsResponse.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    
+    // Convert ArrayBuffer to Base64
+    const bytes = new Uint8Array(arrayBuffer);
+    const binaryString = Array.from(bytes).map(byte => String.fromCharCode(byte)).join('');
+    const base64Audio = btoa(binaryString);
 
     console.log('Successfully converted audio to base64, length:', base64Audio.length);
 
@@ -137,7 +142,7 @@ serve(async (req) => {
           timestamp: new Date().toISOString()
         }
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
@@ -145,18 +150,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in Azure voice test:', error);
     return new Response(
-      JSON.stringify({
+      JSON.stringify({ 
         success: false,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-        details: {
-          name: error.name,
-          stack: error.stack
-        }
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
+        timestamp: new Date().toISOString()
       }),
-      { 
+      {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
       }
     );
   }

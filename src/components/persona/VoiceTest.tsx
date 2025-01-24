@@ -26,6 +26,10 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       setIsPlaying(true);
       console.log('Starting voice test...', { voiceStyle, language });
 
+      if (!language) {
+        throw new Error('Please select a language before testing the voice');
+      }
+
       // Format the voice name according to Azure's naming convention
       const formattedVoice = `${language}-${voiceStyle}Neural`;
       console.log('Formatted voice name:', formattedVoice);
@@ -91,8 +95,9 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       variant="outline"
       size="sm"
       onClick={testVoice}
-      disabled={isPlaying}
+      disabled={isPlaying || !language}
       className="ml-2"
+      title={!language ? "Please select a language first" : "Test voice"}
     >
       {isPlaying ? (
         <Loader2 className="h-4 w-4 animate-spin" />
