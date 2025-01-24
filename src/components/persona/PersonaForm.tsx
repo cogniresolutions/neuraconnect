@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Upload } from "lucide-react";
 import { VoiceTest } from "./VoiceTest";
+import { useQuery } from "@tanstack/react-query";
 
 interface PersonaFormProps {
   name: string;
@@ -28,6 +29,14 @@ interface PersonaFormProps {
   personaId?: string;
 }
 
+interface VoiceMapping {
+  language_code: string;
+  voice_style: string;
+  gender: 'male' | 'female';
+  azure_voice_name: string;
+  display_name: string;
+}
+
 export function PersonaForm({
   name,
   setName,
@@ -41,6 +50,21 @@ export function PersonaForm({
   isCreating,
   personaId
 }: PersonaFormProps) {
+  // Fetch voice mappings for the selected language
+  const { data: voiceMappings, isLoading: isLoadingVoices } = useQuery({
+    queryKey: ['voiceMappings', language],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('voice_mappings')
+        .select('*')
+        .eq('language_code', language)
+        .order('display_name');
+      
+      if (error) throw error;
+      return data as VoiceMapping[];
+    },
+  });
+
   const handleProfilePictureUpload = async (url: string) => {
     if (!personaId) return;
     
@@ -56,8 +80,10 @@ export function PersonaForm({
 
   const handleLanguageChange = async (newLanguage: string) => {
     setLanguage(newLanguage);
-    // Reset voice style when language changes to ensure compatibility
-    setVoiceStyle('Jenny');
+    // Reset voice style when language changes
+    if (voiceMappings && voiceMappings.length > 0) {
+      setVoiceStyle(voiceMappings[0].voice_style);
+    }
     
     if (personaId) {
       try {
@@ -123,21 +149,20 @@ export function PersonaForm({
       <div className="space-y-2">
         <Label htmlFor="voice">Voice Style</Label>
         <div className="flex items-center gap-2">
-          <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+          <Select 
+            value={voiceStyle} 
+            onValueChange={setVoiceStyle}
+            disabled={isLoadingVoices || !voiceMappings?.length}
+          >
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Select a voice style" />
+              <SelectValue placeholder={isLoadingVoices ? "Loading voices..." : "Select a voice style"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Jenny">Jenny (Female)</SelectItem>
-              <SelectItem value="Guy">Guy (Male)</SelectItem>
-              <SelectItem value="Aria">Aria (Female)</SelectItem>
-              <SelectItem value="Davis">Davis (Male)</SelectItem>
-              <SelectItem value="Jane">Jane (Female)</SelectItem>
-              <SelectItem value="Jason">Jason (Male)</SelectItem>
-              <SelectItem value="Nancy">Nancy (Female)</SelectItem>
-              <SelectItem value="Tony">Tony (Male)</SelectItem>
-              <SelectItem value="Sara">Sara (Female)</SelectItem>
-              <SelectItem value="Brandon">Brandon (Male)</SelectItem>
+              {voiceMappings?.map((voice) => (
+                <SelectItem key={voice.voice_style} value={voice.voice_style}>
+                  {voice.display_name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <VoiceTest voiceStyle={voiceStyle} language={language} />

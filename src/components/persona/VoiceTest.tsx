@@ -3,82 +3,73 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { VOICE_MAPPINGS, LOCALIZED_MESSAGES, type SupportedLanguage } from '@/constants/voices';
+import { useQuery } from "@tanstack/react-query";
 
 interface VoiceTestProps {
   voiceStyle: string;
   language?: string;
 }
 
+interface VoiceMapping {
+  language_code: string;
+  voice_style: string;
+  gender: 'male' | 'female';
+  azure_voice_name: string;
+  display_name: string;
+}
+
 export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const { toast } = useToast();
 
-  const getVoiceName = (style: string, lang: string) => {
-    const language = lang as SupportedLanguage;
-    if (!VOICE_MAPPINGS[language]) {
-      console.warn(`Language ${language} not supported, falling back to en-US`);
-      return 'en-US-JennyNeural';
-    }
+  // Fetch the specific voice mapping
+  const { data: voiceMapping } = useQuery({
+    queryKey: ['voiceMapping', language, voiceStyle],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('voice_mappings')
+        .select('*')
+        .eq('language_code', language)
+        .eq('voice_style', voiceStyle)
+        .single();
+      
+      if (error) throw error;
+      return data as VoiceMapping;
+    },
+    enabled: !!language && !!voiceStyle,
+  });
 
-    // Map the voice style to the corresponding Azure voice name and gender
-    const voiceMap: Record<string, { gender: 'male' | 'female', baseName: string }> = {
-      'Jenny': { gender: 'female', baseName: 'Jenny' },
-      'Guy': { gender: 'male', baseName: 'Guy' },
-      'Aria': { gender: 'female', baseName: 'Aria' },
-      'Davis': { gender: 'male', baseName: 'Guy' }, // Changed from Davis to Guy as fallback
-      'Jane': { gender: 'female', baseName: 'Jenny' }, // Changed from Jane to Jenny as fallback
-      'Jason': { gender: 'male', baseName: 'Guy' }, // Changed from Jason to Guy as fallback
-      'Nancy': { gender: 'female', baseName: 'Jenny' }, // Changed from Nancy to Jenny as fallback
-      'Tony': { gender: 'male', baseName: 'Guy' }, // Changed from Tony to Guy as fallback
-      'Sara': { gender: 'female', baseName: 'Jenny' }, // Changed from Sara to Jenny as fallback
-      'Brandon': { gender: 'male', baseName: 'Guy' } // Changed from Brandon to Guy as fallback
+  const getLocalizedMessage = (lang: string) => {
+    const messages: Record<string, string> = {
+      'en-US': "Hello! I'm your AI assistant. How can I help you today?",
+      'en-GB': "Hello! I'm your AI assistant. How may I help you today?",
+      'es-ES': "¡Hola! Soy tu asistente de IA. ¿Cómo puedo ayudarte hoy?",
+      'fr-FR': "Bonjour! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui?",
+      'de-DE': "Hallo! Ich bin Ihr KI-Assistent. Wie kann ich Ihnen heute helfen?",
+      'it-IT': "Ciao! Sono il tuo assistente IA. Come posso aiutarti oggi?",
+      'ja-JP': "こんにちは！AIアシスタントです。今日はどのようにお手伝いできますか？",
+      'ko-KR': "안녕하세요! AI 어시스턴트입니다. 오늘 어떻게 도와드릴까요?",
+      'zh-CN': "你好！我是你的AI助手。今天我能帮你什么？"
     };
-
-    const voiceInfo = voiceMap[style];
-    if (!voiceInfo) {
-      console.warn(`Voice style ${style} not found, using default female voice`);
-      return `${language}-${VOICE_MAPPINGS[language].female[0]}`;
-    }
-
-    // Get the voice list for the selected gender
-    const voiceList = voiceInfo.gender === 'female' 
-      ? VOICE_MAPPINGS[language].female 
-      : VOICE_MAPPINGS[language].male;
-
-    // Always use the first voice from the list as it's guaranteed to be valid
-    const selectedVoice = voiceList[0];
-
-    console.log('Voice selection:', {
-      style,
-      gender: voiceInfo.gender,
-      language,
-      availableVoices: voiceList,
-      selectedVoice: `${language}-${selectedVoice}`
-    });
-
-    return `${language}-${selectedVoice}`;
+    return messages[lang] || messages['en-US'];
   };
 
   const testVoice = async () => {
     try {
       setIsPlaying(true);
-      console.log('Starting voice test...', { voiceStyle, language });
+      console.log('Starting voice test...', { voiceStyle, language, voiceMapping });
 
-      if (!language) {
-        throw new Error('Please select a language before testing the voice');
+      if (!language || !voiceMapping) {
+        throw new Error('Please select a language and voice before testing');
       }
 
-      const formattedVoice = getVoiceName(voiceStyle, language);
-      console.log('Using voice:', formattedVoice);
-
-      const message = LOCALIZED_MESSAGES[language as SupportedLanguage] || LOCALIZED_MESSAGES['en-US'];
+      const message = getLocalizedMessage(language);
       console.log('Using message:', message);
 
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
           text: message,
-          voice: formattedVoice,
+          voice: voiceMapping.azure_voice_name,
           language: language
         }
       });
@@ -132,7 +123,7 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       variant="outline"
       size="sm"
       onClick={testVoice}
-      disabled={isPlaying || !language}
+      disabled={isPlaying || !language || !voiceMapping}
       className="ml-2"
       title={!language ? "Please select a language first" : "Test voice"}
     >
