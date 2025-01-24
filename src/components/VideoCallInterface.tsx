@@ -26,7 +26,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [currentEmotion, setCurrentEmotion] = useState('');
   const [environmentContext, setEnvironmentContext] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
-  const [isSpeechRecognitionActive, setIsSpeechRecognitionActive] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   
@@ -153,11 +152,22 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (localVideoRef.current) {
         console.log('Connecting stream to local video element');
         localVideoRef.current.srcObject = mediaStream;
+        
+        // Explicitly play the video with error handling
         try {
-          await localVideoRef.current.play();
-          console.log('Local video playback started successfully');
+          const playPromise = localVideoRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              console.error('Error playing video:', error);
+              toast({
+                title: "Video Playback Error",
+                description: "Failed to start video playback. Please try again.",
+                variant: "destructive",
+              });
+            });
+          }
         } catch (error) {
-          console.error('Error playing local video:', error);
+          console.error('Error starting video playback:', error);
           throw new Error('Failed to start video playback');
         }
       } else {
@@ -214,14 +224,20 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       <div className="w-full max-w-6xl p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <LocalVideo
-            onVideoRef={(ref) => { localVideoRef.current = ref; }}
+            onVideoRef={(ref) => { 
+              console.log('Setting local video ref:', ref ? 'ref set' : 'ref null');
+              localVideoRef.current = ref; 
+            }}
             isRecording={isCallActive}
             currentEmotion={currentEmotion}
             environmentContext={environmentContext}
             isAnalyzing={isAnalyzing}
           />
           <RemoteVideo
-            onVideoRef={(ref) => { remoteVideoRef.current = ref; }}
+            onVideoRef={(ref) => { 
+              console.log('Setting remote video ref:', ref ? 'ref set' : 'ref null');
+              remoteVideoRef.current = ref; 
+            }}
             persona={persona}
             isAnalyzing={isAnalyzing}
           />

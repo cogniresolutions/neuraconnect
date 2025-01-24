@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 
 interface LocalVideoProps {
@@ -16,10 +16,19 @@ const LocalVideo: React.FC<LocalVideoProps> = ({
   environmentContext,
   isAnalyzing 
 }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      onVideoRef(videoRef.current);
+    }
+    return () => onVideoRef(null);
+  }, [onVideoRef]);
+
   return (
     <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video
-        ref={onVideoRef}
+        ref={videoRef}
         autoPlay
         playsInline
         muted
