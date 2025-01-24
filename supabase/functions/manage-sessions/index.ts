@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,14 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { action, conversationId, sessionId, metadata } = await req.json();
-    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get the authenticated user
+    const { action, conversation_id, session_id } = await req.json();
+
+    // Get user from auth header
     const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1];
     if (!authHeader) throw new Error('No authorization header');
 
@@ -35,12 +34,12 @@ serve(async (req) => {
         const { data: newSession, error: createError } = await supabase
           .from('conversation_sessions')
           .insert({
-            conversation_id: conversationId,
+            conversation_id,
             session_type: 'chat',
             status: 'active',
             metadata: {
               started_at: new Date().toISOString(),
-              ...metadata
+              platform: 'web'
             }
           })
           .select()
@@ -57,11 +56,10 @@ serve(async (req) => {
           .update({
             status: 'ended',
             metadata: {
-              ...metadata,
               ended_at: new Date().toISOString()
             }
           })
-          .eq('id', sessionId)
+          .eq('id', session_id)
           .select()
           .single();
 
@@ -74,7 +72,7 @@ serve(async (req) => {
         const { data: sessions, error: listError } = await supabase
           .from('conversation_sessions')
           .select('*')
-          .eq('conversation_id', conversationId)
+          .eq('conversation_id', conversation_id)
           .order('created_at', { ascending: false });
 
         if (listError) throw listError;
@@ -86,20 +84,14 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        data: result
-      }),
+      JSON.stringify({ success: true, data: result }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in manage-sessions function:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

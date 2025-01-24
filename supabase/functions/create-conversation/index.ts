@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,25 +12,25 @@ serve(async (req) => {
   }
 
   try {
-    const { personaId, title, context } = await req.json();
-    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get the authenticated user
+    const { persona_id, title, context } = await req.json();
+
+    // Get user from auth header
     const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1];
     if (!authHeader) throw new Error('No authorization header');
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader);
     if (userError || !user) throw new Error('Invalid user token');
 
-    // Create the conversation
+    // Create conversation
     const { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .insert({
-        persona_id: personaId,
+        persona_id,
         user_id: user.id,
         title,
         context,
@@ -51,7 +50,7 @@ serve(async (req) => {
         status: 'active',
         metadata: {
           started_at: new Date().toISOString(),
-          participant_count: 1
+          platform: 'web'
         }
       })
       .select()
@@ -59,16 +58,13 @@ serve(async (req) => {
 
     if (sessionError) throw sessionError;
 
-    // Generate conversation URL
-    const conversationUrl = `${req.headers.get('origin')}/conversations/${conversation.id}`;
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        data: {
+      JSON.stringify({ 
+        success: true, 
+        data: { 
           conversation,
           session,
-          conversationUrl
+          conversation_url: `/chat/${conversation.id}`
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -77,10 +73,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-conversation function:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

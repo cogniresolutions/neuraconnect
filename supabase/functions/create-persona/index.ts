@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Initializing Supabase client...');
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -23,38 +21,28 @@ serve(async (req) => {
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
     const profilePicture = formData.get('profile_picture') as File;
-    const trainingMaterials = formData.getAll('training_materials') as File[];
+    const trainingMaterial = formData.get('training_material') as File;
 
-    // Get the authenticated user
+    // Get user from auth header
     const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1];
     if (!authHeader) throw new Error('No authorization header');
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader);
     if (userError || !user) throw new Error('Invalid user token');
 
-    // Upload profile picture if provided
+    // Upload profile picture
     let profilePictureUrl = null;
     if (profilePicture) {
-      const fileExt = profilePicture.name.split('.').pop();
-      const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
-      
+      const fileName = `${crypto.randomUUID()}.${profilePicture.name.split('.').pop()}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('persona_profiles')
-        .upload(filePath, profilePicture, {
-          contentType: profilePicture.type,
-          upsert: false
-        });
+        .upload(fileName, profilePicture);
 
       if (uploadError) throw uploadError;
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('persona_profiles')
-        .getPublicUrl(filePath);
-      
-      profilePictureUrl = publicUrl;
+      profilePictureUrl = uploadData.path;
     }
 
-    // Create the persona
+    // Create persona record
     const { data: persona, error: personaError } = await supabase
       .from('personas')
       .insert({
@@ -63,67 +51,47 @@ serve(async (req) => {
         description,
         profile_picture_url: profilePictureUrl,
         status: 'pending',
-        requires_training_video: true
+        model_config: {
+          model: "gpt-4",
+          max_tokens: 800,
+          temperature: 0.7
+        }
       })
       .select()
       .single();
 
     if (personaError) throw personaError;
 
-    // Upload and process training materials
-    const trainingMaterialsData = [];
-    for (const file of trainingMaterials) {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${persona.id}/${crypto.randomUUID()}.${fileExt}`;
-      
-      const { error: materialUploadError } = await supabase.storage
+    // Handle training material if provided
+    if (trainingMaterial) {
+      const fileName = `${crypto.randomUUID()}.${trainingMaterial.name.split('.').pop()}`;
+      const { error: materialError } = await supabase.storage
         .from('training_materials')
-        .upload(filePath, file, {
-          contentType: file.type,
-          upsert: false
-        });
+        .upload(`${persona.id}/${fileName}`, trainingMaterial);
 
-      if (materialUploadError) throw materialUploadError;
+      if (materialError) throw materialError;
 
-      const { error: materialError } = await supabase
+      await supabase
         .from('persona_training_materials')
         .insert({
           persona_id: persona.id,
           user_id: user.id,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          file_path: filePath,
-          status: 'pending'
+          file_name: trainingMaterial.name,
+          file_type: trainingMaterial.type,
+          file_size: trainingMaterial.size,
+          file_path: fileName,
         });
-
-      if (materialError) throw materialError;
-
-      trainingMaterialsData.push({
-        name: file.name,
-        type: file.type,
-        path: filePath
-      });
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        data: {
-          persona,
-          trainingMaterials: trainingMaterialsData
-        }
-      }),
+      JSON.stringify({ success: true, data: persona }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in create-persona function:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
