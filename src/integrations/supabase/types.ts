@@ -696,6 +696,36 @@ export type Database = {
           },
         ]
       }
+      voice_mappings: {
+        Row: {
+          azure_voice_name: string
+          created_at: string
+          display_name: string
+          gender: string
+          id: string
+          language_code: string
+          voice_style: string
+        }
+        Insert: {
+          azure_voice_name: string
+          created_at?: string
+          display_name: string
+          gender: string
+          id?: string
+          language_code: string
+          voice_style: string
+        }
+        Update: {
+          azure_voice_name?: string
+          created_at?: string
+          display_name?: string
+          gender?: string
+          id?: string
+          language_code?: string
+          voice_style?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
