@@ -16,7 +16,9 @@ serve(async (req) => {
     console.log('Request data:', { text, voice, language });
 
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    if (!azureSpeechKey) {
+    const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
+    
+    if (!azureSpeechKey || !azureSpeechEndpoint) {
       throw new Error('Azure Speech credentials not configured');
     }
 
@@ -38,8 +40,8 @@ serve(async (req) => {
 
     console.log('Making request to Azure TTS with SSML:', ssml);
     
-    // Use the correct endpoint URL format
-    const ttsUrl = 'https://eastus.api.cognitive.microsoft.com/cognitiveservices/v1';
+    // Construct the full endpoint URL for text-to-speech
+    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1/synthesize`;
     console.log('TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
