@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import VideoCallInterface from '@/components/VideoCallInterface';
+import { VideoCallInterface } from '@/components/VideoCallInterface';
 import AIPersonaVideo from '@/components/AIPersonaVideo';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';

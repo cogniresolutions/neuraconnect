@@ -9,12 +9,12 @@ import { CallControls } from './video/CallControls';
 
 interface VideoCallInterfaceProps {
   persona: any;
-  onBack: () => void;
+  onCallStateChange: (isActive: boolean) => void;
 }
 
-export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
+const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
-  onBack,
+  onCallStateChange,
 }) => {
   const navigate = useNavigate();
   const [isCallActive, setIsCallActive] = useState(false);
@@ -54,6 +54,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     setTimeout(() => {
       setIsCallActive(true);
       setIsLoading(false);
+      onCallStateChange(true);
     }, 1500);
   };
 
@@ -66,6 +67,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       stream.getTracks().forEach((track) => track.stop());
     }
     setStream(null);
+    onCallStateChange(false);
   };
 
   const handleStartRecording = () => {
@@ -78,6 +80,10 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const handleSpeechDetected = (text: string) => {
     console.log('Speech detected:', text);
+  };
+
+  const onBack = () => {
+    navigate(-1);
   };
 
   return (
@@ -121,3 +127,5 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     </div>
   );
 };
+
+export default VideoCallInterface;
