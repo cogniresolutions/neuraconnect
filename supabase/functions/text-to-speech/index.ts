@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,7 +54,7 @@ serve(async (req) => {
 
     // Step 5: Make request to Azure TTS
     console.log('Making request to Azure TTS...');
-    const ttsEndpoint = 'https://eastus.tts.speech.microsoft.com/cognitiveservices/v1';
+    const ttsEndpoint = `${azureSpeechEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
     
     const response = await fetch(ttsEndpoint, {
@@ -85,9 +85,9 @@ serve(async (req) => {
     console.log('Successfully received audio response');
     const arrayBuffer = await response.arrayBuffer();
     
-    // Convert ArrayBuffer to Base64 using a more efficient method
-    const bytes = new Uint8Array(arrayBuffer);
-    const binaryString = Array.from(bytes).map(byte => String.fromCharCode(byte)).join('');
+    // Convert ArrayBuffer to Base64
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const binaryString = Array.from(uint8Array).map(byte => String.fromCharCode(byte)).join('');
     const base64Audio = btoa(binaryString);
 
     console.log('Successfully converted audio to base64, length:', base64Audio.length);
