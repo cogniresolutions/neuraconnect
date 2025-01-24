@@ -39,18 +39,15 @@ serve(async (req) => {
     // Filter and transform the voices data
     const voiceMappings = voices
       .filter((voice: any) => {
-        const isNeuralVoice = voice.VoiceType === "Neural"
-        const isSupportedLocale = voice.Locale.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/)
-        return isNeuralVoice && isSupportedLocale
+        return voice.Locale.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/)
       })
       .map((voice: any) => {
-        const displayName = voice.DisplayName || voice.LocalName || voice.ShortName
         return {
           language_code: voice.Locale,
           voice_style: voice.ShortName,
           gender: voice.Gender.toLowerCase(),
           azure_voice_name: voice.ShortName,
-          display_name: `${displayName} (${voice.Gender})`
+          display_name: `${voice.LocalName || voice.ShortName} (${voice.Gender})`
         }
       })
 

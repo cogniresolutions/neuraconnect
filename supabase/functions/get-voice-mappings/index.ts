@@ -56,22 +56,27 @@ serve(async (req) => {
       // Transform and filter voices
       const voiceMappings = voices
         .filter((voice: any) => {
-          const isNeuralVoice = voice.VoiceType === "Neural"
-          const isSupportedLocale = voice.Locale.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/)
-          return isNeuralVoice && isSupportedLocale
+          return voice.Locale.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/)
         })
         .map((voice: any) => {
-          const displayName = voice.DisplayName || voice.LocalName || voice.ShortName
           return {
             language_code: voice.Locale,
             voice_style: voice.ShortName,
             gender: voice.Gender.toLowerCase(),
             azure_voice_name: voice.ShortName,
-            display_name: `${displayName} (${voice.Gender})`
+            display_name: `${voice.LocalName || voice.ShortName} (${voice.Gender})`
           }
         })
 
       console.log('Transformed voice mappings:', voiceMappings.length)
+
+      // Clear existing mappings first
+      const { error: deleteError } = await supabaseClient
+        .from('voice_mappings')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+
+      if (deleteError) throw deleteError
 
       // Insert new mappings
       const { error: insertError } = await supabaseClient
