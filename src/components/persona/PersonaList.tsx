@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlayCircle, Trash2, Edit2, Phone } from "lucide-react";
+import { PlayCircle, Trash2, Edit2, Phone, Video } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Persona {
   id: string;
@@ -31,8 +32,13 @@ export const PersonaList = ({
   onSelect,
   isDeploying,
 }: PersonaListProps) => {
+  const navigate = useNavigate();
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
+
+  const handleVideoCall = (personaId: string) => {
+    navigate(`/video-call/${personaId}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -77,6 +83,14 @@ export const PersonaList = ({
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleVideoCall(persona.id)}
+                        className="text-indigo-400 border-indigo-400/30"
+                      >
+                        <Video className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => onDelete(persona.id)}
                         className="text-red-400 border-red-400/30"
                       >
@@ -104,6 +118,14 @@ export const PersonaList = ({
                       <p className="text-sm text-gray-400">{persona.description}</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleVideoCall(persona.id)}
+                        className="text-indigo-400 border-indigo-400/30"
+                      >
+                        <Video className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
