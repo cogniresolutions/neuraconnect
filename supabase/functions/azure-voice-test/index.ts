@@ -13,6 +13,8 @@ serve(async (req) => {
   try {
     console.log('Starting voice test...');
     const { text, voice, language } = await req.json();
+    
+    console.log('Request parameters:', { text, voice, language });
 
     if (!text || !voice) {
       throw new Error('Missing required parameters: text and voice are required');
@@ -46,6 +48,8 @@ serve(async (req) => {
     `;
 
     console.log('Sending request to Azure Speech Service...');
+    console.log('SSML payload:', ssml);
+    
     const response = await fetch(
       `${azureSpeechEndpoint}/cognitiveservices/v1`,
       {
@@ -74,6 +78,7 @@ serve(async (req) => {
     const arrayBuffer = await response.arrayBuffer();
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
+    console.log('Audio conversion successful, sending response');
     return new Response(
       JSON.stringify({ 
         success: true,

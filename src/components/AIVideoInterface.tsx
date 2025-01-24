@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 import { Loader2, Mic, MicOff, Globe } from 'lucide-react';
-import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VOICE_MAPPINGS } from '@/constants/voices';
 import { supabase } from '@/integrations/supabase/client';
@@ -108,7 +107,11 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
           await playNextAudio();
         } catch (error) {
           console.error('Error processing audio:', error);
-          handleAPIError(error, 'Audio processing');
+          toast({
+            title: "Audio Error",
+            description: "Failed to process audio response",
+            variant: "destructive",
+          });
         }
       }
     } else if (event.type === 'response.audio.done') {
