@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { User } from 'lucide-react';
 
 interface UserVideoProps {
@@ -7,6 +7,10 @@ interface UserVideoProps {
 }
 
 export const UserVideo: React.FC<UserVideoProps> = ({ videoRef, userName }) => {
+  useEffect(() => {
+    console.log('UserVideo mounted, videoRef:', videoRef.current);
+  }, []);
+
   return (
     <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video

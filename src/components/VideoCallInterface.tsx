@@ -35,6 +35,11 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const azureVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
 
+  useEffect(() => {
+    console.log('VideoCallInterface mounted, videoRef:', videoRef.current);
+    return () => cleanup();
+  }, []);
+
   const cleanup = () => {
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -60,10 +65,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       chatRef.current = null;
     }
   };
-
-  useEffect(() => {
-    return cleanup;
-  }, []);
 
   const handleMessage = async (event: any) => {
     console.log('Received WebSocket message:', event);
@@ -111,8 +112,16 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       setStream(mediaStream);
 
+      // Wait for the video element to be available
+      let attempts = 0;
+      const maxAttempts = 10;
+      while (!videoRef.current && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
       if (!videoRef.current) {
-        console.error('Video element not found - this should not happen');
+        console.error('Video element not found after waiting');
         throw new Error('Video element not found');
       }
 
