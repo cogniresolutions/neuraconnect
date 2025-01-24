@@ -111,9 +111,14 @@ export const PersonaList = ({
     try {
       console.log('Starting deletion process for persona:', personaId);
       
+      const startTime = performance.now();
+      
       const { data, error } = await supabase.functions.invoke('delete-persona', {
         body: { personaId }
       });
+
+      const endTime = performance.now();
+      const responseTime = Math.round(endTime - startTime);
 
       if (error) throw error;
 
@@ -132,7 +137,7 @@ export const PersonaList = ({
           endpoint: 'delete-persona',
           status: 'success',
           error_message: null,
-          response_time: 0,
+          response_time: responseTime,
         });
 
       if (notificationError) {
@@ -279,4 +284,3 @@ export const PersonaList = ({
     </div>
   );
 };
-
