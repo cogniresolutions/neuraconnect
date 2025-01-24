@@ -26,39 +26,72 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isSpeechRecognitionActive, setIsSpeechRecognitionActive] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
 
-  const captureScreenshot = async () => {
-    if (!localVideoRef.current || !sessionIdRef.current) {
-      toast({
-        title: "Error",
-        description: "Cannot capture screenshot - video not initialized",
-        variant: "destructive",
-      });
-      return;
-    }
+  const startSpeechRecognition = async () => {
+    if (!stream) return;
 
     try {
-      await captureAndStoreScreenshot(localVideoRef.current, sessionIdRef.current);
-      
-      toast({
-        title: "Success",
-        description: "Screenshot captured and stored securely",
-      });
-    } catch (error: any) {
-      console.error('Screenshot error:', error);
+      const mediaRecorder = new MediaRecorder(stream);
+      const audioChunks: Blob[] = [];
+
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+
+        if (mediaRecorder.state === 'inactive') {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+          const reader = new FileReader();
+          
+          reader.onload = async () => {
+            const base64Audio = (reader.result as string).split(',')[1];
+            
+            const { data, error } = await supabase.functions.invoke('azure-speech', {
+              body: { mode: 'stt', audio: base64Audio }
+            });
+
+            if (error) {
+              console.error('Speech recognition error:', error);
+              return;
+            }
+
+            if (data?.text) {
+              // Send transcribed text to chat
+              chatRef.current?.sendMessage(data.text);
+            }
+          };
+
+          reader.readAsDataURL(audioBlob);
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start(1000); // Capture in 1-second intervals
+      setIsSpeechRecognitionActive(true);
+    } catch (error) {
+      console.error('Error starting speech recognition:', error);
       toast({
         title: "Error",
-        description: "Failed to capture screenshot: " + error.message,
+        description: "Failed to start speech recognition",
         variant: "destructive",
       });
     }
+  };
+
+  const stopSpeechRecognition = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsSpeechRecognitionActive(false);
   };
 
   // Cleanup function
@@ -168,11 +201,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     
     try {
       setIsInitializing(true);
-      await cleanup(); // Clean up any existing sessions first
+      await cleanup();
 
       console.log('Starting new video call session...');
       
-      // Create a new session
       const { data: session, error: sessionError } = await supabase
         .from('tavus_sessions')
         .insert({
@@ -192,32 +224,35 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (sessionError) throw sessionError;
       sessionIdRef.current = session.id;
 
-      // Initialize chat connection
       chatRef.current = new RealtimeChat((event) => {
         if (event.type === 'response.audio.delta') {
           onSpeakingChange(true);
         } else if (event.type === 'response.audio.done') {
           onSpeakingChange(false);
+        } else if (event.type === 'response.text') {
+          // Convert response text to speech
+          supabase.functions.invoke('azure-speech', {
+            body: {
+              mode: 'tts',
+              text: event.content,
+              voice: persona.voice_style
+            }
+          }).then(({ data, error }) => {
+            if (error) {
+              console.error('Text-to-speech error:', error);
+              return;
+            }
+
+            if (data?.audio) {
+              const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+              audio.play();
+            }
+          });
         }
       });
 
       await chatRef.current.init(persona);
 
-      // Wait for video elements
-      await new Promise<void>((resolve) => {
-        const checkRefs = () => {
-          if (localVideoRef.current && remoteVideoRef.current) {
-            console.log('Video elements are ready');
-            resolve();
-          } else {
-            console.log('Waiting for video elements...');
-            setTimeout(checkRefs, 100);
-          }
-        };
-        checkRefs();
-      });
-
-      console.log('Requesting media stream...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -236,29 +271,24 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         return;
       }
 
-      console.log('Setting up media stream...');
       setStream(mediaStream);
       
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = mediaStream;
-        await localVideoRef.current.play().catch(error => {
-          console.error('Error playing video:', error);
-          throw error;
-        });
+        await localVideoRef.current.play();
       }
 
-      // Initialize audio context
       audioContextRef.current = new AudioContext();
       
       setIsCallActive(true);
       onCallStateChange?.(true);
+      startSpeechRecognition();
       
       toast({
         title: "Call Connected",
         description: `You're now in a call with ${persona.name}`,
       });
 
-      console.log('Camera and audio initialized successfully');
     } catch (error: any) {
       console.error('Camera/audio initialization error:', error);
       await cleanup();
@@ -302,40 +332,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     }
   };
-
-  // Add interval ref for screenshots
-  const screenshotIntervalRef = useRef<number | null>(null);
-
-  const startScreenshotCapture = useCallback(async () => {
-    if (!localVideoRef.current || !sessionIdRef.current) return;
-    
-    try {
-      const imageData = captureVideoFrame(localVideoRef.current);
-      
-      // Analyze the frame
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await analyzeVideoFrame(imageData, persona.id, user.id);
-    } catch (error) {
-      console.error('Error capturing/analyzing screenshot:', error);
-    }
-  }, [persona.id]);
-
-  // Start screenshot capture when call becomes active
-  useEffect(() => {
-    if (isCallActive && !screenshotIntervalRef.current) {
-      // Capture screenshots every 30 seconds
-      screenshotIntervalRef.current = window.setInterval(startScreenshotCapture, 30000);
-    }
-
-    return () => {
-      if (screenshotIntervalRef.current) {
-        clearInterval(screenshotIntervalRef.current);
-        screenshotIntervalRef.current = null;
-      }
-    };
-  }, [isCallActive, startScreenshotCapture]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50">
