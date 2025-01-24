@@ -31,7 +31,7 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       }
 
       // Format the voice name according to Azure's naming convention
-      const formattedVoice = `${language}-${voiceStyle}`;
+      const formattedVoice = `${language}-${voiceStyle}Neural`;
       console.log('Formatted voice name:', formattedVoice);
 
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {

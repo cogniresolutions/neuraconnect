@@ -65,14 +65,13 @@ serve(async (req) => {
     const voices = await voicesResponse.json();
     console.log('Available voices count:', voices.length);
 
-    // Format the voice name to match Azure's format
-    const formattedVoice = voice.endsWith('Neural') ? voice : `${voice}Neural`;
-    console.log('Formatted voice name:', formattedVoice);
-
-    // Verify the requested voice exists
-    const voiceExists = voices.some((v: any) => v.ShortName === formattedVoice);
+    // The voice parameter should already be in format "en-GB-SaraNeural"
+    // Let's verify it exists in the available voices
+    console.log('Checking for voice:', voice);
+    const voiceExists = voices.some((v: any) => v.ShortName === voice);
     if (!voiceExists) {
-      throw new Error(`Voice '${formattedVoice}' not found in available voices`);
+      console.error('Available voices:', voices.map((v: any) => v.ShortName));
+      throw new Error(`Voice '${voice}' not found in available voices`);
     }
 
     // Prepare SSML with proper escaping
@@ -85,7 +84,7 @@ serve(async (req) => {
 
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='${formattedVoice}'>
+        <voice name='${voice}'>
           ${escapedText}
         </voice>
       </speak>
@@ -114,7 +113,7 @@ serve(async (req) => {
         statusText: ttsResponse.statusText,
         error: errorText,
         endpoint: ttsUrl,
-        voice: formattedVoice,
+        voice: voice,
         ssml
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
@@ -136,7 +135,7 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice: formattedVoice,
+          voice: voice,
           endpoint: ttsUrl,
           region: region,
           timestamp: new Date().toISOString()
