@@ -6,6 +6,7 @@ import { Loader2, Mic, MicOff, Globe } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VOICE_MAPPINGS } from '@/constants/voices';
 import { supabase } from '@/integrations/supabase/client';
+import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
 
 interface AIVideoInterfaceProps {
   persona: any;

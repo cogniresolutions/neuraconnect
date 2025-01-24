@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
 
 export interface APIError extends Error {
   code?: string;
@@ -29,16 +28,7 @@ export async function logAPIUsage(endpoint: string, status: string, error?: Erro
 
 export function handleAPIError(error: APIError, context: string) {
   console.error(`${context} error:`, error);
-  
-  const errorMessage = error.message || 'An unexpected error occurred';
-  
-  toast({
-    title: "Error",
-    description: errorMessage,
-    variant: "destructive",
-  });
-
-  return errorMessage;
+  return error.message || 'An unexpected error occurred';
 }
 
 export function measureResponseTime() {
