@@ -6,6 +6,8 @@ import { UserVideo } from './video/UserVideo';
 import { PersonaVideo } from './video/PersonaVideo';
 import { DialogsContainer } from './video/DialogsContainer';
 import { CallControls } from './video/CallControls';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -17,6 +19,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   onCallStateChange,
 }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -25,6 +28,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [userName, setUserName] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
 
   useEffect(() => {
     if (isCallActive) {
@@ -38,6 +42,11 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         })
         .catch((error) => {
           console.error('Error accessing media devices:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to access camera or microphone',
+            variant: 'destructive',
+          });
         });
     }
 
@@ -48,37 +57,139 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     };
   }, [isCallActive]);
 
-  const handleStartCall = () => {
+  const handleStartCall = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const { data: session, error } = await supabase.functions.invoke('video-call', {
+        body: {
+          action: 'start',
+          personaId: persona.id,
+          userId: (await supabase.auth.getUser()).data.user?.id,
+          personaConfig: {
+            name: persona.name,
+            personality: persona.personality,
+            skills: persona.skills,
+            topics: persona.topics,
+          },
+        },
+      });
+
+      if (error) throw error;
+
       setIsCallActive(true);
-      setIsLoading(false);
       onCallStateChange(true);
-    }, 1500);
+      toast({
+        title: 'Call Started',
+        description: `Connected with ${persona.name}`,
+      });
+    } catch (error) {
+      console.error('Error starting call:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to start call',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleEndCall = () => {
+  const handleEndCall = async () => {
     if (isRecording) {
       handleStopRecording();
     }
-    setIsCallActive(false);
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
+    
+    try {
+      await supabase.functions.invoke('video-call', {
+        body: {
+          action: 'end',
+          personaId: persona.id,
+          userId: (await supabase.auth.getUser()).data.user?.id,
+        },
+      });
+
+      setIsCallActive(false);
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      setStream(null);
+      onCallStateChange(false);
+      
+      toast({
+        title: 'Call Ended',
+        description: 'The video call has been disconnected',
+      });
+    } catch (error) {
+      console.error('Error ending call:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to end call properly',
+        variant: 'destructive',
+      });
     }
-    setStream(null);
-    onCallStateChange(false);
   };
 
   const handleStartRecording = () => {
     setIsRecording(true);
+    toast({
+      title: 'Recording Started',
+      description: 'Your conversation is now being recorded',
+    });
   };
 
   const handleStopRecording = () => {
     setIsRecording(false);
+    toast({
+      title: 'Recording Stopped',
+      description: 'Your conversation recording has been saved',
+    });
   };
 
-  const handleSpeechDetected = (text: string) => {
-    console.log('Speech detected:', text);
+  const handleSpeechDetected = async (text: string) => {
+    if (!isCallActive || isProcessingAudio) return;
+    
+    setIsProcessingAudio(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('azure-chat', {
+        body: { 
+          message: text,
+          persona: {
+            name: persona.name,
+            personality: persona.personality,
+            skills: persona.skills,
+            topics: persona.topics
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      // Convert response to speech using Azure TTS
+      const { data: audioData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+        body: { 
+          text: data.response,
+          voice: persona.voice_style
+        }
+      });
+
+      if (ttsError) throw ttsError;
+
+      // Play the audio response
+      if (audioData?.audioContent) {
+        const audio = new Audio(`data:audio/mp3;base64,${audioData.audioContent}`);
+        await audio.play();
+      }
+
+    } catch (error) {
+      console.error('Error processing speech:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to process speech',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessingAudio(false);
+    }
   };
 
   const onBack = () => {
