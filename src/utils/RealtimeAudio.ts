@@ -12,49 +12,6 @@ export class AudioRecorder {
 
   constructor(private onAudioData: (audioData: Float32Array) => void) {}
 
-  private checkAudioLevel = () => {
-    if (!this.audioContext || !this.source) return;
-    
-    const analyser = this.audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    this.source.connect(analyser);
-    
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    let lastSpeakingState = false;
-    let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
-    
-    const analyze = () => {
-      if (!this.audioContext) return;
-      
-      analyser.getByteFrequencyData(dataArray);
-      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
-      const isSpeaking = average > 30;
-      
-      // Only emit speaking state change if it's different from last state
-      if (isSpeaking !== lastSpeakingState) {
-        // Clear existing timeout
-        if (debounceTimeout) {
-          clearTimeout(debounceTimeout);
-        }
-        
-        // Set new timeout to debounce the state change
-        debounceTimeout = setTimeout(() => {
-          if (isSpeaking !== lastSpeakingState) {
-            lastSpeakingState = isSpeaking;
-            this.onAudioData(new Float32Array([isSpeaking ? 1 : 0]));
-            console.log('Speaking state changed:', isSpeaking);
-          }
-        }, 500); // Debounce for 500ms
-      }
-      
-      requestAnimationFrame(analyze);
-    };
-    
-    analyze();
-  };
-
   async start() {
     try {
       console.log('Starting audio recorder...');
@@ -133,13 +90,14 @@ export class RealtimeChat {
   async init(persona: any) {
     try {
       console.log('Initializing chat with persona:', persona);
+      console.log('Step 1: Getting Azure OpenAI token and speech configuration...');
       
-      const { data, error } = await supabase.functions.invoke('generate-chat-token', {
+      const { data, error } = await supabase.functions.invoke('azure-realtime-chat', {
         body: { 
-          personaId: persona.id,
-          config: {
+          persona: {
+            id: persona.id,
             name: persona.name,
-            voice: persona.voice_style,
+            voice_style: persona.voice_style,
             personality: persona.personality,
             skills: persona.skills || [],
             topics: persona.topics || []
@@ -151,10 +109,15 @@ export class RealtimeChat {
       if (!data?.token) throw new Error('No token received');
       if (!data?.endpoint) throw new Error('No endpoint received from token generation');
 
+      console.log('Step 2: Token received, configuring WebSocket connection...');
       this.clientSecret = data.token;
       this.wsEndpoint = data.endpoint;
-      console.log('Successfully received chat token and endpoint');
+      
+      console.log('Step 3: Establishing WebSocket connection...');
       await this.establishWebSocketConnection();
+
+      console.log('Step 4: WebSocket connection established successfully');
+      console.log('Step 5: Ready for real-time communication');
 
     } catch (error) {
       console.error('Error initializing chat:', error);
@@ -175,7 +138,6 @@ export class RealtimeChat {
     console.log('Establishing WebSocket connection...');
     
     try {
-      // Ensure the endpoint is properly formatted
       const baseUrl = this.wsEndpoint.endsWith('/') ? this.wsEndpoint.slice(0, -1) : this.wsEndpoint;
       const wsUrl = new URL(`${baseUrl}/openai/deployments/gpt-4o-realtime-preview/chat/realtime/stream`);
       wsUrl.searchParams.append('api-version', '2024-12-17');
@@ -253,6 +215,7 @@ export class RealtimeChat {
     }
 
     try {
+      console.log('Step 1: Sending message to Azure OpenAI...');
       const message = typeof content === 'string' 
         ? { 
             type: 'text', 
@@ -263,7 +226,9 @@ export class RealtimeChat {
             content
           };
       
+      console.log('Step 2: Message formatted, sending through WebSocket...');
       this.socket.send(JSON.stringify(message));
+      console.log('Step 3: Message sent successfully');
     } catch (error) {
       console.error('Error sending message:', error);
       this.messageHandler({
@@ -274,26 +239,10 @@ export class RealtimeChat {
   }
 
   disconnect() {
-    console.log('Disconnecting WebSocket');
+    console.log('Disconnecting WebSocket and cleaning up resources...');
     if (this.socket) {
       this.socket.close();
       this.socket = null;
-    }
-  }
-
-  updateContext(context: any) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket not connected');
-      return;
-    }
-
-    try {
-      this.socket.send(JSON.stringify({
-        type: 'context',
-        context
-      }));
-    } catch (error) {
-      console.error('Error updating context:', error);
     }
   }
 }
