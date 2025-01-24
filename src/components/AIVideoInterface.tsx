@@ -22,6 +22,29 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   const chatRef = useRef<RealtimeChat | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const audioQueueRef = useRef<AudioBuffer[]>([]);
+  const isPlayingRef = useRef(false);
+
+  const playNextAudio = async () => {
+    if (!audioContextRef.current || audioQueueRef.current.length === 0 || isPlayingRef.current) {
+      return;
+    }
+
+    isPlayingRef.current = true;
+    const audioBuffer = audioQueueRef.current.shift();
+    if (!audioBuffer) return;
+
+    const source = audioContextRef.current.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContextRef.current.destination);
+    
+    source.onended = () => {
+      isPlayingRef.current = false;
+      playNextAudio();
+    };
+
+    source.start(0);
+  };
 
   const handleMessage = async (event: any) => {
     console.log('Received WebSocket message:', event);
@@ -30,7 +53,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       console.log('Received audio delta, persona is speaking');
       onSpeakingChange(true);
       
-      // Play the audio if it's base64 encoded
       if (event.audio) {
         try {
           const audioData = atob(event.audio);
@@ -45,10 +67,8 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
           }
           
           const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-          const source = audioContextRef.current.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(audioContextRef.current.destination);
-          source.start(0);
+          audioQueueRef.current.push(audioBuffer);
+          playNextAudio();
         } catch (error) {
           console.error('Error playing audio:', error);
         }
@@ -57,7 +77,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       console.log('Audio response completed, persona stopped speaking');
       onSpeakingChange(false);
     } else if (event.type === 'response.text') {
-      // Translate response if not in English
       if (selectedLanguage !== 'en-US') {
         const targetLanguage = selectedLanguage.split('-')[0];
         const { data, error } = await supabase.functions.invoke('azure-translate', {

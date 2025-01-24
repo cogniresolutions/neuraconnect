@@ -27,23 +27,48 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const targetLanguage = persona?.model_config?.language || 'en';
 
   const initializeMediaStream = async () => {
     try {
+      console.log('Initializing media stream...');
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 44100
         }
       });
       
+      console.log('Media stream initialized:', stream);
       streamRef.current = stream;
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        console.log('Video element playing');
       }
+
+      // Initialize audio context
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const processor = audioContextRef.current.createScriptProcessor(1024, 1, 1);
+      
+      processor.onaudioprocess = (e) => {
+        // Process audio data here
+        const inputData = e.inputBuffer.getChannelData(0);
+        console.log('Audio data received:', inputData.length);
+      };
+
+      source.connect(processor);
+      processor.connect(audioContextRef.current.destination);
       
       return stream;
     } catch (error) {
@@ -116,6 +141,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     const getMeasureTime = measureResponseTime();
     
     try {
+      console.log('Starting call...');
       // Initialize media stream first
       await initializeMediaStream();
 
@@ -156,9 +182,19 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     const getMeasureTime = measureResponseTime();
     
     try {
+      console.log('Ending call...');
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('Track stopped:', track.kind);
+        });
         streamRef.current = null;
+      }
+
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+        console.log('Audio context closed');
       }
 
       const { error } = await supabase.functions.invoke('video-call', {
@@ -191,9 +227,18 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('Cleaning up video call interface...');
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('Track stopped on cleanup:', track.kind);
+        });
         streamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        console.log('Audio context closed on cleanup');
       }
     };
   }, []);
@@ -208,7 +253,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
               autoPlay
               playsInline
               muted={false}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transform scale-x-[-1]"
             />
             <VideoAnalysis
               personaId={persona.id}
