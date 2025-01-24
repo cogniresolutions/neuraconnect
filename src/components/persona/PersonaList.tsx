@@ -90,7 +90,74 @@ export const PersonaList = ({
       setIsDeleting(true);
       console.log('Deleting persona:', personaId);
 
-      // Delete training materials
+      // Get all training materials to delete from storage
+      const { data: trainingMaterials } = await supabase
+        .from('persona_training_materials')
+        .select('file_path')
+        .eq('persona_id', personaId);
+
+      // Delete training materials from storage
+      if (trainingMaterials?.length) {
+        const { error: storageError } = await supabase.storage
+          .from('training_materials')
+          .remove(trainingMaterials.map(tm => tm.file_path));
+
+        if (storageError) {
+          console.error('Error deleting training materials from storage:', storageError);
+          throw storageError;
+        }
+      }
+
+      // Get training videos to delete from storage
+      const { data: trainingVideos } = await supabase
+        .from('training_videos')
+        .select('video_url, consent_url')
+        .eq('persona_id', personaId);
+
+      // Delete training videos from storage
+      if (trainingVideos?.length) {
+        const videoUrls = trainingVideos.flatMap(tv => [tv.video_url, tv.consent_url].filter(Boolean));
+        const { error: videoStorageError } = await supabase.storage
+          .from('training_videos')
+          .remove(videoUrls);
+
+        if (videoStorageError) {
+          console.error('Error deleting training videos from storage:', videoStorageError);
+          throw videoStorageError;
+        }
+      }
+
+      // Get profile picture URL to delete from storage
+      const { data: persona } = await supabase
+        .from('personas')
+        .select('profile_picture_url, avatar_url')
+        .eq('id', personaId)
+        .single();
+
+      // Delete profile pictures from storage if they exist
+      if (persona?.profile_picture_url) {
+        const { error: profilePicError } = await supabase.storage
+          .from('persona_profiles')
+          .remove([persona.profile_picture_url]);
+
+        if (profilePicError) {
+          console.error('Error deleting profile picture:', profilePicError);
+          throw profilePicError;
+        }
+      }
+
+      if (persona?.avatar_url) {
+        const { error: avatarError } = await supabase.storage
+          .from('persona_assets')
+          .remove([persona.avatar_url]);
+
+        if (avatarError) {
+          console.error('Error deleting avatar:', avatarError);
+          throw avatarError;
+        }
+      }
+
+      // Delete all related database records
       const { error: trainingError } = await supabase
         .from('persona_training_materials')
         .delete()
@@ -101,7 +168,6 @@ export const PersonaList = ({
         throw trainingError;
       }
 
-      // Delete training videos
       const { error: videosError } = await supabase
         .from('training_videos')
         .delete()
@@ -112,7 +178,6 @@ export const PersonaList = ({
         throw videosError;
       }
 
-      // Delete emotion analysis data
       const { error: emotionError } = await supabase
         .from('emotion_analysis')
         .delete()
@@ -123,7 +188,6 @@ export const PersonaList = ({
         throw emotionError;
       }
 
-      // Delete API keys associated with the persona
       const { error: apiKeyError } = await supabase
         .from('api_keys')
         .delete()
@@ -134,7 +198,6 @@ export const PersonaList = ({
         throw apiKeyError;
       }
 
-      // Delete persona appearances
       const { error: appearanceError } = await supabase
         .from('persona_appearances')
         .delete()
@@ -156,13 +219,13 @@ export const PersonaList = ({
         throw personaError;
       }
 
+      // Remove the deleted persona from local state
+      onDelete(personaId);
+
       toast({
         title: "Success",
-        description: "Persona and associated data deleted successfully",
+        description: "Persona and all associated data deleted successfully",
       });
-      
-      // Call the onDelete prop to update the UI
-      onDelete(personaId);
     } catch (error: any) {
       console.error('Delete persona error:', error);
       toast({
