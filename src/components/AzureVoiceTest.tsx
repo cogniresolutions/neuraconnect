@@ -21,7 +21,7 @@ export default function AzureVoiceTest() {
   const [isLoading, setIsLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>('en-US');
-  const [selectedGender, setSelectedGender] = useState<VoiceGender>('Female');
+  const [selectedGender, setSelectedGender] = useState<VoiceGender>('female');
   const { toast } = useToast();
 
   const getSelectedVoice = () => {
@@ -111,8 +111,8 @@ export default function AzureVoiceTest() {
                 <SelectValue placeholder="Select voice gender" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Female">Female</SelectItem>
-                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
               </SelectContent>
             </Select>
           </div>

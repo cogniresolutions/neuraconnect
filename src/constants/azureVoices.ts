@@ -18,6 +18,18 @@ interface AzureVoice {
   locale: string;
 }
 
+export const LOCALIZED_TEST_MESSAGES: Record<SupportedLanguage, string> = {
+  'en-US': 'Hello! This is a test of the Azure Speech Service. How do I sound?',
+  'en-GB': 'Hello! This is a test of the Azure Speech Service. How do I sound?',
+  'es-ES': '¡Hola! Esta es una prueba del Servicio de voz de Azure. ¿Cómo sueno?',
+  'fr-FR': 'Bonjour! Ceci est un test du service Azure Speech. Comment est-ce que je sonne?',
+  'de-DE': 'Hallo! Dies ist ein Test des Azure Speech Service. Wie klinge ich?',
+  'it-IT': 'Ciao! Questo è un test del servizio Azure Speech. Come suono?',
+  'ja-JP': 'こんにちは！これはAzure Speech Serviceのテストです。声の調子はどうですか？',
+  'ko-KR': '안녕하세요! Azure Speech Service 테스트입니다. 제 목소리는 어떠신가요?',
+  'zh-CN': '你好！这是Azure语音服务的测试。我的声音怎么样？'
+};
+
 export const AZURE_VOICES: Record<SupportedLanguage, AzureVoice[]> = {
   'en-US': [
     { name: 'en-US-JennyNeural', displayName: 'Jenny', gender: 'female', locale: 'English (US)' },
