@@ -1,8 +1,21 @@
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function APIDocumentation() {
+  const { toast } = useToast();
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast({
+      title: "Code copied",
+      description: "The code has been copied to your clipboard.",
+    });
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div className="prose dark:prose-invert max-w-none">
@@ -30,13 +43,25 @@ export function APIDocumentation() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Generate an API key from your dashboard to authenticate your requests.
                 </p>
-                <pre className="bg-muted p-4 rounded-md text-sm">
-                  <code>
-                    curl --request POST \
-                    --url https://kzubwatryfgonzuzldej.supabase.co/functions/v1/generate-api-key \
-                    --header 'Authorization: Bearer YOUR_JWT_TOKEN'
-                  </code>
-                </pre>
+                <div className="relative">
+                  <pre className="bg-muted p-4 rounded-md text-sm">
+                    <code>
+                      curl --request POST \
+                      --url https://kzubwatryfgonzuzldej.supabase.co/functions/v1/generate-api-key \
+                      --header 'Authorization: Bearer YOUR_JWT_TOKEN'
+                    </code>
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyCode(`curl --request POST \\
+  --url https://kzubwatryfgonzuzldej.supabase.co/functions/v1/generate-api-key \\
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN'`)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
               </section>
 
               <section>
@@ -44,8 +69,9 @@ export function APIDocumentation() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Create your first digital twin by providing basic information and optional training data.
                 </p>
-                <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-                  <pre className="text-sm">
+                <div className="relative">
+                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                    <pre className="text-sm">
 {`// JavaScript Example
 const response = await fetch(
   'https://kzubwatryfgonzuzldej.supabase.co/functions/v1/api-personas',
@@ -63,8 +89,32 @@ const response = await fetch(
     })
   }
 );`}
-                  </pre>
-                </ScrollArea>
+                    </pre>
+                  </ScrollArea>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyCode(`const response = await fetch(
+  'https://kzubwatryfgonzuzldej.supabase.co/functions/v1/api-personas',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: 'Assistant Name',
+      description: 'A helpful digital twin',
+      voiceStyle: 'natural',
+      language: 'en'
+    })
+  }
+);`)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
               </section>
 
               <section>
@@ -72,8 +122,9 @@ const response = await fetch(
                 <p className="text-sm text-muted-foreground mb-4">
                   Initialize a conversation session with your digital twin.
                 </p>
-                <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-                  <pre className="text-sm">
+                <div className="relative">
+                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                    <pre className="text-sm">
 {`// JavaScript Example
 const response = await fetch(
   'https://kzubwatryfgonzuzldej.supabase.co/functions/v1/api-conversations/start',
@@ -89,8 +140,30 @@ const response = await fetch(
     })
   }
 );`}
-                  </pre>
-                </ScrollArea>
+                    </pre>
+                  </ScrollArea>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyCode(`const response = await fetch(
+  'https://kzubwatryfgonzuzldej.supabase.co/functions/v1/api-conversations/start',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      personaId: 'PERSONA_ID',
+      context: 'Initial conversation context'
+    })
+  }
+);`)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
               </section>
             </div>
           </Card>
