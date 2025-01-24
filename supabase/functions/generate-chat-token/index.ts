@@ -40,16 +40,28 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const error = await response.text();
+      const errorText = await response.text();
       console.error('Azure OpenAI token generation error:', {
         status: response.status,
         statusText: response.statusText,
-        error
+        error: errorText
       });
-      throw new Error(`Failed to generate token: ${error}`);
+      throw new Error(`Failed to generate token: ${errorText}`);
     }
 
-    const data = await response.json();
+    // Read the response as text first
+    const responseText = await response.text();
+    console.log('Raw response:', responseText);
+
+    // Try to parse the response text as JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse response as JSON:', parseError);
+      throw new Error('Invalid response format from Azure OpenAI');
+    }
+
     console.log("Token generated successfully");
 
     return new Response(JSON.stringify(data), {
