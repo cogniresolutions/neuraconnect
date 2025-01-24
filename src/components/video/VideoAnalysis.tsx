@@ -6,11 +6,13 @@ import { captureVideoFrame } from '@/utils/videoCapture';
 interface VideoAnalysisProps {
   personaId: string;
   onAnalysisComplete: (analysis: any) => void;
+  onSpeechDetected?: (text: string) => void;
 }
 
 export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
   personaId,
-  onAnalysisComplete
+  onAnalysisComplete,
+  onSpeechDetected
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -29,6 +31,22 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
           videoRef.current.srcObject = stream;
         }
         streamRef.current = stream;
+
+        // Initialize speech recognition if onSpeechDetected is provided
+        if (onSpeechDetected && 'webkitSpeechRecognition' in window) {
+          const SpeechRecognition = window.webkitSpeechRecognition;
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+
+          recognition.onresult = (event) => {
+            const last = event.results.length - 1;
+            const text = event.results[last][0].transcript;
+            onSpeechDetected(text);
+          };
+
+          recognition.start();
+        }
       } catch (error: any) {
         console.error('Camera access error:', error);
         toast({
@@ -46,7 +64,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [toast]);
+  }, [toast, onSpeechDetected]);
 
   useEffect(() => {
     const analyzeInterval = setInterval(async () => {
