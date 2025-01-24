@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
@@ -21,6 +21,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en-US');
   const chatRef = useRef<RealtimeChat | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const handleMessage = async (event: any) => {
     console.log('Received WebSocket message:', event);
@@ -28,6 +29,30 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     if (event.type === 'response.audio.delta') {
       console.log('Received audio delta, persona is speaking');
       onSpeakingChange(true);
+      
+      // Play the audio if it's base64 encoded
+      if (event.audio) {
+        try {
+          const audioData = atob(event.audio);
+          const arrayBuffer = new ArrayBuffer(audioData.length);
+          const view = new Uint8Array(arrayBuffer);
+          for (let i = 0; i < audioData.length; i++) {
+            view[i] = audioData.charCodeAt(i);
+          }
+          
+          if (!audioContextRef.current) {
+            audioContextRef.current = new AudioContext();
+          }
+          
+          const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+          const source = audioContextRef.current.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContextRef.current.destination);
+          source.start(0);
+        } catch (error) {
+          console.error('Error playing audio:', error);
+        }
+      }
     } else if (event.type === 'response.audio.done') {
       console.log('Audio response completed, persona stopped speaking');
       onSpeakingChange(false);
@@ -59,8 +84,16 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
       
-      // Initialize audio only
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Initialize audio with specific constraints
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        }
+      });
+      
       streamRef.current = stream;
       
       chatRef.current = new RealtimeChat(handleMessage);
@@ -84,6 +117,12 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       const responseTime = getMeasureTime();
       await logAPIUsage('start-conversation', 'error', error, responseTime);
       handleAPIError(error, 'Starting conversation');
+      
+      // Cleanup on error
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -97,6 +136,10 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
       }
       chatRef.current?.disconnect();
       
@@ -126,6 +169,23 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       });
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (chatRef.current) {
+        chatRef.current.disconnect();
+      }
+    };
+  }, []);
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">

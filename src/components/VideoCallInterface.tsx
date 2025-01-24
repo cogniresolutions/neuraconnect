@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { VideoAnalysis } from './video/VideoAnalysis';
 import { CallControls } from './video/CallControls';
@@ -25,7 +25,37 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [subtitles, setSubtitles] = useState<string>('');
   const [translatedSubtitles, setTranslatedSubtitles] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const targetLanguage = persona?.model_config?.language || 'en';
+
+  const initializeMediaStream = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      
+      return stream;
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
+      toast({
+        title: "Error",
+        description: "Failed to access camera or microphone. Please check permissions.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
 
   const translateText = async (text: string) => {
     const getMeasureTime = measureResponseTime();
@@ -86,6 +116,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     const getMeasureTime = measureResponseTime();
     
     try {
+      // Initialize media stream first
+      await initializeMediaStream();
+
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
           action: 'start',
@@ -109,6 +142,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       handleAPIError(error, 'Starting call');
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -119,6 +156,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     const getMeasureTime = measureResponseTime();
     
     try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+
       const { error } = await supabase.functions.invoke('video-call', {
         body: { 
           action: 'end',
@@ -146,11 +188,28 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full max-w-4xl px-4">
       {isCallActive && (
         <Card className="w-full space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
           <div className="aspect-video rounded-lg overflow-hidden relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted={false}
+              className="w-full h-full object-cover"
+            />
             <VideoAnalysis
               personaId={persona.id}
               onAnalysisComplete={handleAnalysisComplete}
