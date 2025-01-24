@@ -82,11 +82,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       // Initialize audio context for monitoring
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      const destination = audioContext.createMediaStreamDestination();
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const destination = audioContextRef.current.createMediaStreamDestination();
       source.connect(destination);
-      audioContextRef.current = audioContext;
       
       return stream;
     } catch (error) {
@@ -308,6 +307,20 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           {/* Persona Video */}
           <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
             <div className="aspect-video rounded-lg overflow-hidden relative bg-black">
+              {persona.profile_picture_url ? (
+                <img
+                  src={persona.profile_picture_url}
+                  alt={persona.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Avatar className="w-24 h-24">
+                    <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
+                    <AvatarFallback>{persona.name[0]}</AvatarFallback>
+                  </Avatar>
+                </div>
+              )}
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
