@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonaList } from "./persona/PersonaList";
 import TrainingUploader from "./TrainingUploader";
@@ -19,6 +20,7 @@ const PersonaCreator = () => {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [voiceStyle, setVoiceStyle] = useState("en-US-JennyNeural");
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -76,7 +78,7 @@ const PersonaCreator = () => {
   const handleCreatePersona = async () => {
     try {
       setIsCreating(true);
-      console.log('Starting persona creation...');
+      console.log('Starting persona creation with voice style:', voiceStyle);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -102,19 +104,20 @@ const PersonaCreator = () => {
         profilePictureUrl = publicUrl;
       }
 
-      // Create the persona with explicit user_id
       const { data: persona, error: personaError } = await supabase
         .from('personas')
         .insert({
-          user_id: user.id, // Explicitly set the user_id
+          user_id: user.id,
           name,
           description,
+          voice_style: voiceStyle,
           profile_picture_url: profilePictureUrl,
           status: 'ready',
           model_config: {
             model: "gpt-4o-mini",
             max_tokens: 800,
-            temperature: 0.7
+            temperature: 0.7,
+            voice: voiceStyle
           }
         })
         .select()
@@ -131,6 +134,7 @@ const PersonaCreator = () => {
 
       setName("");
       setDescription("");
+      setVoiceStyle("en-US-JennyNeural");
       setProfilePicture(null);
       setSelectedPersona(persona);
       fetchPersonas();
@@ -217,6 +221,21 @@ const PersonaCreator = () => {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Describe your persona"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="voice-style">Voice Style</Label>
+                <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en-US-JennyNeural">Jenny (Female)</SelectItem>
+                    <SelectItem value="en-US-GuyNeural">Guy (Male)</SelectItem>
+                    <SelectItem value="en-US-AriaNeural">Aria (Female)</SelectItem>
+                    <SelectItem value="en-US-DavisNeural">Davis (Male)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
