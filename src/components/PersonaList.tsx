@@ -286,7 +286,7 @@ export const PersonaList = () => {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {createdPersonas.map((persona) => (
+          {personas.map((persona) => (
             <Card key={persona.id} className="bg-gray-800 border-gray-700">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
@@ -343,7 +343,9 @@ export const PersonaList = () => {
                             <SelectValue placeholder="Select voice style" />
                           </SelectTrigger>
                           <SelectContent>
-                            {allVoices.map((voice) => (
+                            {Object.values(VOICE_MAPPINGS).flatMap(
+                              language => [...language.male, ...language.female]
+                            ).map(voice => (
                               <SelectItem key={voice} value={voice}>
                                 {voice}
                               </SelectItem>
@@ -388,21 +390,32 @@ export const PersonaList = () => {
                   </AlertDialog>
                   
                   {persona.status === 'ready' && (
-                    <Button
-                      onClick={() => handleDeploy(persona)}
-                      disabled={isDeploying}
-                      size="sm"
-                      className="ml-auto bg-blue-600 hover:bg-blue-700"
-                    >
-                      {isDeploying ? (
-                        <ServerIcon className="h-4 w-4 animate-pulse" />
-                      ) : (
-                        <>
-                          <ServerIcon className="h-4 w-4 mr-2" />
-                          Deploy
-                        </>
-                      )}
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500"
+                        onClick={() => handleVideoCall(persona.id)}
+                      >
+                        <Video className="h-4 w-4 mr-2" />
+                        Video Call
+                      </Button>
+                      <Button
+                        onClick={() => handleDeploy(persona)}
+                        disabled={isDeploying}
+                        size="sm"
+                        className="ml-auto bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isDeploying ? (
+                          <ServerIcon className="h-4 w-4 animate-pulse" />
+                        ) : (
+                          <>
+                            <ServerIcon className="h-4 w-4 mr-2" />
+                            Deploy
+                          </>
+                        )}
+                      </Button>
+                    </>
                   )}
 
                   {persona.status === 'deployed' && (
@@ -439,90 +452,6 @@ export const PersonaList = () => {
           ))}
         </div>
       </div>
-
-      {!showAllPersonas && deployedPersonas.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <PlayCircle className="h-5 w-5 text-blue-500" />
-            <h2 className="text-xl font-semibold text-white">Deployed Personas</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {deployedPersonas.map((persona) => (
-              <Card key={persona.id} className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="text-white">{persona.name}</CardTitle>
-                    <Badge variant="outline" className="bg-gray-700/50 text-gray-300">
-                      ID: {persona.id}
-                    </Badge>
-                  </div>
-                  <CardDescription className="text-gray-300">
-                    {persona.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500"
-                      onClick={() => handleVideoCall(persona.id)}
-                    >
-                      <Video className="h-4 w-4 mr-2" />
-                      Video Call
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
-                          disabled={isDeleting}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="bg-gray-800 text-white">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete the deployed persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-500 hover:bg-red-600"
-                            onClick={() => handleDelete(persona.id)}
-                          >
-                            {isDeleting ? "Deleting..." : "Delete"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                    <Button
-                      onClick={() => handleRedeploy(persona)}
-                      disabled={isDeploying}
-                      size="sm"
-                      className="bg-purple-600 hover:bg-purple-700"
-                    >
-                      {isDeploying ? (
-                        <RefreshCw className="h-4 w-4 animate-pulse" />
-                      ) : (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Redeploy
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
