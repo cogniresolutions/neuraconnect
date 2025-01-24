@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Upload } from "lucide-react";
-import { VoiceTest } from "./VoiceTest";
 import { PersonaAppearance } from "./PersonaAppearance";
+import { VoiceSelector } from "./VoiceSelector";
+import type { SupportedLanguage } from "@/constants/azureVoices";
 
 interface PersonaFormProps {
   name: string;
@@ -57,8 +58,6 @@ export function PersonaForm({
 
   const handleLanguageChange = async (newLanguage: string) => {
     setLanguage(newLanguage);
-    // Reset voice style when language changes to ensure compatibility
-    setVoiceStyle('Jenny');
     
     if (personaId) {
       try {
@@ -121,35 +120,16 @@ export function PersonaForm({
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="voice">Voice Style</Label>
-        <div className="flex items-center gap-2">
-          <Select value={voiceStyle} onValueChange={setVoiceStyle}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Select a voice style" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Jenny">Jenny (Female)</SelectItem>
-              <SelectItem value="Guy">Guy (Male)</SelectItem>
-              <SelectItem value="Aria">Aria (Female)</SelectItem>
-              <SelectItem value="Davis">Davis (Male)</SelectItem>
-              <SelectItem value="Jane">Jane (Female)</SelectItem>
-              <SelectItem value="Jason">Jason (Male)</SelectItem>
-              <SelectItem value="Nancy">Nancy (Female)</SelectItem>
-              <SelectItem value="Tony">Tony (Male)</SelectItem>
-              <SelectItem value="Sara">Sara (Female)</SelectItem>
-              <SelectItem value="Brandon">Brandon (Male)</SelectItem>
-            </SelectContent>
-          </Select>
-          <VoiceTest voiceStyle={voiceStyle} language={language} />
-        </div>
-      </div>
+      <VoiceSelector
+        language={language as SupportedLanguage}
+        selectedVoice={voiceStyle}
+        onVoiceChange={setVoiceStyle}
+      />
 
       {personaId && (
         <PersonaAppearance
           personaId={personaId}
           onImageGenerated={(imageUrl) => {
-            // Update persona with generated image
             if (personaId) {
               supabase
                 .from('personas')
