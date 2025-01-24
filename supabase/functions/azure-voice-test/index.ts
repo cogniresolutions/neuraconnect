@@ -34,16 +34,22 @@ serve(async (req) => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
+    // Format the voice name correctly for Azure TTS
+    const formattedVoice = voice.endsWith('Neural') ? voice : `${voice}Neural`;
+    console.log('Formatted voice name:', formattedVoice);
+
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
-        <voice name='Microsoft Server Speech Text to Speech Voice (${language}, ${voice}Neural)'>
+        <voice name='${formattedVoice}'>
           ${escapedText}
         </voice>
       </speak>
     `;
 
     console.log('Making request to Azure TTS with SSML:', ssml);
+    // Use the full endpoint URL from the environment variable
     const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1`;
+    console.log('TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
       method: 'POST',
@@ -80,7 +86,7 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice,
+          voice: formattedVoice,
           language,
           endpoint: ttsUrl,
           region: region,
