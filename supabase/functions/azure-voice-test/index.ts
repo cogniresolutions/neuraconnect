@@ -22,9 +22,7 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Extract region from endpoint
-    const region = azureSpeechEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
-    console.log('Using region:', region);
+    console.log('Using Azure Speech endpoint:', azureSpeechEndpoint);
 
     // Prepare SSML with proper escaping and language setting
     const escapedText = text
@@ -47,8 +45,9 @@ serve(async (req) => {
     `;
 
     console.log('Making request to Azure TTS with SSML:', ssml);
-    // Use the full endpoint URL from the environment variable
-    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1`;
+    
+    // Construct the full TTS endpoint URL
+    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1/speak`;
     console.log('TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
@@ -89,7 +88,6 @@ serve(async (req) => {
           voice: formattedVoice,
           language,
           endpoint: ttsUrl,
-          region: region,
           timestamp: new Date().toISOString()
         }
       }),
