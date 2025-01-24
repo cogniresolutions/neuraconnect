@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   CheckCircle2,
   PlayCircle,
@@ -52,7 +51,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { VOICE_MAPPINGS } from "@/constants/voices";
-import { useNavigate } from 'react-router-dom';
 
 type Persona = {
   id: string;
@@ -281,3 +279,4 @@ export const PersonaList = ({
     </div>
   );
 };
+
