@@ -21,22 +21,35 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       return 'en-US-JennyNeural';
     }
 
-    // Determine if the selected style maps to a male or female voice
-    const isFemaleVoice = ['Jenny', 'Aria', 'Nancy', 'Sara', 'Jane'].includes(style);
-    const isMaleVoice = ['Guy', 'Davis', 'Tony', 'Jason', 'Brandon'].includes(style);
+    // Map the voice style to the corresponding Azure voice name
+    const voiceMap: Record<string, { gender: 'male' | 'female', name: string }> = {
+      'Jenny': { gender: 'female', name: 'Jenny' },
+      'Guy': { gender: 'male', name: 'Guy' },
+      'Aria': { gender: 'female', name: 'Aria' },
+      'Davis': { gender: 'male', name: 'Davis' },
+      'Jane': { gender: 'female', name: 'Jane' },
+      'Jason': { gender: 'male', name: 'Jason' },
+      'Nancy': { gender: 'female', name: 'Nancy' },
+      'Tony': { gender: 'male', name: 'Tony' },
+      'Sara': { gender: 'female', name: 'Sara' },
+      'Brandon': { gender: 'male', name: 'Brandon' }
+    };
+
+    const voiceInfo = voiceMap[style];
+    if (!voiceInfo) {
+      console.warn(`Voice style ${style} not found, using default female voice`);
+      return `${language}-${VOICE_MAPPINGS[language].female[0]}`;
+    }
 
     // Get the appropriate voice list based on gender
-    const voiceList = isFemaleVoice 
+    const voiceList = voiceInfo.gender === 'female' 
       ? VOICE_MAPPINGS[language].female 
-      : isMaleVoice 
-        ? VOICE_MAPPINGS[language].male 
-        : VOICE_MAPPINGS[language].female;
+      : VOICE_MAPPINGS[language].male;
 
-    // Select the first voice from the list as default
-    const selectedVoice = voiceList[0];
-    
-    console.log('Selected voice:', `${language}-${selectedVoice}`);
-    return `${language}-${selectedVoice}`;
+    // Find a matching voice or use the first one as fallback
+    const matchingVoice = voiceList.find(v => v.includes(voiceInfo.name)) || voiceList[0];
+    console.log('Selected voice:', `${language}-${matchingVoice}`);
+    return `${language}-${matchingVoice}`;
   };
 
   const testVoice = async () => {
