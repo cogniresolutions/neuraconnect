@@ -47,17 +47,29 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   }, []);
 
   const cleanup = async () => {
+    console.log('Cleaning up video call resources...');
     try {
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => {
+          console.log('Stopping track:', track.kind);
+          track.stop();
+        });
       }
       
       if (chatRef.current) {
+        console.log('Disconnecting chat...');
         chatRef.current.disconnect();
         chatRef.current = null;
       }
 
+      if (audioContextRef.current) {
+        console.log('Closing audio context...');
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+
       if (sessionIdRef.current) {
+        console.log('Cleaning up user session:', sessionIdRef.current);
         await cleanupUserSessions(sessionIdRef.current);
         sessionIdRef.current = null;
       }
@@ -72,7 +84,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const startSpeechRecognition = async () => {
-    if (!stream) return;
+    if (!stream) {
+      console.error('No stream available for speech recognition');
+      return;
+    }
 
     try {
       setIsSpeechRecognitionActive(true);
@@ -82,7 +97,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('No audio track available');
       }
 
-      // Initialize audio context and processing
+      console.log('Initializing audio processing...');
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
@@ -92,10 +107,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       processor.onaudioprocess = async (e) => {
         if (!isSpeechRecognitionActive) return;
-        
         const inputData = e.inputBuffer.getChannelData(0);
-        // Process audio data and send to Azure Speech Services
-        // This is a placeholder for the actual implementation
         console.log('Processing audio data:', inputData.length);
       };
 
@@ -110,28 +122,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const handleCaptureScreenshot = async () => {
-    if (!localVideoRef.current || !sessionIdRef.current) return;
-    
-    try {
-      const fileName = await captureAndStoreScreenshot(localVideoRef.current, sessionIdRef.current);
-      
-      toast({
-        title: "Screenshot Captured",
-        description: "Screenshot has been saved successfully",
-      });
-    } catch (error) {
-      console.error('Error capturing screenshot:', error);
-      toast({
-        title: "Error",
-        description: "Failed to capture screenshot",
-        variant: "destructive",
-      });
-    }
-  };
-
   const startCamera = async () => {
-    if (isInitializing) return;
+    if (isInitializing) {
+      console.log('Already initializing camera...');
+      return;
+    }
     
     try {
       setIsInitializing(true);
@@ -158,6 +153,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (sessionError) throw sessionError;
       sessionIdRef.current = session.id;
 
+      console.log('Requesting media permissions...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -176,15 +172,17 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         return;
       }
 
+      console.log('Setting up media stream...');
       setStream(mediaStream);
       
       if (localVideoRef.current) {
+        console.log('Connecting stream to local video element');
         localVideoRef.current.srcObject = mediaStream;
       }
 
       setIsCallActive(true);
       onCallStateChange?.(true);
-      startSpeechRecognition();
+      await startSpeechRecognition();
       
       toast({
         title: "Call Connected",
@@ -211,6 +209,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     if (stream) {
       stream.getAudioTracks().forEach(track => {
         track.enabled = !track.enabled;
+        console.log(`Audio track ${track.label} ${track.enabled ? 'enabled' : 'disabled'}`);
       });
       setIsAudioEnabled(!isAudioEnabled);
       
@@ -225,12 +224,33 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     if (stream) {
       stream.getVideoTracks().forEach(track => {
         track.enabled = !track.enabled;
+        console.log(`Video track ${track.label} ${track.enabled ? 'enabled' : 'disabled'}`);
       });
       setIsVideoEnabled(!isVideoEnabled);
       
       toast({
         title: isVideoEnabled ? "Camera Off" : "Camera On",
         description: isVideoEnabled ? "Your camera is now off" : "Your camera is now on",
+      });
+    }
+  };
+
+  const handleCaptureScreenshot = async () => {
+    if (!localVideoRef.current || !sessionIdRef.current) return;
+    
+    try {
+      const fileName = await captureAndStoreScreenshot(localVideoRef.current, sessionIdRef.current);
+      
+      toast({
+        title: "Screenshot Captured",
+        description: "Screenshot has been saved successfully",
+      });
+    } catch (error) {
+      console.error('Error capturing screenshot:', error);
+      toast({
+        title: "Error",
+        description: "Failed to capture screenshot",
+        variant: "destructive",
       });
     }
   };
