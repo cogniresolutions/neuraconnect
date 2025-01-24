@@ -34,6 +34,7 @@ serve(async (req) => {
       .single();
 
     if (personaError || !persona) {
+      console.error('Failed to fetch persona:', personaError);
       throw new Error('Failed to fetch persona details');
     }
 
@@ -46,11 +47,8 @@ serve(async (req) => {
       .eq('persona_id', personaId);
 
     if (materialsError) {
+      console.error('Error checking training materials:', materialsError);
       throw materialsError;
-    }
-
-    if (!trainingMaterials || trainingMaterials.length === 0) {
-      throw new Error('No training materials found. Please upload training data before deployment.');
     }
 
     // Update persona status to deployed and enable video call features
@@ -66,26 +64,35 @@ serve(async (req) => {
       })
       .eq('id', personaId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Error updating persona:', updateError);
+      throw updateError;
+    }
 
     console.log('Persona deployed successfully');
 
     return new Response(
       JSON.stringify({ 
+        success: true,
         message: 'Persona deployed successfully',
         persona: {
           ...persona,
           status: 'deployed'
         }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   } catch (error) {
     console.error('Error in deploy-persona function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error instanceof Error ? error.stack : undefined
+        success: false,
+        error: error instanceof Error ? error.message : 'An unexpected error occurred'
       }),
       { 
         status: 400,
