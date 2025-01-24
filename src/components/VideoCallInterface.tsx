@@ -64,14 +64,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.muted = true; // Mute to prevent feedback
+        videoRef.current.muted = true;
         videoRef.current.volume = 1.0;
         
-        // Ensure video plays after setting srcObject
         try {
           await videoRef.current.play();
           setIsStreamReady(true);
-          console.log('Video element playing successfully');
         } catch (playError) {
           console.error('Error playing video:', playError);
           toast({
@@ -82,7 +80,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       }
 
-      // Initialize audio context for monitoring
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       const destination = audioContextRef.current.createMediaStreamDestination();
@@ -312,15 +309,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
           {/* Persona Video */}
           <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
-            <div className="aspect-video rounded-lg overflow-hidden relative bg-black">
+            <div className="aspect-video rounded-lg overflow-hidden relative bg-black flex items-center justify-center">
               {persona.profile_picture_url && (
-                <div className="w-full h-full">
-                  <img
-                    src={persona.profile_picture_url}
-                    alt={persona.name}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
+                <img
+                  src={persona.profile_picture_url}
+                  alt={persona.name}
+                  className="max-w-full max-h-full object-contain"
+                />
               )}
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
                 <Avatar className="h-6 w-6">
