@@ -66,47 +66,55 @@ export function PersonaForm({
   personaId
 }: PersonaFormProps) {
   const { toast } = useToast();
+  const [isVoiceStyleEnabled, setIsVoiceStyleEnabled] = useState(false);
 
-  // Query voice mappings using the new edge function
+  // Query voice mappings with proper error handling and retry logic
   const { data: voiceMappingsResponse, isLoading: isLoadingVoices } = useQuery({
     queryKey: ['voiceMappings'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('get-voice-mappings');
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.functions.invoke('get-voice-mappings');
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.error('Error fetching voice mappings:', error);
+        toast({
+          title: "Error loading voices",
+          description: "Please try again later",
+          variant: "destructive",
+        });
+        throw error;
+      }
     },
-    staleTime: 24 * 60 * 60 * 1000, // Cache for 24 hours since voice mappings rarely change
+    staleTime: 24 * 60 * 60 * 1000, // Cache for 24 hours
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const voiceMappings = voiceMappingsResponse?.data || [];
+  const filteredVoices = voiceMappings.filter(voice => voice.language_code === language);
 
-  // Filter voices based on selected language
-  const filteredVoices = voiceMappings.filter(
-    voice => voice.language_code === language
-  );
+  // Enable voice style selection when voices are available
+  useEffect(() => {
+    if (filteredVoices.length > 0) {
+      setIsVoiceStyleEnabled(true);
+      // Set default voice style if none selected
+      if (!voiceStyle && filteredVoices[0]) {
+        setVoiceStyle(filteredVoices[0].voice_style);
+      }
+    }
+  }, [filteredVoices, voiceStyle, setVoiceStyle]);
 
-  // Handle language change with automatic voice style update
+  // Handle language change
   const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage);
-    
-    // Set first available voice for the new language
     const availableVoices = voiceMappings.filter(
       voice => voice.language_code === newLanguage
     );
-    
     if (availableVoices.length > 0) {
       setVoiceStyle(availableVoices[0].voice_style);
     }
   };
-
-  // Set initial voice style when voices are loaded
-  useEffect(() => {
-    if (filteredVoices.length > 0 && !voiceStyle) {
-      setVoiceStyle(filteredVoices[0].voice_style);
-    }
-  }, [filteredVoices, voiceStyle, setVoiceStyle]);
 
   return (
     <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
@@ -152,12 +160,12 @@ export function PersonaForm({
           <Select 
             value={voiceStyle} 
             onValueChange={setVoiceStyle}
-            disabled={isLoadingVoices || filteredVoices.length === 0}
+            disabled={!isVoiceStyleEnabled || isLoadingVoices}
           >
             <SelectTrigger className="flex-1">
               <SelectValue placeholder={
                 isLoadingVoices ? "Loading voices..." :
-                filteredVoices.length === 0 ? "Please select a language first" :
+                !isVoiceStyleEnabled ? "Select a language first" :
                 "Select a voice style"
               } />
             </SelectTrigger>
@@ -199,7 +207,7 @@ export function PersonaForm({
 
       <Button
         onClick={onSubmit}
-        disabled={isCreating || !name || !description}
+        disabled={isCreating || !name || !description || !voiceStyle}
         className="w-full"
       >
         {isCreating ? (
