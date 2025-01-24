@@ -295,7 +295,7 @@ export const PersonaList = () => {
 
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <CheckCircle2 className="h-5 w-5 text-green-500" />
+          <CheckCircle2 className="h-5 w-5 text-green-500 cursor-pointer" />
           <h2 className="text-xl font-semibold text-white">
             {showAllPersonas ? "All Personas" : "Created Personas"}
           </h2>
