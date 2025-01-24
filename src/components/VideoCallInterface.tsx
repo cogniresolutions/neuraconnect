@@ -1,223 +1,42 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 import { cleanupUserSessions } from '@/utils/sessionCleanup';
-import LocalVideo from './video/LocalVideo';
-import RemoteVideo from './video/RemoteVideo';
-import VideoControls from './video/VideoControls';
-import { captureAndStoreScreenshot } from '@/utils/screenshotUtils';
 import { analyzeVideoFrame } from '@/utils/videoAnalysis';
+import { Button } from './ui/button';
+import { Loader2, Video, VideoOff, Mic, MicOff } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
 interface VideoCallInterfaceProps {
   persona: any;
   onSpeakingChange: (speaking: boolean) => void;
   onCallStateChange?: (isActive: boolean) => void;
-  externalVideoUrl?: string;
 }
 
-const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({ 
-  persona, 
+const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
+  persona,
   onSpeakingChange,
-  onCallStateChange,
-  externalVideoUrl 
+  onCallStateChange
 }) => {
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-  const [currentEmotion, setCurrentEmotion] = useState('');
-  const [environmentContext, setEnvironmentContext] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [personaStream, setPersonaStream] = useState<MediaStream | null>(null);
   
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const chatRef = useRef<RealtimeChat | null>(null);
-  const mountedRef = useRef(false);
-  const sessionIdRef = useRef<string | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const analysisIntervalRef = useRef<number | null>(null);
-
-  const startVideoAnalysis = async () => {
-    if (!localVideoRef.current || !isCallActive) return;
-
-    analysisIntervalRef.current = window.setInterval(async () => {
-      try {
-        setIsAnalyzing(true);
-        const canvas = document.createElement('canvas');
-        canvas.width = localVideoRef.current!.videoWidth;
-        canvas.height = localVideoRef.current!.videoHeight;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) return;
-        
-        ctx.drawImage(localVideoRef.current!, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg');
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const analysisResult = await analyzeVideoFrame(
-          imageData,
-          persona.id,
-          user.id
-        );
-
-        if (analysisResult) {
-          setCurrentEmotion(analysisResult.emotions?.dominant || '');
-          setEnvironmentContext(analysisResult.environment?.description || '');
-        }
-      } catch (error) {
-        console.error('Error during video analysis:', error);
-      } finally {
-        setIsAnalyzing(false);
-      }
-    }, 5000); // Analyze every 5 seconds
-  };
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      cleanup();
-    };
-  }, []);
-
-  const cleanup = async () => {
-    console.log('Cleaning up video call resources...');
-    try {
-      if (stream) {
-        stream.getTracks().forEach(track => {
-          console.log('Stopping track:', track.kind);
-          track.stop();
-        });
-      }
-      
-      if (personaStream) {
-        personaStream.getTracks().forEach(track => track.stop());
-      }
-      
-      if (chatRef.current) {
-        console.log('Disconnecting chat...');
-        chatRef.current.disconnect();
-        chatRef.current = null;
-      }
-
-      if (audioContextRef.current) {
-        console.log('Closing audio context...');
-        await audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-
-      if (sessionIdRef.current) {
-        console.log('Cleaning up user session:', sessionIdRef.current);
-        await cleanupUserSessions(sessionIdRef.current);
-        sessionIdRef.current = null;
-      }
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = null;
-      }
-
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null;
-      }
-
-      setIsCallActive(false);
-      setStream(null);
-      setPersonaStream(null);
-      onCallStateChange?.(false);
-      
-    } catch (error) {
-      console.error('Cleanup error:', error);
-    }
-  };
-
-  const initializeAudioContext = async (mediaStream: MediaStream) => {
-    try {
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(mediaStream);
-      const analyser = audioContextRef.current.createAnalyser();
-      analyser.fftSize = 2048;
-      
-      source.connect(analyser);
-      
-      const destination = audioContextRef.current.createMediaStreamDestination();
-      analyser.connect(destination);
-      
-      const audioTrack = destination.stream.getAudioTracks()[0];
-      if (stream) {
-        stream.addTrack(audioTrack);
-      }
-      
-      console.log('Audio context initialized successfully');
-      
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      
-      const checkAudioLevel = () => {
-        if (!mountedRef.current) return;
-        
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / bufferLength;
-        const isSpeaking = average > 30;
-        onSpeakingChange(isSpeaking);
-        console.log('Speaking state changed:', isSpeaking);
-        
-        if (mountedRef.current) {
-          requestAnimationFrame(checkAudioLevel);
-        }
-      };
-      
-      checkAudioLevel();
-      
-    } catch (error) {
-      console.error('Error initializing audio context:', error);
-      throw error;
-    }
-  };
-
-  const initializeAzureServices = async () => {
-    try {
-      console.log('Initializing Azure services...');
-      const { data, error } = await supabase.functions.invoke('azure-video-chat', {
-        body: {
-          action: 'initialize',
-          personaId: persona.id,
-          personaConfig: {
-            name: persona.name,
-            voice: persona.voice_style,
-            personality: persona.personality
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Error from Azure services:', error);
-        throw error;
-      }
-
-      console.log('Azure services initialized:', data);
-      return data;
-    } catch (error) {
-      console.error('Error initializing Azure services:', error);
-      throw error;
-    }
-  };
+  const chatRef = useRef<RealtimeChat | null>(null);
 
   const startCall = async () => {
     try {
       setIsInitializing(true);
       console.log('Starting new video call session...');
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
+      // Initialize local video stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -236,26 +55,44 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         localVideoRef.current.srcObject = stream;
       }
 
-      await initializeAzureServices();
-
-      const { data: session, error } = await supabase.functions.invoke('video-call', {
-        body: {
-          action: 'start',
-          personaId: persona.id,
-          userId: user.id,
-          personaConfig: {
-            name: persona.name,
-            voice: persona.voice_style,
-            personality: persona.personality
-          }
+      // Initialize chat and audio connection
+      chatRef.current = new RealtimeChat(async (event) => {
+        if (event.type === 'response.audio.delta') {
+          onSpeakingChange(true);
+        } else if (event.type === 'response.audio.done') {
+          onSpeakingChange(false);
         }
       });
 
-      if (error) throw error;
+      await chatRef.current.init(persona);
+
+      // Create video call session
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error: sessionError } = await supabase.from('tavus_sessions').insert({
+        conversation_id: crypto.randomUUID(),
+        user_id: user.id,
+        status: 'active',
+        video_call_id: crypto.randomUUID(),
+        participants: [
+          { user_id: user.id, type: 'user' },
+          { persona_id: persona.id, type: 'persona' }
+        ],
+        is_active: true,
+        session_type: 'video_call'
+      });
+
+      if (sessionError) throw sessionError;
 
       setIsCallActive(true);
-      startVideoAnalysis();
       onCallStateChange?.(true);
+
+      // Initialize remote video if persona has video_url
+      if (persona.video_url && remoteVideoRef.current) {
+        remoteVideoRef.current.src = persona.video_url;
+        await remoteVideoRef.current.play();
+      }
 
       toast({
         title: "Call Started",
@@ -273,76 +110,148 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const handleCaptureScreenshot = async () => {
-    if (!localVideoRef.current || !sessionIdRef.current) return;
-    
+  const endCall = async () => {
     try {
-      const fileName = await captureAndStoreScreenshot(localVideoRef.current, sessionIdRef.current);
-      
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+
+      if (chatRef.current) {
+        chatRef.current.disconnect();
+        chatRef.current = null;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await cleanupUserSessions(user.id);
+      }
+
+      setIsCallActive(false);
+      onCallStateChange?.(false);
+      onSpeakingChange(false);
+
       toast({
-        title: "Screenshot Captured",
-        description: "Screenshot has been saved successfully",
+        title: "Call Ended",
+        description: "The video call has been disconnected",
       });
     } catch (error) {
-      console.error('Error capturing screenshot:', error);
+      console.error('Error ending call:', error);
       toast({
         title: "Error",
-        description: "Failed to capture screenshot",
+        description: "Error ending call. Please refresh the page.",
         variant: "destructive",
       });
     }
   };
 
+  const toggleAudio = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsAudioEnabled(!isAudioEnabled);
+    }
+  };
+
+  const toggleVideo = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getVideoTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsVideoEnabled(!isVideoEnabled);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (isCallActive) {
+        endCall();
+      }
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="w-full max-w-6xl p-4 space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <LocalVideo
-            onVideoRef={(ref) => { 
-              console.log('Setting local video ref:', ref ? 'ref set' : 'ref null');
-              localVideoRef.current = ref; 
-            }}
-            isRecording={isCallActive}
-            currentEmotion={currentEmotion}
-            environmentContext={environmentContext}
-            isAnalyzing={isAnalyzing}
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Local Video */}
+        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
           />
-          <RemoteVideo
-            onVideoRef={(ref) => { 
-              console.log('Setting remote video ref:', ref ? 'ref set' : 'ref null');
-              remoteVideoRef.current = ref; 
-            }}
-            persona={persona}
-            isAnalyzing={isAnalyzing}
-          />
+          <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={persona?.profile_picture_url} />
+              <AvatarFallback>You</AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium">You</span>
+          </div>
         </div>
-        
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <VideoControls
-            isCallActive={isCallActive}
-            isAudioEnabled={isAudioEnabled}
-            isVideoEnabled={isVideoEnabled}
-            onStartCall={startCall}
-            onEndCall={cleanup}
-            onToggleAudio={() => {
-              if (stream) {
-                stream.getAudioTracks().forEach(track => {
-                  track.enabled = !track.enabled;
-                });
-                setIsAudioEnabled(!isAudioEnabled);
-              }
-            }}
-            onToggleVideo={() => {
-              if (stream) {
-                stream.getVideoTracks().forEach(track => {
-                  track.enabled = !track.enabled;
-                });
-                setIsVideoEnabled(!isVideoEnabled);
-              }
-            }}
-            onCaptureScreenshot={handleCaptureScreenshot}
+
+        {/* Remote Video (Persona) */}
+        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            loop
+            className="w-full h-full object-cover"
           />
+          <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={persona?.profile_picture_url} />
+              <AvatarFallback>{persona?.name[0]}</AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium">{persona?.name}</span>
+          </div>
         </div>
+      </div>
+
+      <div className="flex justify-center gap-4">
+        {!isCallActive ? (
+          <Button
+            onClick={startCall}
+            disabled={isInitializing}
+            className="bg-green-500 hover:bg-green-600"
+          >
+            {isInitializing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <Video className="w-4 h-4 mr-2" />
+                Start Call
+              </>
+            )}
+          </Button>
+        ) : (
+          <>
+            <Button onClick={toggleAudio} variant="outline">
+              {isAudioEnabled ? (
+                <Mic className="w-4 h-4" />
+              ) : (
+                <MicOff className="w-4 h-4 text-red-500" />
+              )}
+            </Button>
+            <Button onClick={toggleVideo} variant="outline">
+              {isVideoEnabled ? (
+                <Video className="w-4 h-4" />
+              ) : (
+                <VideoOff className="w-4 h-4 text-red-500" />
+              )}
+            </Button>
+            <Button onClick={endCall} variant="destructive">
+              <VideoOff className="w-4 h-4 mr-2" />
+              End Call
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
