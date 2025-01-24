@@ -105,14 +105,15 @@ export function PersonaForm({
             <SelectValue placeholder="Select a language" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="en">English</SelectItem>
-            <SelectItem value="es">Spanish</SelectItem>
-            <SelectItem value="fr">French</SelectItem>
-            <SelectItem value="de">German</SelectItem>
-            <SelectItem value="it">Italian</SelectItem>
-            <SelectItem value="ja">Japanese</SelectItem>
-            <SelectItem value="ko">Korean</SelectItem>
-            <SelectItem value="zh">Chinese</SelectItem>
+            <SelectItem value="en-US">English (US)</SelectItem>
+            <SelectItem value="en-GB">English (UK)</SelectItem>
+            <SelectItem value="es-ES">Spanish</SelectItem>
+            <SelectItem value="fr-FR">French</SelectItem>
+            <SelectItem value="de-DE">German</SelectItem>
+            <SelectItem value="it-IT">Italian</SelectItem>
+            <SelectItem value="ja-JP">Japanese</SelectItem>
+            <SelectItem value="ko-KR">Korean</SelectItem>
+            <SelectItem value="zh-CN">Chinese (Simplified)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -125,12 +126,16 @@ export function PersonaForm({
               <SelectValue placeholder="Select a voice style" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="alloy">Alloy (Neutral)</SelectItem>
-              <SelectItem value="echo">Echo (Male)</SelectItem>
-              <SelectItem value="fable">Fable (Male)</SelectItem>
-              <SelectItem value="onyx">Onyx (Male)</SelectItem>
-              <SelectItem value="nova">Nova (Female)</SelectItem>
-              <SelectItem value="shimmer">Shimmer (Female)</SelectItem>
+              <SelectItem value="Jenny">Jenny (Female)</SelectItem>
+              <SelectItem value="Guy">Guy (Male)</SelectItem>
+              <SelectItem value="Aria">Aria (Female)</SelectItem>
+              <SelectItem value="Davis">Davis (Male)</SelectItem>
+              <SelectItem value="Jane">Jane (Female)</SelectItem>
+              <SelectItem value="Jason">Jason (Male)</SelectItem>
+              <SelectItem value="Nancy">Nancy (Female)</SelectItem>
+              <SelectItem value="Tony">Tony (Male)</SelectItem>
+              <SelectItem value="Sara">Sara (Female)</SelectItem>
+              <SelectItem value="Brandon">Brandon (Male)</SelectItem>
             </SelectContent>
           </Select>
           <VoiceTest voiceStyle={voiceStyle} language={language} />

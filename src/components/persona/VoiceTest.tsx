@@ -14,36 +14,29 @@ export const VoiceTest = ({ voiceStyle, language = 'en' }: VoiceTestProps) => {
   const { toast } = useToast();
 
   const getVoiceMessage = (style: string, lang: string) => {
-    const messages: Record<string, Record<string, string>> = {
-      en: {
-        alloy: "Hi, I am Alloy, a neutral voice assistant",
-        echo: "Hello there, I'm Echo, a male voice assistant",
-        fable: "Greetings, I'm Fable, your male voice companion",
-        onyx: "Hi, I'm Onyx, a male voice assistant",
-        nova: "Hello, I'm Nova, a female voice assistant",
-        shimmer: "Hi there, I'm Shimmer, a female voice assistant"
-      },
-      es: {
-        alloy: "Hola, soy Alloy, un asistente de voz neutral",
-        echo: "Hola, soy Echo, un asistente de voz masculino",
-        fable: "Saludos, soy Fable, tu compañero de voz masculino",
-        onyx: "Hola, soy Onyx, un asistente de voz masculino",
-        nova: "Hola, soy Nova, una asistente de voz femenina",
-        shimmer: "Hola, soy Shimmer, una asistente de voz femenina"
-      },
-      // Add more languages as needed
+    // Map voice styles to Azure neural voices
+    const voiceMap: Record<string, { name: string, gender: string }> = {
+      alloy: { name: 'Jenny', gender: 'neutral' },
+      echo: { name: 'Guy', gender: 'male' },
+      fable: { name: 'Davis', gender: 'male' },
+      onyx: { name: 'Tony', gender: 'male' },
+      nova: { name: 'Sara', gender: 'female' },
+      shimmer: { name: 'Nancy', gender: 'female' }
     };
-    
-    return messages[lang]?.[style] || messages.en[style] || `Hello, I'm ${style}`;
+
+    const voice = voiceMap[style] || voiceMap.alloy;
+    return `Hi, I'm ${voice.name}, a ${voice.gender} voice assistant`;
   };
 
   const testVoice = async () => {
     try {
       setIsPlaying(true);
+      console.log('Testing voice with Azure Speech Services...');
+
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
           text: getVoiceMessage(voiceStyle, language),
-          voice: voiceStyle,
+          voice: `${language}-${voiceStyle}Neural`,
           language: language
         }
       });
