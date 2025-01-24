@@ -46,8 +46,13 @@ serve(async (req) => {
 
     console.log('Making request to Azure TTS with SSML:', ssml);
     
+    // Ensure the endpoint doesn't have a trailing slash before adding the path
+    const baseEndpoint = azureSpeechEndpoint.endsWith('/')
+      ? azureSpeechEndpoint.slice(0, -1)
+      : azureSpeechEndpoint;
+    
     // Construct the full TTS endpoint URL
-    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1/speak`;
+    const ttsUrl = `${baseEndpoint}/cognitiveservices/v1/synthesize`;
     console.log('TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
@@ -66,7 +71,8 @@ serve(async (req) => {
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
-        error: errorText
+        error: errorText,
+        url: ttsUrl
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
