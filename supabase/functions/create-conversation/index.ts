@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { conversationId, context, maxSessions } = await req.json();
+    const { personaId, title, context } = await req.json();
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -26,35 +27,55 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader);
     if (userError || !user) throw new Error('Invalid user token');
 
-    // Create the conversation session
-    const { data: session, error: sessionError } = await supabase
-      .from('tavus_sessions')
+    // Create the conversation
+    const { data: conversation, error: conversationError } = await supabase
+      .from('conversations')
       .insert({
-        conversation_id: conversationId,
+        persona_id: personaId,
         user_id: user.id,
+        title,
+        context,
+        status: 'active'
+      })
+      .select()
+      .single();
+
+    if (conversationError) throw conversationError;
+
+    // Create initial session
+    const { data: session, error: sessionError } = await supabase
+      .from('conversation_sessions')
+      .insert({
+        conversation_id: conversation.id,
+        session_type: 'chat',
         status: 'active',
-        session_type: 'video_call',
-        is_active: true,
-        participants: [],
-        max_sessions: maxSessions,
-        context: context || null
+        metadata: {
+          started_at: new Date().toISOString(),
+          participant_count: 1
+        }
       })
       .select()
       .single();
 
     if (sessionError) throw sessionError;
 
+    // Generate conversation URL
+    const conversationUrl = `${req.headers.get('origin')}/conversations/${conversation.id}`;
+
     return new Response(
       JSON.stringify({
         success: true,
-        data: session,
-        message: 'Conversation created successfully'
+        data: {
+          conversation,
+          session,
+          conversationUrl
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error creating conversation:', error);
+    console.error('Error in create-conversation function:', error);
     return new Response(
       JSON.stringify({
         success: false,
