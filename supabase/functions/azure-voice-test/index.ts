@@ -35,9 +35,9 @@ serve(async (req) => {
     console.log('Request data:', { text, voice });
 
     // Format the TTS endpoint correctly
-    // Remove any trailing slashes and ensure we're using the correct TTS endpoint
-    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '');
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
+    // The endpoint should be in the format: https://{region}.tts.speech.microsoft.com
+    const region = azureSpeechEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
+    const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Test text-to-speech with proper SSML
