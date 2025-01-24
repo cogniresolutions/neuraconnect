@@ -5,8 +5,7 @@ import { CallControls } from './video/CallControls';
 import { ConsentDialog } from './video/ConsentDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
-import { Card } from './ui/card';
-import { Loader2, User } from 'lucide-react';
+import { Loader2, User, ArrowLeft } from 'lucide-react';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
@@ -176,43 +175,67 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   }, []);
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/90">
-      <div className="w-full max-w-7xl p-4 space-y-4">
-        {isCallActive ? (
-          <div className="grid grid-cols-2 gap-4">
-            {/* User Video */}
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover transform scale-x-[-1]"
-              />
-              {!isStreamReady && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-white" />
-                </div>
-              )}
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
-                <User className="h-4 w-4" />
-                <span className="text-sm font-medium">{userName || 'You'}</span>
-              </div>
-              <VideoAnalysis
-                personaId={persona.id}
-                onAnalysisComplete={() => {}}
-                onSpeechDetected={() => {}}
-              />
-            </div>
+    <div className="fixed inset-0 flex flex-col bg-black">
+      {/* Header */}
+      <div className="flex items-center gap-4 p-4 bg-black/50">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate(-1)}
+          className="text-white"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <h1 className="text-xl font-semibold text-white">Video Call with {persona.name}</h1>
+      </div>
 
-            {/* Persona Video */}
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
+      {/* Video Grid */}
+      <div className="flex-1 grid grid-cols-2 gap-4 p-4">
+        {/* User Video */}
+        <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover transform scale-x-[-1]"
+          />
+          <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
+            <User className="h-4 w-4" />
+            <span className="text-sm font-medium">{userName || 'You'}</span>
+          </div>
+          {/* Hidden VideoAnalysis component */}
+          <div className="hidden">
+            <VideoAnalysis
+              personaId={persona.id}
+              onAnalysisComplete={() => {}}
+              onSpeechDetected={() => {}}
+            />
+          </div>
+        </div>
+
+        {/* Persona Video/Image */}
+        <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
+          {!isCallActive ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <Avatar className="w-24 h-24 mx-auto">
+                  <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
+                  <AvatarFallback>{persona.name[0]}</AvatarFallback>
+                </Avatar>
+                <h2 className="text-xl font-semibold text-white">Ready to call {persona.name}</h2>
+              </div>
+            </div>
+          ) : (
+            <>
               {persona.profile_picture_url && (
-                <img
-                  src={persona.profile_picture_url}
-                  alt={persona.name}
-                  className="w-full h-full object-cover"
-                />
+                <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={persona.profile_picture_url}
+                    alt={persona.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               )}
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
                 <Avatar className="h-6 w-6">
@@ -221,33 +244,25 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 </Avatar>
                 <span className="text-sm font-medium">{persona.name}</span>
               </div>
-            </div>
-          </div>
-        ) : (
-          <div className="aspect-video bg-black rounded-lg flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <Avatar className="w-24 h-24 mx-auto">
-                <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
-                <AvatarFallback>{persona.name[0]}</AvatarFallback>
-              </Avatar>
-              <h2 className="text-xl font-semibold text-white">Ready to call {persona.name}</h2>
-            </div>
-          </div>
-        )}
-
-        <div className="flex justify-center gap-4">
-          <CallControls
-            isCallActive={isCallActive}
-            isLoading={isLoading}
-            isRecording={isRecording}
-            onStartCall={() => setShowConsentDialog(true)}
-            onEndCall={endCall}
-            onStartRecording={() => setIsRecording(true)}
-            onStopRecording={() => setIsRecording(false)}
-          />
+            </>
+          )}
         </div>
       </div>
 
+      {/* Controls */}
+      <div className="p-4 flex justify-center gap-4">
+        <CallControls
+          isCallActive={isCallActive}
+          isLoading={isLoading}
+          isRecording={isRecording}
+          onStartCall={() => setShowConsentDialog(true)}
+          onEndCall={endCall}
+          onStartRecording={() => setIsRecording(true)}
+          onStopRecording={() => setIsRecording(false)}
+        />
+      </div>
+
+      {/* Dialogs */}
       <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
         <DialogContent>
           <DialogHeader>
