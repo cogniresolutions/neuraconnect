@@ -21,9 +21,7 @@ export default function AzureTest() {
     
     try {
       console.log('Starting Azure authentication test...');
-      const { data, error } = await supabase.functions.invoke('azure-auth-test', {
-        body: { test: true }
-      });
+      const { data, error } = await supabase.functions.invoke('azure-auth-test');
 
       console.log('Edge Function Response:', { data, error });
 
@@ -72,9 +70,9 @@ export default function AzureTest() {
   return (
     <div className="space-y-6 p-6 bg-black/95 text-white rounded-lg">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Azure Authentication Test</h2>
+        <h2 className="text-2xl font-bold">Azure OpenAI Test</h2>
         <p className="text-sm text-gray-400">
-          Click the button below to verify Azure credentials and service connectivity.
+          Click the button below to verify Azure OpenAI credentials and service connectivity.
         </p>
         <Button 
           onClick={testAzureAuth}
@@ -88,7 +86,7 @@ export default function AzureTest() {
               Testing...
             </>
           ) : (
-            'Test Azure Authentication'
+            'Test Azure OpenAI Services'
           )}
         </Button>
       </div>
