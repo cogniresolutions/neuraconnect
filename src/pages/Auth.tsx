@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Auth as SupabaseAuth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import AzureTest from '@/components/AzureTest';
+import AzureSpeechTest from '@/components/AzureSpeechTest';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ const Auth = () => {
           />
         </div>
         <AzureTest />
+        <AzureSpeechTest />
       </div>
     </div>
   );
