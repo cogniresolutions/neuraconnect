@@ -12,6 +12,49 @@ export class AudioRecorder {
 
   constructor(private onAudioData: (audioData: Float32Array) => void) {}
 
+  private checkAudioLevel = () => {
+    if (!this.audioContext || !this.source) return;
+    
+    const analyser = this.audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    this.source.connect(analyser);
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    let lastSpeakingState = false;
+    let debounceTimeout: number | null = null;
+    
+    const analyze = () => {
+      if (!this.audioContext) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      const isSpeaking = average > 30;
+      
+      // Only emit speaking state change if it's different from last state
+      if (isSpeaking !== lastSpeakingState) {
+        // Clear existing timeout
+        if (debounceTimeout) {
+          clearTimeout(debounceTimeout);
+        }
+        
+        // Set new timeout to debounce the state change
+        debounceTimeout = setTimeout(() => {
+          if (isSpeaking !== lastSpeakingState) {
+            lastSpeakingState = isSpeaking;
+            this.onAudioData(new Float32Array([isSpeaking ? 1 : 0]));
+            console.log('Speaking state changed:', isSpeaking);
+          }
+        }, 500); // Debounce for 500ms
+      }
+      
+      requestAnimationFrame(analyze);
+    };
+    
+    analyze();
+  };
+
   async start() {
     try {
       console.log('Starting audio recorder...');
