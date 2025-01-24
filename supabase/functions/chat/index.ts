@@ -1,119 +1,82 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-
-const AZURE_OPENAI_KEY = Deno.env.get("AZURE_OPENAI_API_KEY");
-const AZURE_OPENAI_ENDPOINT = "https://neuraconnect.openai.azure.com";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { corsHeaders } from '../_shared/cors.ts'
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: corsHeaders
+    })
   }
 
   try {
-    const { message } = await req.json();
-    console.log("Received message:", message);
-
+    const { message } = await req.json()
+    
     if (!message) {
-      return new Response(
-        JSON.stringify({ error: "Message is required" }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
+      throw new Error('No message provided')
     }
+
+    const AZURE_OPENAI_KEY = Deno.env.get('AZURE_OPENAI_API_KEY')
+    const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT')
 
     if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT) {
-      return new Response(
-        JSON.stringify({ error: "Azure OpenAI credentials are not configured" }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
+      throw new Error('Azure OpenAI credentials not configured')
     }
 
-    console.log("Making request to Azure OpenAI...");
+    const deploymentName = 'gpt-4' // Make sure this matches your Azure OpenAI deployment name
+    const apiVersion = '2023-12-01-preview'
     
-    const deploymentName = "gpt-4o-mini";
-    const apiVersion = "2024-02-15-preview";
-    
-    const completion = await fetch(
+    const response = await fetch(
       `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`,
       {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "api-key": AZURE_OPENAI_KEY,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
+          'api-key': AZURE_OPENAI_KEY,
         },
         body: JSON.stringify({
           messages: [
             {
-              role: "system",
-              content: [{
-                type: "text",
-                text: "You are a lovable and empathetic virtual assistant named Loveable. You provide thoughtful, warm, and context-aware interactions. Your personality is friendly, kind, and curious."
-              }]
+              role: 'system',
+              content: 'You are a helpful assistant.'
             },
             {
-              role: "user",
-              content: [{
-                type: "text",
-                text: message
-              }]
+              role: 'user',
+              content: message
             }
           ],
-          temperature: 0.7,
-          top_p: 0.95,
           max_tokens: 800,
+          temperature: 0.7,
+          frequency_penalty: 0,
+          presence_penalty: 0,
+          top_p: 0.95
         }),
       }
-    );
+    )
 
-    if (!completion.ok) {
-      const error = await completion.text();
-      console.error("Azure OpenAI API error:", error);
-      throw new Error(`Azure OpenAI API error: ${error}`);
-    }
-
-    const data = await completion.json();
-    console.log("Azure OpenAI response received:", data);
-
-    if (!data.choices?.[0]?.message?.content) {
-      throw new Error("Invalid response from Azure OpenAI");
-    }
-
-    const response = data.choices[0].message.content;
+    const data = await response.json()
 
     return new Response(
-      JSON.stringify({ response }),
+      JSON.stringify(data),
       { 
-        headers: { 
+        headers: {
           ...corsHeaders,
-          "Content-Type": "application/json"
+          'Content-Type': 'application/json'
         }
       }
-    );
+    )
+
   } catch (error) {
-    console.error("Error in chat function:", error);
-    
+    console.error('Error:', error)
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "An unknown error occurred",
-        details: error
-      }),
+      JSON.stringify({ error: error.message }),
       { 
         status: 500,
-        headers: { 
+        headers: {
           ...corsHeaders,
-          "Content-Type": "application/json"
+          'Content-Type': 'application/json'
         }
       }
-    );
+    )
   }
-});
+})
