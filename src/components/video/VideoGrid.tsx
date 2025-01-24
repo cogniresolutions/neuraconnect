@@ -16,7 +16,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   persona,
 }) => {
   return (
-    <div className="flex-1 grid grid-cols-2 gap-4 p-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
       <UserVideo videoRef={videoRef} userName={userName} />
       <PersonaVideo isCallActive={isCallActive} persona={persona} />
     </div>

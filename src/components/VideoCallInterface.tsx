@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { VideoDisplay } from "./video/VideoDisplay";
 import { VideoAnalysis } from "./video/VideoAnalysis";
 import { CallControls } from "./video/CallControls";
+import { VideoGrid } from "./video/VideoGrid";
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -69,7 +70,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       console.error('Error accessing camera:', error);
       toast({
         title: "Error",
-        description: "Could not access camera or microphone",
+        description: "Could not access camera or microphone. Please make sure they are connected and permissions are granted.",
         variant: "destructive",
       });
     }
@@ -85,7 +86,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       console.error('Error starting call:', error);
       toast({
         title: "Error",
-        description: "Failed to start call",
+        description: "Failed to start call. Please check your camera and microphone permissions.",
         variant: "destructive",
       });
     } finally {
@@ -142,16 +143,13 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         if (ttsError) throw ttsError;
 
         if (audioData?.audioContent) {
-          // Create a new audio element and store the reference
           const audio = new Audio(`data:audio/mp3;base64,${audioData.audioContent}`);
           currentAudioRef.current = audio;
           
-          // Create AudioContext only when needed
           if (!audioContextRef.current) {
             audioContextRef.current = new AudioContext();
           }
 
-          // Add ended event listener to clean up
           audio.addEventListener('ended', () => {
             if (currentAudioRef.current === audio) {
               currentAudioRef.current = null;
@@ -174,15 +172,26 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      <VideoDisplay
-        stream={stream}
-        videoRef={videoRef}
-        isRecording={isRecording}
-        currentEmotion={currentEmotion}
-        trainingVideo={null}
-        isCallActive={isCallActive}
-      />
+    <div className="flex flex-col space-y-4 h-full">
+      <div className="flex-1 min-h-0">
+        {isCallActive ? (
+          <VideoGrid
+            videoRef={videoRef}
+            userName="You"
+            isCallActive={isCallActive}
+            persona={persona}
+          />
+        ) : (
+          <VideoDisplay
+            stream={stream}
+            videoRef={videoRef}
+            isRecording={isRecording}
+            currentEmotion={currentEmotion}
+            trainingVideo={null}
+            isCallActive={isCallActive}
+          />
+        )}
+      </div>
 
       {isCallActive && (
         <VideoAnalysis
