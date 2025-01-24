@@ -7,22 +7,23 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY is not set');
-      throw new Error('OPENAI_API_KEY is not set');
+    const AZURE_OPENAI_KEY = Deno.env.get('AZURE_OPENAI_API_KEY');
+    const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
+
+    if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT) {
+      console.error('Azure OpenAI credentials are not set');
+      throw new Error('Azure OpenAI credentials are not set');
     }
 
     const { persona } = await req.json();
     console.log('Generating token for persona:', persona);
 
-    // Map voice style to supported OpenAI voices
+    // Map voice style to supported Azure OpenAI voices
     const voiceMapping: { [key: string]: string } = {
       'Jason': 'echo',     // Male voice
       'Jenny': 'shimmer',  // Female voice
@@ -36,20 +37,19 @@ serve(async (req) => {
       'Brandon': 'echo'    // Male voice
     };
 
-    // Get mapped voice or default to 'alloy'
     const mappedVoice = voiceMapping[persona.voice_style] || 'alloy';
     console.log('Mapped voice style:', persona.voice_style, 'to:', mappedVoice);
 
-    // Request an ephemeral token from OpenAI with detailed error logging
-    console.log('Requesting ephemeral token from OpenAI...');
-    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-realtime-preview/chat/realtime/token?api-version=2024-12-17`;
+    console.log('Requesting token from:', tokenUrl);
+
+    const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "api-key": AZURE_OPENAI_KEY,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
         voice: mappedVoice,
         instructions: `You are ${persona.name}, an AI assistant with the following personality: ${persona.personality}. 
                       You have expertise in: ${JSON.stringify(persona.skills)}. 
@@ -59,12 +59,12 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', {
+      console.error('Azure OpenAI API error:', {
         status: response.status,
         statusText: response.statusText,
         error: errorText
       });
-      throw new Error(`OpenAI API error: ${errorText}`);
+      throw new Error(`Azure OpenAI API error: ${errorText}`);
     }
 
     const data = await response.json();
