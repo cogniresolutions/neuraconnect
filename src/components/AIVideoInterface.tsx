@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 import { Loader2, Mic, MicOff } from 'lucide-react';
+import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
 
 interface AIVideoInterfaceProps {
   persona: any;
@@ -28,15 +29,13 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       onSpeakingChange(false);
     } else if (event.type === 'error') {
       console.error('WebSocket error:', event.error);
-      toast({
-        title: "Connection Error",
-        description: event.error?.message || "An error occurred during the conversation",
-        variant: "destructive",
-      });
+      handleAPIError(event.error, 'WebSocket connection');
     }
   };
 
   const startConversation = async () => {
+    const getMeasureTime = measureResponseTime();
+    
     try {
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
@@ -48,6 +47,9 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       chatRef.current = new RealtimeChat(handleMessage);
       await chatRef.current.init(persona);
       
+      const responseTime = getMeasureTime();
+      await logAPIUsage('start-conversation', 'success', undefined, responseTime);
+      
       setIsConnected(true);
       console.log('WebSocket connection established successfully');
       
@@ -55,27 +57,36 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         title: "Connected",
         description: `${persona.name} is ready to chat`,
       });
-    } catch (error) {
-      console.error('Error starting conversation:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to start conversation',
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      const responseTime = getMeasureTime();
+      await logAPIUsage('start-conversation', 'error', error, responseTime);
+      handleAPIError(error, 'Starting conversation');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const endConversation = () => {
-    console.log('Ending conversation and cleaning up connections');
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
+  const endConversation = async () => {
+    const getMeasureTime = measureResponseTime();
+    
+    try {
+      console.log('Ending conversation and cleaning up connections');
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      chatRef.current?.disconnect();
+      
+      const responseTime = getMeasureTime();
+      await logAPIUsage('end-conversation', 'success', undefined, responseTime);
+      
+      setIsConnected(false);
+      onSpeakingChange(false);
+    } catch (error: any) {
+      const responseTime = getMeasureTime();
+      await logAPIUsage('end-conversation', 'error', error, responseTime);
+      handleAPIError(error, 'Ending conversation');
     }
-    chatRef.current?.disconnect();
-    setIsConnected(false);
-    onSpeakingChange(false);
   };
 
   const toggleMute = () => {

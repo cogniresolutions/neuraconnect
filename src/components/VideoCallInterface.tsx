@@ -4,6 +4,7 @@ import { VideoAnalysis } from './video/VideoAnalysis';
 import { CallControls } from './video/CallControls';
 import { ConsentDialog } from './video/ConsentDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -23,15 +24,20 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const targetLanguage = persona?.model_config?.language || 'en';
 
   const translateText = async (text: string) => {
+    const getMeasureTime = measureResponseTime();
+    
     try {
       const { data, error } = await supabase.functions.invoke('azure-translate', {
         body: { text, targetLanguage }
       });
 
+      const responseTime = getMeasureTime();
+      await logAPIUsage('azure-translate', error ? 'error' : 'success', error, responseTime);
+
       if (error) throw error;
       return data.translatedText;
-    } catch (error) {
-      console.error('Translation error:', error);
+    } catch (error: any) {
+      handleAPIError(error, 'Translation');
       return text; // Fallback to original text
     }
   };
@@ -48,6 +54,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   }, [subtitles, targetLanguage]);
 
   const handleAnalysisComplete = async (analysis: any) => {
+    const getMeasureTime = measureResponseTime();
+    
     try {
       const { error } = await supabase
         .from('emotion_analysis')
@@ -58,15 +66,20 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           user_id: (await supabase.auth.getUser()).data.user?.id
         }]);
 
+      const responseTime = getMeasureTime();
+      await logAPIUsage('emotion-analysis', error ? 'error' : 'success', error, responseTime);
+
       if (error) throw error;
       
       console.log('Analysis results:', analysis);
     } catch (error: any) {
-      console.error('Error saving analysis:', error);
+      handleAPIError(error, 'Emotion analysis');
     }
   };
 
   const startCall = async () => {
+    const getMeasureTime = measureResponseTime();
+    
     try {
       const { data, error } = await supabase.functions.invoke('video-call', {
         body: { 
@@ -76,6 +89,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           language: targetLanguage
         }
       });
+
+      const responseTime = getMeasureTime();
+      await logAPIUsage('video-call-start', error ? 'error' : 'success', error, responseTime);
 
       if (error) throw error;
 
@@ -87,16 +103,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         description: `Connected with ${persona.name}`,
       });
     } catch (error: any) {
-      console.error('Error starting call:', error);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      handleAPIError(error, 'Starting call');
     }
   };
 
   const endCall = async () => {
+    const getMeasureTime = measureResponseTime();
+    
     try {
       const { error } = await supabase.functions.invoke('video-call', {
         body: { 
@@ -105,6 +118,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           userId: (await supabase.auth.getUser()).data.user?.id
         }
       });
+
+      const responseTime = getMeasureTime();
+      await logAPIUsage('video-call-end', error ? 'error' : 'success', error, responseTime);
 
       if (error) throw error;
 
@@ -116,12 +132,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         description: `Disconnected from ${persona.name}`,
       });
     } catch (error: any) {
-      console.error('Error ending call:', error);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      handleAPIError(error, 'Ending call');
     }
   };
 
