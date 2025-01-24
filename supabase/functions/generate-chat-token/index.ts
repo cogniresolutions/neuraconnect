@@ -22,8 +22,11 @@ serve(async (req) => {
     const { personaId, config } = await req.json();
     console.log('Generating token for persona:', personaId, 'with config:', config);
 
-    // Request a token from Azure OpenAI
-    const response = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-40-realtime-preview/chat/realtime/token?api-version=2024-02-15-preview`, {
+    // Request a token from Azure OpenAI with updated deployment name and API version
+    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4-realtime-preview/chat/realtime/token?api-version=2024-02-15-preview`;
+    console.log('Requesting token from:', tokenUrl);
+
+    const response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
         "api-key": AZURE_OPENAI_KEY,
@@ -37,7 +40,11 @@ serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('Azure OpenAI token generation error:', error);
+      console.error('Azure OpenAI token generation error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error
+      });
       throw new Error(`Failed to generate token: ${error}`);
     }
 
