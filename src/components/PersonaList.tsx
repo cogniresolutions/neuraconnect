@@ -39,6 +39,7 @@ import {
   ServerIcon,
   List,
   RefreshCw,
+  Video,
 } from "lucide-react";
 import {
   Select,
@@ -48,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { VOICE_MAPPINGS } from "@/constants/voices";
+import { useNavigate } from 'react-router-dom';
 
 type Persona = {
   id: string;
@@ -66,6 +68,7 @@ export const PersonaList = () => {
   const [showAllPersonas, setShowAllPersonas] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPersonas = async () => {
@@ -280,6 +283,10 @@ export const PersonaList = () => {
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
   const displayedPersonas = showAllPersonas ? personas : createdPersonas;
 
+  const handleVideoCall = (personaId: string) => {
+    navigate(`/video-call/${personaId}`);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-end mb-4">
@@ -319,7 +326,16 @@ export const PersonaList = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2 mt-4">
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500"
+                    onClick={() => handleVideoCall(persona.id)}
+                  >
+                    <Video className="h-4 w-4 mr-2" />
+                    Video Call
+                  </Button>
                   <Dialog open={isEditing && editingPersona?.id === persona.id} onOpenChange={(open) => {
                     setIsEditing(open);
                     if (!open) setEditingPersona(null);
