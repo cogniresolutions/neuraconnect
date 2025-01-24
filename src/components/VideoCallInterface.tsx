@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 import LocalVideo from './video/LocalVideo';
 import RemoteVideo from './video/RemoteVideo';
@@ -29,22 +30,79 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const mountedRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+
+  const forceCleanup = async () => {
+    console.log('Force cleaning up video call...');
+    
+    try {
+      // Stop all media tracks
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Stopped track:', track.kind);
+        });
+      }
+
+      // Close audio context
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+
+      // Disconnect chat
+      if (chatRef.current) {
+        chatRef.current.disconnect();
+        chatRef.current = null;
+      }
+
+      // Clear video elements
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+
+      // Update session status in database if we have a session ID
+      if (sessionIdRef.current) {
+        const { error } = await supabase
+          .from('tavus_sessions')
+          .update({ 
+            status: 'ended',
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionIdRef.current);
+
+        if (error) {
+          console.error('Error updating session status:', error);
+        }
+      }
+
+      setStream(null);
+      setIsCallActive(false);
+      onCallStateChange?.(false);
+
+      toast({
+        title: "Call Ended",
+        description: "The video call has been forcefully terminated",
+      });
+
+    } catch (error) {
+      console.error('Error during force cleanup:', error);
+      toast({
+        title: "Error",
+        description: "Failed to completely clean up the call. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const cleanup = useCallback(() => {
     console.log('Running cleanup in VideoCallInterface');
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-    if (chatRef.current) {
-      chatRef.current.disconnect();
-    }
-    setStream(null);
-    setIsCallActive(false);
-    onCallStateChange?.(false);
-  }, [stream, onCallStateChange]);
+    forceCleanup();
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -58,7 +116,27 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     try {
       cleanup();
 
-      // Initialize chat connection first
+      // Create a new session
+      const { data: session, error: sessionError } = await supabase
+        .from('tavus_sessions')
+        .insert({
+          conversation_id: crypto.randomUUID(),
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          status: 'active',
+          is_active: true,
+          session_type: 'video_call',
+          participants: [
+            { user_id: (await supabase.auth.getUser()).data.user?.id },
+            { persona_id: persona.id }
+          ]
+        })
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
+      sessionIdRef.current = session.id;
+
+      // Initialize chat connection
       chatRef.current = new RealtimeChat((event) => {
         if (event.type === 'response.audio.delta') {
           onSpeakingChange(true);
@@ -69,7 +147,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       await chatRef.current.init(persona);
 
-      // Wait for video elements to be ready
+      // Wait for video elements
       await new Promise<void>((resolve) => {
         const checkRefs = () => {
           if (localVideoRef.current && remoteVideoRef.current) {
