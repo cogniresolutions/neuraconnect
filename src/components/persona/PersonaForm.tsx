@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Upload } from "lucide-react";
 import { VoiceTest } from "./VoiceTest";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 interface VoiceMapping {
@@ -66,35 +66,53 @@ export function PersonaForm({
   personaId
 }: PersonaFormProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const { data: voiceMappings, isLoading: isLoadingVoices } = useQuery({
+  // Query voice mappings
+  const { data: voiceMappings, isLoading: isLoadingVoices, error: voiceError } = useQuery({
     queryKey: ['voiceMappings'],
     queryFn: async () => {
+      console.log('Fetching voice mappings...');
       const { data, error } = await supabase
         .from('voice_mappings')
         .select('*')
         .order('display_name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching voice mappings:', error);
+        throw error;
+      }
+      console.log('Voice mappings fetched:', data);
       return data as VoiceMapping[];
     },
   });
+
+  // Log query state
+  useEffect(() => {
+    console.log('Voice mappings state:', {
+      isLoading: isLoadingVoices,
+      error: voiceError,
+      data: voiceMappings,
+      language,
+    });
+  }, [isLoadingVoices, voiceError, voiceMappings, language]);
 
   // Filter voices based on selected language
   const filteredVoices = voiceMappings?.filter(
     voice => voice.language_code === language
   ) || [];
 
+  // Log filtered voices
+  useEffect(() => {
+    console.log('Filtered voices:', filteredVoices);
+  }, [filteredVoices]);
+
   const syncVoiceMappings = async () => {
     setIsSyncing(true);
     try {
+      console.log('Syncing voice mappings...');
       const { error } = await supabase.functions.invoke('sync-voice-mappings');
       if (error) throw error;
-
-      // Invalidate the voice mappings query to trigger a refresh
-      await queryClient.invalidateQueries({ queryKey: ['voiceMappings'] });
 
       toast({
         title: "Success",
@@ -113,7 +131,9 @@ export function PersonaForm({
   };
 
   const handleLanguageChange = async (newLanguage: string) => {
+    console.log('Language changed to:', newLanguage);
     setLanguage(newLanguage);
+    
     // Reset voice style when language changes
     if (filteredVoices.length > 0) {
       setVoiceStyle(filteredVoices[0].voice_style);
@@ -121,25 +141,14 @@ export function PersonaForm({
     
     // Sync voice mappings when language changes
     await syncVoiceMappings();
-    
-    if (personaId) {
-      try {
-        await supabase
-          .from('personas')
-          .update({
-            model_config: {
-              model: "gpt-4o-mini",
-              max_tokens: 800,
-              temperature: 0.7,
-              language: newLanguage
-            }
-          })
-          .eq('id', personaId);
-      } catch (error) {
-        console.error('Error updating language:', error);
-      }
-    }
   };
+
+  // Initial sync of voice mappings
+  useEffect(() => {
+    if (!voiceMappings || voiceMappings.length === 0) {
+      syncVoiceMappings();
+    }
+  }, []);
 
   return (
     <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
@@ -191,6 +200,7 @@ export function PersonaForm({
               <SelectValue placeholder={
                 isSyncing ? "Syncing voices..." :
                 isLoadingVoices ? "Loading voices..." :
+                filteredVoices.length === 0 ? "No voices available for selected language" :
                 "Select a voice style"
               } />
             </SelectTrigger>
