@@ -21,6 +21,7 @@ const PersonaCreator = () => {
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
+  const [personas, setPersonas] = useState<any[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -28,11 +29,31 @@ const PersonaCreator = () => {
       
       if (error || !session) {
         navigate("/auth");
+      } else {
+        // Fetch personas when authenticated
+        fetchPersonas();
       }
     };
 
     checkAuth();
   }, [navigate]);
+
+  const fetchPersonas = async () => {
+    const { data: personas, error } = await supabase
+      .from('personas')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast({
+        title: "Error fetching personas",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setPersonas(personas || []);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -101,6 +122,7 @@ const PersonaCreator = () => {
       setDescription("");
       setProfilePicture(null);
       setSelectedPersona(persona);
+      fetchPersonas(); // Refresh the personas list
 
     } catch (error: any) {
       console.error('Error creating persona:', error);
@@ -221,7 +243,7 @@ const PersonaCreator = () => {
 
         <TabsContent value="manage">
           <PersonaList
-            personas={[]}
+            personas={personas}
             onSelect={setSelectedPersona}
             onDelete={async (id) => {
               try {
@@ -236,6 +258,7 @@ const PersonaCreator = () => {
                   title: "Success",
                   description: "Persona deleted successfully",
                 });
+                fetchPersonas(); // Refresh the list after deletion
               } catch (error: any) {
                 toast({
                   title: "Error",
