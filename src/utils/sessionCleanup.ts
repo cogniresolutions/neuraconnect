@@ -31,11 +31,12 @@ export const cleanupUserSessions = async (userId?: string | null) => {
     }
 
     // Then, clean up any sessions where this user is in the participants array
+    // Using proper JSON containment operator
     const { data: sessions, error: fetchError } = await supabase
       .from('tavus_sessions')
       .select('id')
       .eq('is_active', true)
-      .contains('participants', [{ user_id: userId }]);
+      .contains('participants', [{ user_id: userId, type: 'user' }]);
 
     if (fetchError) {
       console.error('Error fetching sessions:', fetchError);

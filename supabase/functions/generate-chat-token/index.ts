@@ -28,22 +28,15 @@ serve(async (req) => {
 
       console.log('Speech endpoint:', speechEndpoint);
       
-      // Test with the synthesis endpoint
-      const testUrl = `${speechEndpoint}/cognitiveservices/v1`;
+      // Use the REST API endpoint for synthesis
+      const testUrl = `${speechEndpoint}/cognitiveservices/voices/list`;
       console.log('Making request to:', testUrl);
 
-      const testSsml = '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">Test connection</voice></speak>';
-      
-      console.log('Testing with SSML:', testSsml);
-
       const speechResponse = await fetch(testUrl, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Ocp-Apim-Subscription-Key': speechKey,
-          'Content-Type': 'application/ssml+xml',
-          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3'
         },
-        body: testSsml
       });
 
       console.log('Speech Services response status:', speechResponse.status);
