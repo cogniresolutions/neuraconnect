@@ -35,11 +35,11 @@ serve(async (req) => {
       throw new Error('Missing required fields: text and voice are required');
     }
 
-    // Extract region from endpoint
+    // Extract region from endpoint (e.g., "eastus" from "https://eastus.tts.speech.microsoft.com")
     const region = azureSpeechEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
     console.log('Using region:', region);
 
-    // Step 3: Check available voices using the correct endpoint format
+    // Step 3: Check available voices using Speech Services endpoint
     console.log('Fetching available voices...');
     const voicesUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`;
     console.log('Using voices list URL:', voicesUrl);
@@ -65,8 +65,7 @@ serve(async (req) => {
     const voices = await voicesResponse.json();
     console.log('Available voices count:', voices.length);
 
-    // The voice parameter should already be in format "en-GB-SaraNeural"
-    // Let's verify it exists in the available voices
+    // The voice parameter should already be in format "en-US-JennyNeural"
     console.log('Checking for voice:', voice);
     const voiceExists = voices.some((v: any) => v.ShortName === voice);
     if (!voiceExists) {
@@ -90,9 +89,9 @@ serve(async (req) => {
       </speak>
     `;
 
-    // Step 4: Make request to Azure TTS using the correct endpoint format
+    // Step 4: Make request to Azure Speech Services TTS endpoint
     console.log('Making request to Azure TTS...');
-    const ttsUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1/speak`;
+    const ttsUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     console.log('Using TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
