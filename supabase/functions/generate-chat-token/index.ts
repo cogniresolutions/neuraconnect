@@ -28,23 +28,45 @@ Deno.serve(async (req) => {
     // Test Azure OpenAI Connection with specific deployment
     try {
       console.log('Testing Azure OpenAI connection...');
-      const deploymentName = 'gpt-4o-mini'; // Make sure this matches your actual deployment name
+      const deploymentName = 'gpt-4o-mini';
       const apiVersion = '2024-02-15-preview';
       
-      const openAiResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}?api-version=${apiVersion}`, {
+      // First try to list deployments to check connection
+      const deploymentsResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments?api-version=${apiVersion}`, {
         headers: {
           'api-key': AZURE_OPENAI_API_KEY,
         },
       });
 
-      if (!openAiResponse.ok) {
-        const error = await openAiResponse.text();
-        console.error('Azure OpenAI validation failed:', error);
-        throw new Error(`Failed to validate Azure OpenAI: ${error}`);
+      if (!deploymentsResponse.ok) {
+        const error = await deploymentsResponse.text();
+        console.error('Failed to list deployments:', error);
+        throw new Error(`Failed to validate Azure OpenAI deployments: ${error}`);
       }
 
-      const deployment = await openAiResponse.json();
-      console.log('Azure OpenAI deployment validated:', deployment.id);
+      const deployments = await deploymentsResponse.json();
+      console.log('Available deployments:', deployments);
+
+      // Then test the specific deployment
+      const deploymentResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`, {
+        method: 'POST',
+        headers: {
+          'api-key': AZURE_OPENAI_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'system', content: 'Test connection' }],
+          max_tokens: 5,
+        }),
+      });
+
+      if (!deploymentResponse.ok) {
+        const error = await deploymentResponse.text();
+        console.error('Deployment test failed:', error);
+        throw new Error(`Failed to validate deployment ${deploymentName}: ${error}`);
+      }
+
+      console.log(`Azure OpenAI deployment ${deploymentName} validated successfully`);
     } catch (error) {
       console.error('Error validating Azure OpenAI:', error);
       throw new Error(`Failed to validate Azure OpenAI deployment: ${error.message}`);
@@ -61,7 +83,7 @@ Deno.serve(async (req) => {
 
       if (!speechResponse.ok) {
         const error = await speechResponse.text();
-        console.error('Azure Speech Services validation failed:', error);
+        console.error('Speech Services validation failed:', error);
         throw new Error(`Failed to validate Azure Speech Services: ${error}`);
       }
 
