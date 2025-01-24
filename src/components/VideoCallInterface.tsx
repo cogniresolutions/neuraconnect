@@ -7,14 +7,13 @@ import { VideoAnalysis } from "./video/VideoAnalysis";
 import { CallControls } from "./video/CallControls";
 import { VideoGrid } from "./video/VideoGrid";
 import { RealtimeChat } from "@/utils/RealtimeAudio";
+import AzureVideoService from '@/services/AzureVideoService';
 
 interface VideoCallInterfaceProps {
   persona: any;
   onCallStateChange: (isActive: boolean) => void;
   isVideoMode?: boolean;
 }
-
-const AZURE_CONTAINER_VIDEO_URL = "https://persona--zw6su7w.graygrass-5ab083e6.eastus.azurecontainerapps.io/video";
 
 export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
@@ -41,53 +40,10 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     console.log('VideoCallInterface mounted');
     mountedRef.current = true;
 
-    // Initial check for video element
-    if (videoRef.current) {
-      console.log('Video element available immediately');
-      setIsVideoElementReady(true);
-    }
-
     return () => {
       console.log('VideoCallInterface unmounting');
       mountedRef.current = false;
       cleanup();
-    };
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    let checkCount = 0;
-    const maxChecks = 50; // 5 seconds total with 100ms interval
-
-    const checkVideoElement = () => {
-      if (!isMounted) return;
-      
-      checkCount++;
-      console.log(`Checking video element (${checkCount}/${maxChecks})`);
-
-      if (videoRef.current) {
-        console.log('Video element found and ready');
-        setIsVideoElementReady(true);
-        return true;
-      }
-
-      if (checkCount >= maxChecks) {
-        console.log('Max check attempts reached');
-        return true;
-      }
-
-      return false;
-    };
-
-    const intervalId = setInterval(() => {
-      if (checkVideoElement()) {
-        clearInterval(intervalId);
-      }
-    }, 100);
-
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
     };
   }, []);
 
@@ -100,23 +56,76 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
       setStream(null);
     }
+    
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
     }
+    
     if (azureVideoRef.current) {
-      azureVideoRef.current.pause();
-      azureVideoRef.current.src = '';
+      AzureVideoService.getInstance().cleanup();
     }
+    
     if (chatRef.current) {
       chatRef.current.disconnect();
       chatRef.current = null;
     }
+    
     setIsVideoElementReady(false);
+  };
+
+  const startCamera = async () => {
+    console.log('Starting camera initialization...');
+    try {
+      cleanup();
+
+      if (!videoRef.current || !azureVideoRef.current) {
+        console.error('Video elements not found');
+        throw new Error('Video elements not initialized');
+      }
+
+      console.log('Requesting media stream...');
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+
+      if (!mountedRef.current) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        throw new Error('Component unmounted during initialization');
+      }
+
+      console.log('Setting up media stream...');
+      setStream(mediaStream);
+      videoRef.current.srcObject = mediaStream;
+      
+      await videoRef.current.play().catch(error => {
+        console.error('Error playing video:', error);
+        throw error;
+      });
+
+      // Initialize Azure video stream
+      await AzureVideoService.getInstance().initialize(azureVideoRef.current);
+      
+      // Initialize realtime chat
+      chatRef.current = new RealtimeChat(handleMessage);
+      await chatRef.current.init({
+        ...persona,
+        voice: persona.voice_style || 'alloy'
+      });
+      
+      console.log('All video streams initialized successfully');
+      return true;
+    } catch (error) {
+      console.error('Camera initialization error:', error);
+      cleanup();
+      throw error;
+    }
   };
 
   const handleMessage = async (event: any) => {
@@ -146,77 +155,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           console.error('Error playing audio:', error);
         }
       }
-    }
-  };
-
-  const startCamera = async () => {
-    console.log('Starting camera initialization...');
-    try {
-      cleanup();
-
-      if (!videoRef.current) {
-        console.log('Waiting for video element initialization...');
-        await new Promise<void>((resolve, reject) => {
-          let attempts = 0;
-          const checkInterval = setInterval(() => {
-            attempts++;
-            if (videoRef.current && isVideoElementReady) {
-              clearInterval(checkInterval);
-              console.log('Video element initialized successfully');
-              resolve();
-            } else if (attempts >= 50) { // 5 seconds timeout
-              clearInterval(checkInterval);
-              reject(new Error('Video element initialization timeout'));
-            }
-          }, 100);
-        });
-      }
-
-      console.log('Requesting media stream...');
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-
-      if (!mountedRef.current) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        throw new Error('Component unmounted during initialization');
-      }
-
-      console.log('Setting up media stream...');
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play().catch(error => {
-          console.error('Error playing video:', error);
-          throw error;
-        });
-      }
-
-      // Start Azure Container video stream
-      if (azureVideoRef.current) {
-        azureVideoRef.current.src = AZURE_CONTAINER_VIDEO_URL;
-        try {
-          await azureVideoRef.current.play();
-          console.log('Azure video stream started');
-        } catch (error) {
-          console.error('Error playing Azure video:', error);
-        }
-      }
-      
-      // Initialize realtime chat
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init({
-        ...persona,
-        voice: persona.voice_style || 'alloy'
-      });
-      console.log('Realtime chat initialized');
-      
-      return true;
-    } catch (error) {
-      console.error('Camera initialization error:', error);
-      cleanup();
-      throw error;
     }
   };
 
@@ -266,35 +204,11 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const handleSpeechDetected = async (text: string) => {
-    if (!isCallActive || isProcessingAudio || !chatRef.current) return;
-    
-    console.log('Speech detected:', text);
-    try {
-      await chatRef.current.sendMessage(text);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleEndCall = () => {
     cleanup();
     setIsCallActive(false);
     setIsRecording(false);
     onCallStateChange(false);
-  };
-
-  const handleStartRecording = () => {
-    setIsRecording(true);
-  };
-
-  const handleStopRecording = () => {
-    setIsRecording(false);
   };
 
   return (
