@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 
 interface TestResult {
   service: string;
   status: 'success' | 'error';
+  statusCode?: number;
   error?: string;
 }
 
@@ -93,14 +94,28 @@ export default function AzureTest() {
                 }`}
               >
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">{result.service}</span>
-                  <span className={`px-2 py-1 rounded text-sm ${
-                    result.status === 'success' 
-                      ? 'bg-green-500/30 text-green-300' 
-                      : 'bg-red-500/30 text-red-300'
-                  }`}>
-                    {result.status.toUpperCase()}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    {result.status === 'success' ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-400" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-400" />
+                    )}
+                    <span className="font-medium">{result.service}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {result.statusCode && (
+                      <span className="text-sm text-gray-400">
+                        Status: {result.statusCode}
+                      </span>
+                    )}
+                    <span className={`px-2 py-1 rounded text-sm ${
+                      result.status === 'success' 
+                        ? 'bg-green-500/30 text-green-300' 
+                        : 'bg-red-500/30 text-red-300'
+                    }`}>
+                      {result.status.toUpperCase()}
+                    </span>
+                  </div>
                 </div>
                 {result.error && (
                   <p className="mt-2 text-sm text-red-300">{result.error}</p>
