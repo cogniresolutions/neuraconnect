@@ -41,8 +41,8 @@ serve(async (req) => {
       console.log('Testing Azure OpenAI base connectivity...');
       console.log('Using endpoint:', azureOpenAIEndpoint);
       
-      // Update the API version to the latest
-      const baseResponse = await fetch(`${azureOpenAIEndpoint}/openai/models?api-version=2024-02-15-preview`, {
+      // Use the deployments endpoint instead of models
+      const baseResponse = await fetch(`${azureOpenAIEndpoint}/openai/deployments?api-version=2024-02-15-preview`, {
         headers: {
           'api-key': azureOpenAIKey,
           'Content-Type': 'application/json',
