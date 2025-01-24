@@ -446,6 +446,44 @@ export type Database = {
         }
         Relationships: []
       }
+      persona_appearances: {
+        Row: {
+          animation_data: Json | null
+          created_at: string
+          id: string
+          image_url: string | null
+          persona_id: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          animation_data?: Json | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          persona_id?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          animation_data?: Json | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          persona_id?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_appearances_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       persona_training_materials: {
         Row: {
           analysis_results: Json | null

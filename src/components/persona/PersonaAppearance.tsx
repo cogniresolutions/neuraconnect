@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -45,13 +44,14 @@ export const PersonaAppearance: React.FC<PersonaAppearanceProps> = ({
       setGeneratedImage(imageUrl);
       onImageGenerated(imageUrl);
 
-      // Save to persona_appearances table
+      // Save to persona_appearances table using the personas table
       const { error: dbError } = await supabase
-        .from('persona_appearances')
-        .insert({
-          persona_id: personaId,
-          image_url: imageUrl
-        });
+        .from('personas')
+        .update({
+          avatar_url: imageUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', personaId);
 
       if (dbError) throw dbError;
 
