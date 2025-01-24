@@ -30,55 +30,67 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Effect to handle camera start/stop based on call state
-  useEffect(() => {
-    if (isCallActive && !stream) {
-      startCamera();
+  // Cleanup function to stop all media tracks and reset audio
+  const cleanup = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped track:', track.kind);
+      });
+      setStream(null);
     }
-    
-    // Cleanup function
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-        currentAudioRef.current = null;
-      }
-    };
-  }, [isCallActive, stream]);
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+  };
+
+  // Effect to cleanup on unmount
+  useEffect(() => {
+    return cleanup;
+  }, []);
 
   const startCamera = async () => {
     console.log('Starting camera...');
     try {
+      // First cleanup any existing streams
+      cleanup();
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
+      
       console.log('Media stream obtained:', mediaStream);
       
       if (!mediaStream) {
         throw new Error('Failed to get media stream');
       }
 
-      setStream(mediaStream);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play();
-        console.log('Video playback started');
-      } else {
+      if (!videoRef.current) {
         console.error('Video ref is null');
         throw new Error('Video element not found');
       }
+
+      setStream(mediaStream);
+      videoRef.current.srcObject = mediaStream;
       
-      return true;
+      try {
+        await videoRef.current.play();
+        console.log('Video playback started');
+        return true;
+      } catch (playError) {
+        console.error('Error playing video:', playError);
+        cleanup();
+        throw new Error('Failed to start video playback');
+      }
     } catch (error) {
       console.error('Error accessing camera:', error);
+      cleanup();
       toast({
         title: "Error",
         description: "Could not access camera or microphone. Please make sure they are connected and permissions are granted.",
@@ -89,8 +101,11 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const handleStartCall = async () => {
+    if (isLoading) return;
+    
     console.log('Starting call...');
     setIsLoading(true);
+    
     try {
       // First ensure camera is started
       const cameraStarted = await startCamera();
@@ -120,11 +135,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       console.error('Error starting call:', error);
-      // Clean up if anything fails
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
+      cleanup();
       setIsCallActive(false);
       onCallStateChange(false);
       
@@ -139,10 +150,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const handleEndCall = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
+    cleanup();
     setIsCallActive(false);
     setIsRecording(false);
     onCallStateChange(false);
