@@ -33,11 +33,16 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const initializeMediaStream = async () => {
     try {
       console.log('Initializing media stream...');
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          facingMode: 'user'
+          facingMode: 'user',
+          frameRate: { ideal: 30 }
         },
         audio: {
           echoCancellation: true,
@@ -52,23 +57,18 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.muted = true; // Mute to prevent feedback
+        videoRef.current.volume = 1.0;
         await videoRef.current.play();
         console.log('Video element playing');
       }
 
-      // Initialize audio context
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const processor = audioContextRef.current.createScriptProcessor(1024, 1, 1);
-      
-      processor.onaudioprocess = (e) => {
-        // Process audio data here
-        const inputData = e.inputBuffer.getChannelData(0);
-        console.log('Audio data received:', inputData.length);
-      };
-
-      source.connect(processor);
-      processor.connect(audioContextRef.current.destination);
+      // Initialize audio context for monitoring
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const destination = audioContext.createMediaStreamDestination();
+      source.connect(destination);
+      audioContextRef.current = audioContext;
       
       return stream;
     } catch (error) {
@@ -197,6 +197,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         console.log('Audio context closed');
       }
 
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+
       const { error } = await supabase.functions.invoke('video-call', {
         body: { 
           action: 'end',
@@ -240,6 +244,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         audioContextRef.current = null;
         console.log('Audio context closed on cleanup');
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     };
   }, []);
 
@@ -252,8 +259,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
               ref={videoRef}
               autoPlay
               playsInline
-              muted={false}
-              className="w-full h-full object-cover transform scale-x-[-1]"
+              muted
+              className="w-full h-full object-cover"
             />
             <VideoAnalysis
               personaId={persona.id}
