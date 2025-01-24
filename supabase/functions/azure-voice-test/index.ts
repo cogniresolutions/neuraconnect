@@ -34,8 +34,10 @@ serve(async (req) => {
     
     console.log('Request data:', { text, voice });
 
-    // Ensure the endpoint is using tts instead of stt
-    const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
+    // Format the TTS endpoint correctly
+    // Remove any trailing slashes and ensure we're using the correct TTS endpoint
+    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '');
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Test text-to-speech with proper SSML
@@ -50,11 +52,9 @@ serve(async (req) => {
       </speak>
     `.trim();
 
-    const ttsUrl = `${ttsEndpoint}/cognitiveservices/v1`;
-    console.log('TTS URL:', ttsUrl);
     console.log('SSML Payload:', ssml);
 
-    const ttsResponse = await fetch(ttsUrl, {
+    const ttsResponse = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Ocp-Apim-Subscription-Key': azureSpeechKey,
@@ -75,7 +75,7 @@ serve(async (req) => {
         statusText: ttsResponse.statusText,
         headers: Object.fromEntries(ttsResponse.headers.entries()),
         error: errorText,
-        url: ttsUrl
+        url: ttsEndpoint
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
