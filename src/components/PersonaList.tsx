@@ -260,7 +260,6 @@ export const PersonaList = () => {
 
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
-  const displayedPersonas = showAllPersonas ? personas : createdPersonas;
 
   const handleVideoCall = (personaId: string) => {
     navigate(`/video-call/${personaId}`);
@@ -287,17 +286,13 @@ export const PersonaList = () => {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {displayedPersonas.map((persona) => (
+          {createdPersonas.map((persona) => (
             <Card key={persona.id} className="bg-gray-800 border-gray-700">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-white">{persona.name}</CardTitle>
-                  <Badge variant="outline" className={`${
-                    persona.status === 'ready' ? 'bg-green-500/10 text-green-500' : 
-                    persona.status === 'deployed' ? 'bg-blue-500/10 text-blue-500' :
-                    'bg-gray-500/10 text-gray-500'
-                  }`}>
-                    {persona.status.charAt(0).toUpperCase() + persona.status.slice(1)}
+                  <Badge variant="outline" className="bg-gray-700/50 text-gray-300">
+                    ID: {persona.id}
                   </Badge>
                 </div>
                 <CardDescription className="text-gray-400">
@@ -455,10 +450,9 @@ export const PersonaList = () => {
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <CardTitle className="text-white">{persona.name}</CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <PlayCircle className="h-5 w-5 text-blue-400" />
-                      <span className="text-sm text-gray-400">Deployed</span>
-                    </div>
+                    <Badge variant="outline" className="bg-gray-700/50 text-gray-300">
+                      ID: {persona.id}
+                    </Badge>
                   </div>
                   <CardDescription className="text-gray-300">
                     {persona.description}
