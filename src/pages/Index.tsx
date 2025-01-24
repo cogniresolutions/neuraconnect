@@ -1,34 +1,72 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PersonaCreator from "@/components/PersonaCreator";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { Loader2 } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Auth check error:", error);
+          toast({
+            title: "Error",
+            description: "Failed to check authentication status",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!session) {
+          console.log("No session found, redirecting to auth");
+          navigate("/auth");
+          return;
+        }
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Unexpected error during auth check:", err);
         toast({
           title: "Error",
-          description: "Failed to check authentication status",
+          description: "An unexpected error occurred",
           variant: "destructive",
         });
-        return;
-      }
-
-      if (!session) {
-        navigate("/auth");
       }
     };
 
+    // Check auth on mount
     checkAuth();
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session);
+      
+      if (event === 'SIGNED_OUT') {
+        navigate("/auth");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [navigate, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black">

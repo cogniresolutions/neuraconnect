@@ -22,7 +22,7 @@ const Auth = () => {
       
       if (session) {
         console.log('User is already authenticated, redirecting...');
-        handleAuthSuccess(session);
+        navigate('/');
       }
     };
 
@@ -33,10 +33,7 @@ const Auth = () => {
       
       if (event === 'SIGNED_IN' && session) {
         console.log('User signed in:', session.user.email);
-        handleAuthSuccess(session);
-      } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
-        setError(null);
+        navigate('/');
       }
     });
 
