@@ -28,6 +28,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isInitializing, setIsInitializing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [personaStream, setPersonaStream] = useState<MediaStream | null>(null);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -53,6 +54,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           console.log('Stopping track:', track.kind);
           track.stop();
         });
+      }
+      
+      if (personaStream) {
+        personaStream.getTracks().forEach(track => track.stop());
       }
       
       if (chatRef.current) {
@@ -83,6 +88,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       setIsCallActive(false);
       setStream(null);
+      setPersonaStream(null);
       onCallStateChange?.(false);
       
     } catch (error) {
@@ -92,24 +98,16 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const initializeAudioContext = async (mediaStream: MediaStream) => {
     try {
-      // Create new AudioContext
       audioContextRef.current = new AudioContext();
-      
-      // Create source from media stream
       const source = audioContextRef.current.createMediaStreamSource(mediaStream);
-      
-      // Create analyzer node for detecting speech
       const analyser = audioContextRef.current.createAnalyser();
       analyser.fftSize = 2048;
       
-      // Connect nodes
       source.connect(analyser);
       
-      // Create media stream destination for output
       const destination = audioContextRef.current.createMediaStreamDestination();
       analyser.connect(destination);
       
-      // Add the audio track to the stream
       const audioTrack = destination.stream.getAudioTracks()[0];
       if (stream) {
         stream.addTrack(audioTrack);
@@ -117,7 +115,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       console.log('Audio context initialized successfully');
       
-      // Set up speech detection
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       
@@ -126,8 +123,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         
         analyser.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((a, b) => a + b) / bufferLength;
-        const isSpeaking = average > 30; // Adjust threshold as needed
+        const isSpeaking = average > 30;
         onSpeakingChange(isSpeaking);
+        console.log('Speaking state changed:', isSpeaking);
         
         if (mountedRef.current) {
           requestAnimationFrame(checkAudioLevel);
@@ -138,6 +136,58 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
     } catch (error) {
       console.error('Error initializing audio context:', error);
+      throw error;
+    }
+  };
+
+  const initializePersonaStream = async () => {
+    try {
+      // Initialize chat for persona audio
+      chatRef.current = new RealtimeChat(async (event) => {
+        if (event.type === 'response.audio.delta' && event.audio) {
+          // Convert base64 audio to stream
+          const audioData = atob(event.audio);
+          const arrayBuffer = new ArrayBuffer(audioData.length);
+          const view = new Uint8Array(arrayBuffer);
+          for (let i = 0; i < audioData.length; i++) {
+            view[i] = audioData.charCodeAt(i);
+          }
+
+          if (!audioContextRef.current) {
+            audioContextRef.current = new AudioContext();
+          }
+
+          const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+          const source = audioContextRef.current.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContextRef.current.destination);
+          source.start(0);
+        }
+      });
+
+      await chatRef.current.init(persona);
+      console.log('Persona chat initialized successfully');
+
+      // Create a MediaStream for the persona's video
+      const personaVideoStream = new MediaStream();
+      if (persona.video_url) {
+        const videoElement = document.createElement('video');
+        videoElement.src = persona.video_url;
+        videoElement.autoplay = true;
+        videoElement.muted = true;
+        const videoTrack = videoElement.captureStream().getVideoTracks()[0];
+        personaVideoStream.addTrack(videoTrack);
+      }
+
+      setPersonaStream(personaVideoStream);
+      
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = personaVideoStream;
+        await remoteVideoRef.current.play();
+        console.log('Persona video stream connected successfully');
+      }
+    } catch (error) {
+      console.error('Error initializing persona stream:', error);
       throw error;
     }
   };
@@ -199,8 +249,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       setStream(mediaStream);
       
-      // Initialize audio context after getting media stream
       await initializeAudioContext(mediaStream);
+      await initializePersonaStream();
       
       if (localVideoRef.current) {
         console.log('Connecting stream to local video element');
@@ -216,13 +266,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       } else {
         console.error('Local video reference not found');
         throw new Error('Video element not initialized');
-      }
-      
-      // Set up remote video with the same stream for now
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = mediaStream;
-        await remoteVideoRef.current.play();
-        console.log('Remote video playback started successfully');
       }
 
       setIsCallActive(true);
