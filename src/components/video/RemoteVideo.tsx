@@ -8,7 +8,7 @@ interface RemoteVideoProps {
   isAnalyzing?: boolean;
 }
 
-const RemoteVideo = ({ onVideoRef, persona, isAnalyzing }: RemoteVideoProps) => {
+const RemoteVideo: React.FC<RemoteVideoProps> = ({ onVideoRef, persona, isAnalyzing }) => {
   return (
     <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video

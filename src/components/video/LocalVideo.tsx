@@ -9,13 +9,13 @@ interface LocalVideoProps {
   isAnalyzing?: boolean;
 }
 
-const LocalVideo = ({ 
+const LocalVideo: React.FC<LocalVideoProps> = ({ 
   onVideoRef, 
   isRecording,
   currentEmotion,
   environmentContext,
   isAnalyzing 
-}: LocalVideoProps) => {
+}) => {
   return (
     <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video

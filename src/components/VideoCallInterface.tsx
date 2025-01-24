@@ -101,10 +101,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
-
+      
       source.connect(processor);
       processor.connect(audioContextRef.current.destination);
-
+      
       processor.onaudioprocess = async (e) => {
         if (!isSpeechRecognitionActive) return;
         const inputData = e.inputBuffer.getChannelData(0);
@@ -178,6 +178,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (localVideoRef.current) {
         console.log('Connecting stream to local video element');
         localVideoRef.current.srcObject = mediaStream;
+        await localVideoRef.current.play().catch(error => {
+          console.error('Error playing local video:', error);
+        });
       }
 
       setIsCallActive(true);
