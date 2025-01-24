@@ -17,18 +17,25 @@ serve(async (req) => {
     const AZURE_SPEECH_KEY = Deno.env.get('AZURE_SPEECH_KEY');
     const AZURE_SPEECH_ENDPOINT = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
-    if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT || !AZURE_SPEECH_KEY || !AZURE_SPEECH_ENDPOINT) {
-      console.error('Missing required Azure credentials:', {
-        hasOpenAIKey: !!AZURE_OPENAI_KEY,
-        hasOpenAIEndpoint: !!AZURE_OPENAI_ENDPOINT,
-        hasSpeechKey: !!AZURE_SPEECH_KEY,
-        hasSpeechEndpoint: !!AZURE_SPEECH_ENDPOINT
+    // Enhanced credential validation
+    if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT) {
+      console.error('Missing Azure OpenAI credentials:', {
+        hasKey: !!AZURE_OPENAI_KEY,
+        hasEndpoint: !!AZURE_OPENAI_ENDPOINT
       });
-      throw new Error('Azure credentials are not configured');
+      throw new Error('Azure OpenAI credentials are not configured');
+    }
+
+    if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_ENDPOINT) {
+      console.error('Missing Azure Speech credentials:', {
+        hasKey: !!AZURE_SPEECH_KEY,
+        hasEndpoint: !!AZURE_SPEECH_ENDPOINT
+      });
+      throw new Error('Azure Speech credentials are not configured');
     }
 
     const { persona } = await req.json();
-    console.log('Received request for persona:', {
+    console.log('Processing request for persona:', {
       id: persona.id,
       name: persona.name,
       voice_style: persona.voice_style
@@ -38,19 +45,22 @@ serve(async (req) => {
       throw new Error('Invalid persona data provided');
     }
 
-    // Map voice style to Azure voices
+    // Map voice style to Azure voices with fallback
     const voiceMapping: { [key: string]: string } = {
       'en-US-JennyNeural': 'shimmer',
       'en-US-GuyNeural': 'echo',
       'en-US-AriaNeural': 'shimmer',
-      'en-US-DavisNeural': 'echo'
+      'en-US-DavisNeural': 'echo',
+      'default': 'alloy'
     };
 
-    const mappedVoice = voiceMapping[persona.voice_style] || 'alloy';
+    const mappedVoice = voiceMapping[persona.voice_style] || voiceMapping.default;
     console.log('Mapped voice style:', persona.voice_style, 'to:', mappedVoice);
 
-    // Request a token from Azure OpenAI
-    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/realtime/token?api-version=2024-12-17`;
+    // Construct the token URL with proper API version
+    const baseUrl = AZURE_OPENAI_ENDPOINT.replace(/\/$/, '');
+    const tokenUrl = `${baseUrl}/openai/deployments/gpt-4o-mini/chat/realtime/token?api-version=2024-02-15-preview`;
+    
     console.log('Requesting token from:', tokenUrl);
 
     const response = await fetch(tokenUrl, {
@@ -74,7 +84,8 @@ serve(async (req) => {
         status: response.status,
         statusText: response.statusText,
         error: errorText,
-        endpoint: AZURE_OPENAI_ENDPOINT
+        endpoint: AZURE_OPENAI_ENDPOINT,
+        url: tokenUrl
       });
       throw new Error(`Azure OpenAI API error: ${errorText}`);
     }
