@@ -7,7 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, User } from 'lucide-react';
+import { Input } from './ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Button } from './ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -22,6 +26,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [userName, setUserName] = useState('');
   const [subtitles, setSubtitles] = useState<string>('');
   const [translatedSubtitles, setTranslatedSubtitles] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -137,12 +143,16 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const startCall = async () => {
+    if (!userName.trim()) {
+      setShowNameDialog(true);
+      return;
+    }
+
     setIsLoading(true);
     const getMeasureTime = measureResponseTime();
     
     try {
       console.log('Starting call...');
-      // Initialize media stream first
       await initializeMediaStream();
 
       const { data, error } = await supabase.functions.invoke('video-call', {
@@ -150,7 +160,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           action: 'start',
           personaId: persona.id,
           userId: (await supabase.auth.getUser()).data.user?.id,
-          language: targetLanguage
+          language: targetLanguage,
+          userName: userName
         }
       });
 
@@ -253,35 +264,55 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full max-w-4xl px-4">
       {isCallActive && (
-        <Card className="w-full space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
-          <div className="aspect-video rounded-lg overflow-hidden relative">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            <VideoAnalysis
-              personaId={persona.id}
-              onAnalysisComplete={handleAnalysisComplete}
-              onSpeechDetected={setSubtitles}
-            />
-            <div className="absolute top-4 right-4">
-              <Badge variant="secondary" className="bg-black/50 text-white">
-                {isRecording ? 'Recording' : 'Live'}
-              </Badge>
+        <div className="grid grid-cols-2 gap-4 w-full">
+          {/* User Video */}
+          <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
+            <div className="aspect-video rounded-lg overflow-hidden relative">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              <VideoAnalysis
+                personaId={persona.id}
+                onAnalysisComplete={handleAnalysisComplete}
+                onSpeechDetected={setSubtitles}
+              />
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
+                <User className="h-4 w-4" />
+                <span className="text-sm font-medium">{userName || 'You'}</span>
+              </div>
+              <div className="absolute top-4 right-4">
+                <Badge variant="secondary" className="bg-black/50 text-white">
+                  {isRecording ? 'Recording' : 'Live'}
+                </Badge>
+              </div>
             </div>
-          </div>
+          </Card>
+
+          {/* Persona Video */}
+          <Card className="space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
+            <div className="aspect-video rounded-lg overflow-hidden relative">
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={persona.profile_picture_url} alt={persona.name} />
+                  <AvatarFallback>{persona.name[0]}</AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium">{persona.name}</span>
+              </div>
+            </div>
+          </Card>
           
           {(subtitles || translatedSubtitles) && (
-            <div className="p-4 rounded-lg bg-black/80 backdrop-blur-sm">
+            <div className="col-span-2 p-4 rounded-lg bg-black/80 backdrop-blur-sm">
               <p className="text-lg text-center text-white font-medium">
                 {translatedSubtitles || subtitles}
               </p>
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       <div className="flex justify-center items-center gap-4">
@@ -296,10 +327,42 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         />
       </div>
 
+      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Your Name</DialogTitle>
+            <DialogDescription>
+              Please enter your name to start the video call
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Your name"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+            />
+            <Button 
+              onClick={() => {
+                if (userName.trim()) {
+                  setShowNameDialog(false);
+                  startCall();
+                }
+              }}
+              disabled={!userName.trim()}
+            >
+              Start Call
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ConsentDialog
         open={showConsentDialog}
         onOpenChange={setShowConsentDialog}
-        onAccept={startCall}
+        onAccept={() => {
+          setShowConsentDialog(false);
+          startCall();
+        }}
         personaName={persona.name}
       />
     </div>
