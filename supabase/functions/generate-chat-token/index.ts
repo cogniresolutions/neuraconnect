@@ -29,13 +29,19 @@ Deno.serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Test Azure OpenAI Connection
+    // Test Azure OpenAI Connection with specific model deployment
     try {
       console.log('Testing Azure OpenAI connection...');
-      const openAiResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments?api-version=2024-02-15-preview`, {
+      const openAiResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`, {
+        method: 'POST',
         headers: {
           'api-key': AZURE_OPENAI_API_KEY,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          messages: [{ role: 'system', content: 'Test connection' }],
+          max_tokens: 5,
+        }),
       });
 
       if (!openAiResponse.ok) {
@@ -44,20 +50,10 @@ Deno.serve(async (req) => {
         throw new Error(`Failed to validate Azure OpenAI: ${error}`);
       }
 
-      const deployments = await openAiResponse.json();
-      console.log('Available OpenAI deployments:', deployments);
-
-      // Verify specific model deployment exists
-      const hasRequiredModel = deployments.data.some(
-        (deployment: any) => deployment.model === 'gpt-4o-mini'
-      );
-
-      if (!hasRequiredModel) {
-        throw new Error('Required GPT-4o-mini model deployment not found');
-      }
+      console.log('Azure OpenAI connection validated successfully');
     } catch (error) {
       console.error('Error validating Azure OpenAI:', error);
-      throw error;
+      throw new Error('Failed to validate Azure OpenAI deployment');
     }
 
     // Test Azure Speech Services
@@ -78,7 +74,7 @@ Deno.serve(async (req) => {
       console.log('Azure Speech Services validated successfully');
     } catch (error) {
       console.error('Error validating Azure Speech Services:', error);
-      throw error;
+      throw new Error('Failed to validate Azure Speech Services');
     }
 
     // If all validations pass, generate the token
