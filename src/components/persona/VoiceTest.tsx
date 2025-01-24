@@ -21,18 +21,18 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       return 'en-US-JennyNeural';
     }
 
-    // Map the voice style to the corresponding Azure voice name
-    const voiceMap: Record<string, { gender: 'male' | 'female', name: string }> = {
-      'Jenny': { gender: 'female', name: 'Jenny' },
-      'Guy': { gender: 'male', name: 'Guy' },
-      'Aria': { gender: 'female', name: 'Aria' },
-      'Davis': { gender: 'male', name: 'Davis' },
-      'Jane': { gender: 'female', name: 'Jane' },
-      'Jason': { gender: 'male', name: 'Jason' },
-      'Nancy': { gender: 'female', name: 'Nancy' },
-      'Tony': { gender: 'male', name: 'Tony' },
-      'Sara': { gender: 'female', name: 'Sara' },
-      'Brandon': { gender: 'male', name: 'Brandon' }
+    // Map the voice style to the corresponding Azure voice name and gender
+    const voiceMap: Record<string, { gender: 'male' | 'female', baseName: string }> = {
+      'Jenny': { gender: 'female', baseName: 'Jenny' },
+      'Guy': { gender: 'male', baseName: 'Guy' },
+      'Aria': { gender: 'female', baseName: 'Aria' },
+      'Davis': { gender: 'male', baseName: 'Davis' },
+      'Jane': { gender: 'female', baseName: 'Jane' },
+      'Jason': { gender: 'male', baseName: 'Jason' },
+      'Nancy': { gender: 'female', baseName: 'Nancy' },
+      'Tony': { gender: 'male', baseName: 'Tony' },
+      'Sara': { gender: 'female', baseName: 'Sara' },
+      'Brandon': { gender: 'male', baseName: 'Brandon' }
     };
 
     const voiceInfo = voiceMap[style];
@@ -41,15 +41,55 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       return `${language}-${VOICE_MAPPINGS[language].female[0]}`;
     }
 
-    // Get the appropriate voice list based on gender
+    // Get the voice list for the selected gender
     const voiceList = voiceInfo.gender === 'female' 
       ? VOICE_MAPPINGS[language].female 
       : VOICE_MAPPINGS[language].male;
 
-    // Find a matching voice or use the first one as fallback
-    const matchingVoice = voiceList.find(v => v.includes(voiceInfo.name)) || voiceList[0];
-    console.log('Selected voice:', `${language}-${matchingVoice}`);
-    return `${language}-${matchingVoice}`;
+    // Try to find a similar sounding voice in the target language
+    let selectedVoice = voiceList[0]; // Default to first voice as fallback
+    
+    // Look for voices with similar characteristics
+    if (voiceInfo.gender === 'female') {
+      // For female voices, try to match soft/warm voices with similar ones
+      if (['Jenny', 'Aria', 'Sara'].includes(style)) {
+        selectedVoice = voiceList.find(v => 
+          v.toLowerCase().includes('warm') || 
+          v.toLowerCase().includes('young') || 
+          v.toLowerCase().includes('friendly')
+        ) || voiceList[0];
+      } else {
+        // For more professional voices like Nancy
+        selectedVoice = voiceList.find(v => 
+          v.toLowerCase().includes('professional') || 
+          v.toLowerCase().includes('clear')
+        ) || voiceList[0];
+      }
+    } else {
+      // For male voices, try to match based on age/style
+      if (['Guy', 'Jason'].includes(style)) {
+        selectedVoice = voiceList.find(v => 
+          v.toLowerCase().includes('casual') || 
+          v.toLowerCase().includes('friendly')
+        ) || voiceList[0];
+      } else {
+        // For more formal voices like Davis
+        selectedVoice = voiceList.find(v => 
+          v.toLowerCase().includes('formal') || 
+          v.toLowerCase().includes('professional')
+        ) || voiceList[0];
+      }
+    }
+
+    console.log('Voice selection:', {
+      style,
+      gender: voiceInfo.gender,
+      language,
+      availableVoices: voiceList,
+      selectedVoice: `${language}-${selectedVoice}`
+    });
+
+    return `${language}-${selectedVoice}`;
   };
 
   const testVoice = async () => {
