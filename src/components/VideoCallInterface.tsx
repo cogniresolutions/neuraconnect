@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
@@ -25,6 +25,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [currentEmotion, setCurrentEmotion] = useState('');
+  const [environmentContext, setEnvironmentContext] = useState('');
   const [isInitializing, setIsInitializing] = useState(false);
   const [isSpeechRecognitionActive, setIsSpeechRecognitionActive] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -35,6 +37,26 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const chatRef = useRef<RealtimeChat | null>(null);
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+
+  const handleCaptureScreenshot = async () => {
+    if (!localVideoRef.current || !sessionIdRef.current) return;
+    
+    try {
+      const fileName = await captureAndStoreScreenshot(localVideoRef.current, sessionIdRef.current);
+      
+      toast({
+        title: "Screenshot Captured",
+        description: "Screenshot has been saved successfully",
+      });
+    } catch (error) {
+      console.error('Error capturing screenshot:', error);
+      toast({
+        title: "Error",
+        description: "Failed to capture screenshot",
+        variant: "destructive",
+      });
+    }
+  };
 
   const startSpeechRecognition = async () => {
     if (!stream) return;
@@ -334,15 +356,21 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50">
-      <div className="relative w-full max-w-4xl p-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-            <LocalVideo onVideoRef={(ref) => localVideoRef.current = ref} />
-          </div>
-          <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-            <RemoteVideo onVideoRef={(ref) => remoteVideoRef.current = ref} />
-          </div>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+      <div className="w-full max-w-6xl p-4 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <LocalVideo
+            videoRef={localVideoRef}
+            isRecording={isCallActive}
+            currentEmotion={currentEmotion}
+            environmentContext={environmentContext}
+            isAnalyzing={isAnalyzing}
+          />
+          <RemoteVideo
+            videoRef={remoteVideoRef}
+            persona={persona}
+            isAnalyzing={isAnalyzing}
+          />
         </div>
         
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
@@ -354,7 +382,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             onEndCall={cleanup}
             onToggleAudio={toggleAudio}
             onToggleVideo={toggleVideo}
-            onCaptureScreenshot={captureScreenshot}
+            onCaptureScreenshot={handleCaptureScreenshot}
           />
         </div>
       </div>
