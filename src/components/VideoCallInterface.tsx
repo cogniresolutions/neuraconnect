@@ -158,6 +158,58 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const handleSpeechDetected = async (text: string) => {
+    if (!chatRef.current || !isCallActive) return;
+    
+    try {
+      await chatRef.current.sendMessage(text);
+    } catch (error) {
+      console.error('Error handling speech:', error);
+    }
+  };
+
+  const handleStartRecording = async () => {
+    if (!stream) {
+      console.error('No media stream available');
+      return;
+    }
+
+    try {
+      setIsRecording(true);
+      // Add your recording logic here
+      toast({
+        title: "Recording Started",
+        description: "Your call is now being recorded",
+      });
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      setIsRecording(false);
+      toast({
+        title: "Error",
+        description: "Failed to start recording",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStopRecording = () => {
+    try {
+      setIsRecording(false);
+      // Add your stop recording logic here
+      toast({
+        title: "Recording Stopped",
+        description: "Your recording has been saved",
+      });
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      toast({
+        title: "Error",
+        description: "Failed to stop recording",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleStartCall = async () => {
     if (isLoading) return;
     
