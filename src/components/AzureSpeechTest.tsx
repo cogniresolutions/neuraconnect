@@ -2,17 +2,26 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface TestResult {
+  service: string;
+  status: string;
+  statusCode?: number;
+  error?: string;
+}
 
 const AzureSpeechTest = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<TestResult[]>([]);
 
   const testConnection = async () => {
     setIsLoading(true);
     setError(null);
+    setResults([]);
     
     try {
       console.log('Testing Azure Speech Services connection...');
@@ -34,7 +43,9 @@ const AzureSpeechTest = () => {
         throw new Error('No response received from Azure Speech Services');
       }
 
-      const speechTest = data.results.find((r: any) => r.service === 'Speech Services');
+      setResults(data.results);
+
+      const speechTest = data.results.find((r: TestResult) => r.service === 'Speech Services');
       
       if (speechTest?.status === 'error') {
         throw new Error(speechTest.error || 'Speech Services validation failed');
@@ -66,11 +77,33 @@ const AzureSpeechTest = () => {
         <p className="text-center text-gray-600">
           Click the button below to test the Azure Speech Services connection
         </p>
+        
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        {results.length > 0 && (
+          <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
+            {results.map((result, index) => (
+              <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+                <div className="flex items-center space-x-2">
+                  {result.status === 'success' ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                  <span>{result.service}</span>
+                </div>
+                <span className={`text-sm ${result.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                  {result.status === 'success' ? 'Connected' : result.error || 'Failed'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <Button
           onClick={testConnection}
           disabled={isLoading}
