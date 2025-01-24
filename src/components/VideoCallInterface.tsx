@@ -35,18 +35,41 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const azureVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const [isVideoElementReady, setIsVideoElementReady] = useState(false);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
     console.log('VideoCallInterface mounted');
-    return () => cleanup();
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      cleanup();
+    };
   }, []);
 
   useEffect(() => {
-    if (videoRef.current) {
-      console.log('Video element is ready');
-      setIsVideoElementReady(true);
-    }
-  }, [videoRef.current]);
+    const checkVideoElement = () => {
+      if (videoRef.current && mountedRef.current) {
+        console.log('Video element is ready');
+        setIsVideoElementReady(true);
+      }
+    };
+
+    // Check immediately
+    checkVideoElement();
+
+    // Also set up a small interval to check for the video element
+    const intervalId = setInterval(checkVideoElement, 100);
+
+    // Clean up interval after 5 seconds
+    const timeoutId = setTimeout(() => {
+      clearInterval(intervalId);
+    }, 5000);
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   const cleanup = () => {
     console.log('Cleaning up VideoCallInterface');
@@ -111,19 +134,24 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     try {
       cleanup();
 
-      // Wait for video element to be ready
-      let attempts = 0;
-      const maxAttempts = 20; // Increased max attempts
-      while (!isVideoElementReady && attempts < maxAttempts) {
-        console.log(`Waiting for video element... Attempt ${attempts + 1}/${maxAttempts}`);
+      // Wait for video element to be ready with a more robust check
+      const startTime = Date.now();
+      const timeout = 10000; // 10 seconds timeout
+      
+      while (!isVideoElementReady && Date.now() - startTime < timeout) {
+        console.log('Waiting for video element to be ready...');
         await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
+        
+        if (!mountedRef.current) {
+          throw new Error('Component unmounted while waiting for video element');
+        }
       }
 
       if (!videoRef.current || !isVideoElementReady) {
-        throw new Error('Video element not available after maximum attempts');
+        throw new Error('Video element initialization timed out');
       }
 
+      console.log('Video element is ready, requesting media stream...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
@@ -131,6 +159,11 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       if (!mediaStream) {
         throw new Error('Failed to get media stream');
+      }
+
+      if (!mountedRef.current) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        throw new Error('Component unmounted while setting up media stream');
       }
 
       console.log('Media stream obtained successfully');
