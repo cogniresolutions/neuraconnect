@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Upload } from "lucide-react";
 import { VoiceTest } from "./VoiceTest";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface VoiceMapping {
   id: string;
@@ -64,7 +65,9 @@ export function PersonaForm({
   isCreating,
   personaId
 }: PersonaFormProps) {
-  const [availableVoices, setAvailableVoices] = useState<VoiceMapping[]>([]);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { data: voiceMappings, isLoading: isLoadingVoices } = useQuery({
     queryKey: ['voiceMappings'],
@@ -84,16 +87,28 @@ export function PersonaForm({
     voice => voice.language_code === language
   ) || [];
 
-  const handleProfilePictureUpload = async (url: string) => {
-    if (!personaId) return;
-    
+  const syncVoiceMappings = async () => {
+    setIsSyncing(true);
     try {
-      await supabase
-        .from('personas')
-        .update({ profile_picture_url: url })
-        .eq('id', personaId);
-    } catch (error) {
-      console.error('Error updating profile picture:', error);
+      const { error } = await supabase.functions.invoke('sync-voice-mappings');
+      if (error) throw error;
+
+      // Invalidate the voice mappings query to trigger a refresh
+      await queryClient.invalidateQueries({ queryKey: ['voiceMappings'] });
+
+      toast({
+        title: "Success",
+        description: "Voice mappings synchronized successfully",
+      });
+    } catch (error: any) {
+      console.error('Error syncing voice mappings:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync voice mappings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -103,6 +118,9 @@ export function PersonaForm({
     if (filteredVoices.length > 0) {
       setVoiceStyle(filteredVoices[0].voice_style);
     }
+    
+    // Sync voice mappings when language changes
+    await syncVoiceMappings();
     
     if (personaId) {
       try {
@@ -167,10 +185,14 @@ export function PersonaForm({
           <Select 
             value={voiceStyle} 
             onValueChange={setVoiceStyle}
-            disabled={isLoadingVoices || filteredVoices.length === 0}
+            disabled={isLoadingVoices || isSyncing || filteredVoices.length === 0}
           >
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder={isLoadingVoices ? "Loading voices..." : "Select a voice style"} />
+              <SelectValue placeholder={
+                isSyncing ? "Syncing voices..." :
+                isLoadingVoices ? "Loading voices..." :
+                "Select a voice style"
+              } />
             </SelectTrigger>
             <SelectContent>
               {filteredVoices.map((voice) => (
@@ -191,7 +213,7 @@ export function PersonaForm({
             <FileUpload
               personaId={personaId}
               type="profile"
-              onUploadComplete={handleProfilePictureUpload}
+              onUploadComplete={() => {}}
               accept="image/*"
             />
           </div>
