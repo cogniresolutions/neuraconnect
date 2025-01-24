@@ -109,12 +109,16 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('Failed to get media stream');
       }
 
+      setStream(mediaStream);
+
+      // Make sure videoRef is properly initialized
       if (!videoRef.current) {
+        console.error('Video element not found - this should not happen');
         throw new Error('Video element not found');
       }
 
-      setStream(mediaStream);
       videoRef.current.srcObject = mediaStream;
+      console.log('Media stream set to video element');
 
       // Start Azure Container video stream
       if (azureVideoRef.current) {
@@ -137,7 +141,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       try {
         await videoRef.current.play();
-        console.log('Video playback started');
+        console.log('Video playback started successfully');
         return true;
       } catch (playError) {
         console.error('Error playing video:', playError);
@@ -147,12 +151,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     } catch (error) {
       console.error('Error accessing camera:', error);
       cleanup();
-      toast({
-        title: "Error",
-        description: "Could not access camera or microphone. Please make sure they are connected and permissions are granted.",
-        variant: "destructive",
-      });
-      return false;
+      throw error;
     }
   };
 
