@@ -5,6 +5,9 @@ import { CallControls } from './video/CallControls';
 import { ConsentDialog } from './video/ConsentDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { Loader2 } from 'lucide-react';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -21,6 +24,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [subtitles, setSubtitles] = useState<string>('');
   const [translatedSubtitles, setTranslatedSubtitles] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
   const targetLanguage = persona?.model_config?.language || 'en';
 
   const translateText = async (text: string) => {
@@ -38,7 +42,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       return data.translatedText;
     } catch (error: any) {
       handleAPIError(error, 'Translation');
-      return text; // Fallback to original text
+      return text;
     }
   };
 
@@ -78,6 +82,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const startCall = async () => {
+    setIsLoading(true);
     const getMeasureTime = measureResponseTime();
     
     try {
@@ -104,10 +109,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       handleAPIError(error, 'Starting call');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const endCall = async () => {
+    setIsLoading(true);
     const getMeasureTime = measureResponseTime();
     
     try {
@@ -133,38 +141,49 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       handleAPIError(error, 'Ending call');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full max-w-4xl px-4">
       {isCallActive && (
-        <div className="w-full max-w-2xl space-y-4">
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+        <Card className="w-full space-y-4 bg-black/5 backdrop-blur-lg border-white/10">
+          <div className="aspect-video rounded-lg overflow-hidden relative">
             <VideoAnalysis
               personaId={persona.id}
               onAnalysisComplete={handleAnalysisComplete}
               onSpeechDetected={setSubtitles}
             />
+            <div className="absolute top-4 right-4">
+              <Badge variant="secondary" className="bg-black/50 text-white">
+                {isRecording ? 'Recording' : 'Live'}
+              </Badge>
+            </div>
           </div>
           
           {(subtitles || translatedSubtitles) && (
-            <div className="bg-black/80 p-4 rounded-lg text-white text-center">
-              <p className="text-lg">{translatedSubtitles || subtitles}</p>
+            <div className="p-4 rounded-lg bg-black/80 backdrop-blur-sm">
+              <p className="text-lg text-center text-white font-medium">
+                {translatedSubtitles || subtitles}
+              </p>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
-      <CallControls
-        isCallActive={isCallActive}
-        isLoading={false}
-        isRecording={isRecording}
-        onStartCall={() => setShowConsentDialog(true)}
-        onEndCall={endCall}
-        onStartRecording={() => setIsRecording(true)}
-        onStopRecording={() => setIsRecording(false)}
-      />
+      <div className="flex justify-center items-center gap-4">
+        <CallControls
+          isCallActive={isCallActive}
+          isLoading={isLoading}
+          isRecording={isRecording}
+          onStartCall={() => setShowConsentDialog(true)}
+          onEndCall={endCall}
+          onStartRecording={() => setIsRecording(true)}
+          onStopRecording={() => setIsRecording(false)}
+        />
+      </div>
 
       <ConsentDialog
         open={showConsentDialog}
