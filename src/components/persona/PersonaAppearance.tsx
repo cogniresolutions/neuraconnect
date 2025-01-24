@@ -44,7 +44,7 @@ export const PersonaAppearance: React.FC<PersonaAppearanceProps> = ({
       setGeneratedImage(imageUrl);
       onImageGenerated(imageUrl);
 
-      // Save to persona_appearances table using the personas table
+      // Update the personas table with the new avatar URL
       const { error: dbError } = await supabase
         .from('personas')
         .update({
