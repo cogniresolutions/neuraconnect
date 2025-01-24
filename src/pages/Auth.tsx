@@ -43,7 +43,8 @@ const Auth = () => {
             }
           }}
           providers={['google']}
-          redirectTo={window.location.origin}
+          redirectTo={`${window.location.origin}/auth/callback`}
+          onlyThirdPartyProviders={false}
         />
       </div>
     </div>
