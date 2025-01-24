@@ -51,23 +51,27 @@ serve(async (req) => {
       }
 
       const voices = await response.json()
+      console.log('Fetched voices from Azure:', voices.length)
 
       // Transform and filter voices
       const voiceMappings = voices
-        .filter((voice: any) => voice.Locale.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/))
+        .filter((voice: any) => {
+          const isNeuralVoice = voice.VoiceType === "Neural"
+          const isSupportedLocale = voice.Locale.match(/^(en-US|en-GB|es-ES|fr-FR|de-DE|it-IT|ja-JP|ko-KR|zh-CN)/)
+          return isNeuralVoice && isSupportedLocale
+        })
         .map((voice: any) => {
-          const shortName = voice.ShortName.replace('Neural', '').trim()
-          const displayName = shortName.split('-').pop() || ''
-          const gender = voice.Gender.toLowerCase()
-          
+          const displayName = voice.DisplayName || voice.LocalName || voice.ShortName
           return {
             language_code: voice.Locale,
-            voice_style: displayName,
-            gender: gender,
+            voice_style: voice.ShortName,
+            gender: voice.Gender.toLowerCase(),
             azure_voice_name: voice.ShortName,
-            display_name: `${displayName} (${gender === 'female' ? 'Female' : 'Male'})`
+            display_name: `${displayName} (${voice.Gender})`
           }
         })
+
+      console.log('Transformed voice mappings:', voiceMappings.length)
 
       // Insert new mappings
       const { error: insertError } = await supabaseClient
