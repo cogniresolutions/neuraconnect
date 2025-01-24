@@ -29,11 +29,18 @@ serve(async (req) => {
     console.log('Using voice:', voice);
     console.log('Using language:', language);
 
-    // Prepare SSML
+    // Prepare SSML with proper XML escaping
+    const escapedText = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
     const ssml = `
       <speak version='1.0' xml:lang='${language || 'en-US'}' xmlns='http://www.w3.org/2001/10/synthesis'>
         <voice name='${voice}'>
-          ${text}
+          ${escapedText}
         </voice>
       </speak>
     `;
