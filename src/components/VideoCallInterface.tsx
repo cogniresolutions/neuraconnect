@@ -184,24 +184,25 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const initializeAzureServices = async () => {
     try {
-      const response = await fetch('/api/azure-video-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personaId: persona.id,
+      console.log('Initializing Azure services...');
+      const { data, error } = await supabase.functions.invoke('azure-video-chat', {
+        body: {
           action: 'initialize',
-        }),
+          personaId: persona.id,
+          personaConfig: {
+            name: persona.name,
+            voice: persona.voice_style,
+            personality: persona.personality
+          }
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to initialize Azure services');
+      if (error) {
+        console.error('Error from Azure services:', error);
+        throw error;
       }
 
-      const data = await response.json();
       console.log('Azure services initialized:', data);
-      
       return data;
     } catch (error) {
       console.error('Error initializing Azure services:', error);
@@ -216,8 +217,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
-
-      await initializeAzureServices();
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -237,6 +236,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         localVideoRef.current.srcObject = stream;
       }
 
+      await initializeAzureServices();
+
       const { data: session, error } = await supabase.functions.invoke('video-call', {
         body: {
           action: 'start',
@@ -254,6 +255,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       setIsCallActive(true);
       startVideoAnalysis();
+      onCallStateChange?.(true);
 
       toast({
         title: "Call Started",
