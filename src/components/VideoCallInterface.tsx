@@ -65,6 +65,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         videoRef.current.srcObject = stream;
         videoRef.current.muted = true; // Mute to prevent feedback
         videoRef.current.volume = 1.0;
+        videoRef.current.style.transform = 'scaleX(-1)'; // Mirror effect
         
         // Ensure video plays after setting srcObject
         try {
@@ -284,7 +285,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover transform scale-x-[-1]"
+                className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
               />
               <VideoAnalysis
                 personaId={persona.id}
