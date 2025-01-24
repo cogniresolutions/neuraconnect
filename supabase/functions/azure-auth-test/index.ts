@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // Get Azure credentials
     const azureOpenAIKey = Deno.env.get('AZURE_OPENAI_API_KEY');
-    const azureOpenAIEndpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
+    const azureOpenAIEndpoint = 'https://neuraconnect.openai.azure.com';
     const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
@@ -39,17 +39,23 @@ serve(async (req) => {
     // Test Azure OpenAI Base Connectivity
     try {
       console.log('Testing Azure OpenAI base connectivity...');
+      console.log('Using endpoint:', azureOpenAIEndpoint);
+      
       const baseResponse = await fetch(`${azureOpenAIEndpoint}/openai/deployments?api-version=2024-02-15-preview`, {
         headers: {
           'api-key': azureOpenAIKey,
         },
       });
 
+      const baseResponseText = await baseResponse.text();
       console.log('Base connectivity response status:', baseResponse.status);
+      console.log('Base connectivity response:', baseResponseText);
+
       results.push({
         service: 'Azure OpenAI Base Connectivity',
         status: baseResponse.ok ? 'success' : 'error',
-        error: baseResponse.ok ? undefined : await baseResponse.text()
+        statusCode: baseResponse.status,
+        error: baseResponse.ok ? undefined : baseResponseText
       });
     } catch (error) {
       console.error('Azure OpenAI base connectivity error:', error);
@@ -75,11 +81,15 @@ serve(async (req) => {
         })
       });
 
+      const miniResponseText = await miniResponse.text();
       console.log('GPT-4 Mini response status:', miniResponse.status);
+      console.log('GPT-4 Mini response:', miniResponseText);
+
       results.push({
         service: 'GPT-4 Mini Deployment',
         status: miniResponse.ok ? 'success' : 'error',
-        error: miniResponse.ok ? undefined : await miniResponse.text()
+        statusCode: miniResponse.status,
+        error: miniResponse.ok ? undefined : miniResponseText
       });
     } catch (error) {
       console.error('GPT-4 Mini deployment error:', error);
@@ -90,50 +100,28 @@ serve(async (req) => {
       });
     }
 
-    // Test Realtime Preview Deployment
-    try {
-      console.log('Testing Realtime Preview deployment token generation...');
-      const tokenUrl = `${azureOpenAIEndpoint}/openai/deployments/gpt-4-realtime-preview/chat/realtime/token?api-version=2024-02-15-preview`;
-      const tokenResponse = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'api-key': azureOpenAIKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          voice: "alloy"
-        })
-      });
-
-      console.log('Realtime Preview token response status:', tokenResponse.status);
-      results.push({
-        service: 'Realtime Preview Deployment',
-        status: tokenResponse.ok ? 'success' : 'error',
-        error: tokenResponse.ok ? undefined : await tokenResponse.text()
-      });
-    } catch (error) {
-      console.error('Realtime Preview deployment error:', error);
-      results.push({
-        service: 'Realtime Preview Deployment',
-        status: 'error',
-        error: error.message
-      });
-    }
-
     // Test Speech Services
     try {
       console.log('Testing Speech Services...');
+      if (!speechEndpoint || !speechKey) {
+        throw new Error('Speech credentials not configured');
+      }
+      
       const speechResponse = await fetch(`${speechEndpoint}/cognitiveservices/voices/list`, {
         headers: {
           'Ocp-Apim-Subscription-Key': speechKey
         }
       });
 
+      const speechResponseText = await speechResponse.text();
       console.log('Speech Services response status:', speechResponse.status);
+      console.log('Speech Services response:', speechResponseText);
+
       results.push({
         service: 'Speech Services',
         status: speechResponse.ok ? 'success' : 'error',
-        error: speechResponse.ok ? undefined : await speechResponse.text()
+        statusCode: speechResponse.status,
+        error: speechResponse.ok ? undefined : speechResponseText
       });
     } catch (error) {
       console.error('Speech Services error:', error);
