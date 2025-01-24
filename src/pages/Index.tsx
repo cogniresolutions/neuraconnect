@@ -30,15 +30,17 @@ const Index = () => {
   }, [navigate, toast]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black">
-      <div className="flex items-center justify-center p-4">
-        <img
-          src="/lovable-uploads/e8089c0d-a187-4542-ba87-883bcc8ecd77.png"
-          alt="Neuraconnect Logo"
-          className="w-20 h-20 object-contain rounded-full shadow-[0_0_20px_rgba(56,182,255,0.4)] transition-transform duration-300 hover:scale-105 border-2 border-[#38b6ff]/30"
-        />
+    <div className="min-h-screen bg-gradient-to-br from-purple-500/20 via-gray-100 to-white">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center mb-8">
+          <img
+            src="/lovable-uploads/e8089c0d-a187-4542-ba87-883bcc8ecd77.png"
+            alt="Neuraconnect Logo"
+            className="w-20 h-20 object-contain rounded-full shadow-[0_0_20px_rgba(56,182,255,0.4)] transition-transform duration-300 hover:scale-105 border-2 border-[#38b6ff]/30"
+          />
+        </div>
+        <PersonaCreator />
       </div>
-      <PersonaCreator />
     </div>
   );
 };
