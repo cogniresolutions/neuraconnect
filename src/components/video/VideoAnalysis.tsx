@@ -3,6 +3,13 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { captureVideoFrame } from '@/utils/videoCapture';
 
+// Add type definition for WebkitSpeechRecognition
+declare global {
+  interface Window {
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
 interface VideoAnalysisProps {
   personaId: string;
   onAnalysisComplete: (analysis: any) => void;
@@ -34,8 +41,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
 
         // Initialize speech recognition if onSpeechDetected is provided
         if (onSpeechDetected && 'webkitSpeechRecognition' in window) {
-          const SpeechRecognition = window.webkitSpeechRecognition;
-          const recognition = new SpeechRecognition();
+          const recognition = new window.webkitSpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
 
