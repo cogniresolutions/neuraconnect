@@ -24,7 +24,8 @@ serve(async (req) => {
     console.log('Generating token for persona:', personaId, 'with config:', config);
 
     // Request a token from Azure OpenAI for real-time chat
-    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-realtime/chat/realtime/token?api-version=2024-02-15-preview`;
+    // Updated API version and endpoint to match the latest Azure OpenAI specifications
+    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/realtime/token?api-version=2024-02-15-preview`;
     console.log('Requesting token from:', tokenUrl);
 
     const response = await fetch(tokenUrl, {
@@ -49,20 +50,8 @@ serve(async (req) => {
       throw new Error(`Failed to generate token: ${errorText}`);
     }
 
-    // Read the response as text first
-    const responseText = await response.text();
-    console.log('Raw response:', responseText);
-
-    // Try to parse the response text as JSON
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error('Failed to parse response as JSON:', parseError);
-      throw new Error('Invalid response format from Azure OpenAI');
-    }
-
-    console.log("Token generated successfully");
+    const data = await response.json();
+    console.log('Token generated successfully');
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
