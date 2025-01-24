@@ -31,20 +31,10 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (isCallActive) {
-      startCamera();
-    } else {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
-    }
-
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
-      // Clean up audio context and current audio
       if (audioContextRef.current) {
         audioContextRef.current.close();
         audioContextRef.current = null;
@@ -54,18 +44,23 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         currentAudioRef.current = null;
       }
     };
-  }, [isCallActive]);
+  }, [stream]);
 
   const startCamera = async () => {
+    console.log('Starting camera...');
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
+      console.log('Media stream obtained:', mediaStream);
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        await videoRef.current.play();
+        console.log('Video playback started');
       }
+      return true;
     } catch (error) {
       console.error('Error accessing camera:', error);
       toast({
@@ -73,20 +68,47 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         description: "Could not access camera or microphone. Please make sure they are connected and permissions are granted.",
         variant: "destructive",
       });
+      return false;
     }
   };
 
   const handleStartCall = async () => {
+    console.log('Starting call...');
     setIsLoading(true);
     try {
-      await startCamera();
+      const cameraStarted = await startCamera();
+      if (!cameraStarted) {
+        throw new Error('Failed to start camera');
+      }
+
+      // Create a conversation in Supabase
+      const { data: conversationData, error: conversationError } = await supabase.functions.invoke('create-conversation', {
+        body: {
+          persona_id: persona.id,
+          conversation_name: `Call with ${persona.name}`,
+          context: 'video_call'
+        }
+      });
+
+      if (conversationError) throw conversationError;
+      console.log('Conversation created:', conversationData);
+
       setIsCallActive(true);
       onCallStateChange(true);
-    } catch (error) {
+      
+      toast({
+        title: "Call Started",
+        description: "You're now connected to the video call",
+      });
+    } catch (error: any) {
       console.error('Error starting call:', error);
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
       toast({
         title: "Error",
-        description: "Failed to start call. Please check your camera and microphone permissions.",
+        description: error.message || "Failed to start call. Please check your camera and microphone permissions.",
         variant: "destructive",
       });
     } finally {
@@ -117,7 +139,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     
     setIsProcessingAudio(true);
     try {
-      // Stop any currently playing audio
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
         currentAudioRef.current = null;
@@ -206,9 +227,16 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         isLoading={isLoading}
         isRecording={isRecording}
         onStartCall={handleStartCall}
-        onEndCall={handleEndCall}
-        onStartRecording={handleStartRecording}
-        onStopRecording={handleStopRecording}
+        onEndCall={() => {
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            setStream(null);
+          }
+          setIsCallActive(false);
+          onCallStateChange(false);
+        }}
+        onStartRecording={() => setIsRecording(true)}
+        onStopRecording={() => setIsRecording(false)}
       />
     </div>
   );
