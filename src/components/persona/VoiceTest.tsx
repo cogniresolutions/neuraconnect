@@ -14,7 +14,6 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
   const { toast } = useToast();
 
   const getVoiceMessage = (style: string) => {
-    // Get gender from voice style name
     const isFemale = ['Jenny', 'Aria', 'Jane', 'Nancy', 'Sara'].includes(style);
     const gender = isFemale ? 'female' : 'male';
     return `Hi, I'm ${style}, a ${gender} voice assistant`;
@@ -32,8 +31,7 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
           text: getVoiceMessage(voiceStyle),
-          voice: formattedVoice,
-          language: language
+          voice: formattedVoice
         }
       });
 

@@ -29,15 +29,15 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const { text, voice, language } = requestData;
+    const { text, voice } = requestData;
     
-    if (!text || !voice || !language) {
-      throw new Error('Missing required parameters: text, voice, or language');
+    if (!text || !voice) {
+      throw new Error('Missing required parameters: text or voice');
     }
     
-    console.log('Request data:', { text, voice, language });
+    console.log('Request data:', { text, voice });
 
-    // Format the TTS endpoint correctly
+    // Extract region from endpoint URL
     const region = azureSpeechEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
     const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
@@ -51,11 +51,9 @@ serve(async (req) => {
       .replace(/'/g, '&apos;');
 
     const ssml = `
-      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
+      <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
         <voice name='${voice}'>
-          <prosody rate="0%">
-            ${escapedText}
-          </prosody>
+          ${escapedText}
         </voice>
       </speak>
     `.trim();
@@ -101,7 +99,7 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice: voice,
+          voice,
           endpoint: ttsEndpoint,
           timestamp: new Date().toISOString()
         }
