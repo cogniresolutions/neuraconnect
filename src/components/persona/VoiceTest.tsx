@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { VOICE_MAPPINGS, LOCALIZED_MESSAGES, type SupportedLanguage } from '@/constants/voices';
 
 interface VoiceTestProps {
   voiceStyle: string;
@@ -13,12 +14,26 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
   const [isPlaying, setIsPlaying] = useState(false);
   const { toast } = useToast();
 
-  const getVoiceMessage = (style: string) => {
-    const isFemale = ['Jenny', 'Aria', 'Jane', 'Nancy', 'Sara'].some(name => 
+  const getVoiceName = (style: string, lang: string) => {
+    const language = lang as SupportedLanguage;
+    if (!VOICE_MAPPINGS[language]) {
+      console.warn(`Language ${language} not supported, falling back to en-US`);
+      return 'en-US-JennyNeural';
+    }
+
+    // Determine if the selected style maps to a male or female voice
+    const isFemaleVoice = ['Jenny', 'Aria', 'Nancy', 'Sara', 'Jane'].some(name => 
       style.toLowerCase().includes(name.toLowerCase())
     );
-    const gender = isFemale ? 'female' : 'male';
-    return `Hello! I'm your ${gender} AI assistant. My voice style is ${style}. How can I help you today?`;
+
+    // Get the appropriate voice list based on gender
+    const voiceList = isFemaleVoice ? VOICE_MAPPINGS[language].female : VOICE_MAPPINGS[language].male;
+    
+    // Select the first voice from the list as default
+    const selectedVoice = voiceList[0];
+    
+    console.log('Selected voice:', `${language}-${selectedVoice}`);
+    return `${language}-${selectedVoice}`;
   };
 
   const testVoice = async () => {
@@ -30,18 +45,18 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
         throw new Error('Please select a language before testing the voice');
       }
 
-      // Format the voice name according to Azure's naming convention
-      const formattedVoice = `${language}-${voiceStyle}Neural`;
-      console.log('Formatted voice name:', formattedVoice);
+      const formattedVoice = getVoiceName(voiceStyle, language);
+      console.log('Using voice:', formattedVoice);
+
+      const message = LOCALIZED_MESSAGES[language as SupportedLanguage] || LOCALIZED_MESSAGES['en-US'];
+      console.log('Using message:', message);
 
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
-          text: getVoiceMessage(voiceStyle),
+          text: message,
           voice: formattedVoice
         }
       });
-
-      console.log('Azure voice test response:', { data, error });
 
       if (error) {
         console.error('Azure voice test error:', error);
@@ -53,12 +68,9 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
         throw new Error('No audio content received from Azure');
       }
 
-      console.log('Audio content length:', data.audioContent.length);
-
       // Create and play audio
       const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
       
-      // Add event listeners for debugging
       audio.addEventListener('loadeddata', () => console.log('Audio loaded'));
       audio.addEventListener('playing', () => console.log('Audio started playing'));
       audio.addEventListener('ended', () => {

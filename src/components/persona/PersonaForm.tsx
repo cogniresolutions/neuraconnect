@@ -56,6 +56,8 @@ export function PersonaForm({
 
   const handleLanguageChange = async (newLanguage: string) => {
     setLanguage(newLanguage);
+    // Reset voice style when language changes to ensure compatibility
+    setVoiceStyle('Jenny');
     
     if (personaId) {
       try {
