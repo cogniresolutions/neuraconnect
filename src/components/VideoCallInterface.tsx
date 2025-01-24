@@ -34,13 +34,22 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const azureVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
+  const [isVideoElementReady, setIsVideoElementReady] = useState(false);
 
   useEffect(() => {
-    console.log('VideoCallInterface mounted, videoRef:', videoRef.current);
+    console.log('VideoCallInterface mounted');
     return () => cleanup();
   }, []);
 
+  useEffect(() => {
+    if (videoRef.current) {
+      console.log('Video element is ready');
+      setIsVideoElementReady(true);
+    }
+  }, [videoRef.current]);
+
   const cleanup = () => {
+    console.log('Cleaning up VideoCallInterface');
     if (stream) {
       stream.getTracks().forEach(track => {
         track.stop();
@@ -64,6 +73,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       chatRef.current.disconnect();
       chatRef.current = null;
     }
+    setIsVideoElementReady(false);
   };
 
   const handleMessage = async (event: any) => {
@@ -101,6 +111,19 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     try {
       cleanup();
 
+      // Wait for video element to be ready
+      let attempts = 0;
+      const maxAttempts = 20; // Increased max attempts
+      while (!isVideoElementReady && attempts < maxAttempts) {
+        console.log(`Waiting for video element... Attempt ${attempts + 1}/${maxAttempts}`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      if (!videoRef.current || !isVideoElementReady) {
+        throw new Error('Video element not available after maximum attempts');
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
@@ -110,23 +133,9 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('Failed to get media stream');
       }
 
+      console.log('Media stream obtained successfully');
       setStream(mediaStream);
-
-      // Wait for the video element to be available
-      let attempts = 0;
-      const maxAttempts = 10;
-      while (!videoRef.current && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-
-      if (!videoRef.current) {
-        console.error('Video element not found after waiting');
-        throw new Error('Video element not found');
-      }
-
       videoRef.current.srcObject = mediaStream;
-      console.log('Media stream set to video element');
 
       // Start Azure Container video stream
       if (azureVideoRef.current) {

@@ -8,7 +8,7 @@ interface UserVideoProps {
 
 export const UserVideo: React.FC<UserVideoProps> = ({ videoRef, userName }) => {
   useEffect(() => {
-    console.log('UserVideo mounted, videoRef:', videoRef.current);
+    console.log('UserVideo mounted, videoRef status:', videoRef.current ? 'available' : 'not available');
   }, []);
 
   return (
