@@ -6,6 +6,7 @@ import { cleanupUserSessions } from '@/utils/sessionCleanup';
 import LocalVideo from './video/LocalVideo';
 import RemoteVideo from './video/RemoteVideo';
 import VideoControls from './video/VideoControls';
+import { captureAndStoreScreenshot } from '@/utils/screenshotUtils';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -30,6 +31,33 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const chatRef = useRef<RealtimeChat | null>(null);
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+
+  const captureScreenshot = async () => {
+    if (!localVideoRef.current || !sessionIdRef.current) {
+      toast({
+        title: "Error",
+        description: "Cannot capture screenshot - video not initialized",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await captureAndStoreScreenshot(localVideoRef.current, sessionIdRef.current);
+      
+      toast({
+        title: "Success",
+        description: "Screenshot captured and stored securely",
+      });
+    } catch (error: any) {
+      console.error('Screenshot error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to capture screenshot: " + error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   // Cleanup function
   const cleanup = useCallback(async () => {
@@ -294,6 +322,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             onEndCall={cleanup}
             onToggleAudio={toggleAudio}
             onToggleVideo={toggleVideo}
+            onCaptureScreenshot={captureScreenshot}
           />
         </div>
       </div>

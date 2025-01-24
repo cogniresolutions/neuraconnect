@@ -820,6 +820,41 @@ export type Database = {
           },
         ]
       }
+      user_screenshots: {
+        Row: {
+          analysis_data: Json | null
+          created_at: string
+          file_path: string
+          id: string
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis_data?: Json | null
+          created_at?: string
+          file_path: string
+          id?: string
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis_data?: Json | null
+          created_at?: string
+          file_path?: string
+          id?: string
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_screenshots_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "tavus_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_mappings: {
         Row: {
           azure_voice_name: string
