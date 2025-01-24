@@ -74,51 +74,20 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         sessionIdRef.current = null;
       }
 
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+
       setIsCallActive(false);
       setStream(null);
       onCallStateChange?.(false);
       
     } catch (error) {
       console.error('Cleanup error:', error);
-    }
-  };
-
-  const startSpeechRecognition = async () => {
-    if (!stream) {
-      console.error('No stream available for speech recognition');
-      return;
-    }
-
-    try {
-      setIsSpeechRecognitionActive(true);
-      const audioTrack = stream.getAudioTracks()[0];
-      
-      if (!audioTrack) {
-        throw new Error('No audio track available');
-      }
-
-      console.log('Initializing audio processing...');
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
-      
-      source.connect(processor);
-      processor.connect(audioContextRef.current.destination);
-      
-      processor.onaudioprocess = async (e) => {
-        if (!isSpeechRecognitionActive) return;
-        const inputData = e.inputBuffer.getChannelData(0);
-        console.log('Processing audio data:', inputData.length);
-      };
-
-    } catch (error) {
-      console.error('Speech recognition error:', error);
-      setIsSpeechRecognitionActive(false);
-      toast({
-        title: "Speech Recognition Error",
-        description: "Failed to start speech recognition",
-        variant: "destructive",
-      });
     }
   };
 
@@ -134,16 +103,21 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       console.log('Starting new video call session...');
       
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data: session, error: sessionError } = await supabase
         .from('tavus_sessions')
         .insert({
           conversation_id: crypto.randomUUID(),
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: user.id,
           status: 'active',
           is_active: true,
           session_type: 'video_call',
           participants: [
-            { user_id: (await supabase.auth.getUser()).data.user?.id },
+            { user_id: user.id },
             { persona_id: persona.id }
           ]
         })
@@ -167,25 +141,32 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
+      console.log('Media stream obtained:', mediaStream.id);
+
       if (!mountedRef.current) {
         mediaStream.getTracks().forEach(track => track.stop());
         return;
       }
 
-      console.log('Setting up media stream...');
       setStream(mediaStream);
       
       if (localVideoRef.current) {
         console.log('Connecting stream to local video element');
         localVideoRef.current.srcObject = mediaStream;
-        await localVideoRef.current.play().catch(error => {
+        try {
+          await localVideoRef.current.play();
+          console.log('Local video playback started successfully');
+        } catch (error) {
           console.error('Error playing local video:', error);
-        });
+          throw new Error('Failed to start video playback');
+        }
+      } else {
+        console.error('Local video reference not found');
+        throw new Error('Video element not initialized');
       }
 
       setIsCallActive(true);
       onCallStateChange?.(true);
-      await startSpeechRecognition();
       
       toast({
         title: "Call Connected",
@@ -198,43 +179,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       toast({
         title: "Connection Error",
-        description: "Failed to start video call. Please check your camera and microphone permissions.",
+        description: error.message || "Failed to start video call. Please check your camera and microphone permissions.",
         variant: "destructive",
       });
       
       throw error;
     } finally {
       setIsInitializing(false);
-    }
-  };
-
-  const toggleAudio = () => {
-    if (stream) {
-      stream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-        console.log(`Audio track ${track.label} ${track.enabled ? 'enabled' : 'disabled'}`);
-      });
-      setIsAudioEnabled(!isAudioEnabled);
-      
-      toast({
-        title: isAudioEnabled ? "Microphone Muted" : "Microphone Unmuted",
-        description: isAudioEnabled ? "Others cannot hear you" : "Others can now hear you",
-      });
-    }
-  };
-
-  const toggleVideo = () => {
-    if (stream) {
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-        console.log(`Video track ${track.label} ${track.enabled ? 'enabled' : 'disabled'}`);
-      });
-      setIsVideoEnabled(!isVideoEnabled);
-      
-      toast({
-        title: isVideoEnabled ? "Camera Off" : "Camera On",
-        description: isVideoEnabled ? "Your camera is now off" : "Your camera is now on",
-      });
     }
   };
 
@@ -283,8 +234,22 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             isVideoEnabled={isVideoEnabled}
             onStartCall={startCamera}
             onEndCall={cleanup}
-            onToggleAudio={toggleAudio}
-            onToggleVideo={toggleVideo}
+            onToggleAudio={() => {
+              if (stream) {
+                stream.getAudioTracks().forEach(track => {
+                  track.enabled = !track.enabled;
+                });
+                setIsAudioEnabled(!isAudioEnabled);
+              }
+            }}
+            onToggleVideo={() => {
+              if (stream) {
+                stream.getVideoTracks().forEach(track => {
+                  track.enabled = !track.enabled;
+                });
+                setIsVideoEnabled(!isVideoEnabled);
+              }
+            }}
             onCaptureScreenshot={handleCaptureScreenshot}
           />
         </div>
