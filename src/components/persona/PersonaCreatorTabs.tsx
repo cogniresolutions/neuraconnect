@@ -1,5 +1,4 @@
 import { PersonaForm } from "./PersonaForm";
-import { PersonaPreview } from "./PersonaPreview";
 import { PersonaList } from "./PersonaList";
 
 interface PersonaCreatorTabsProps {
@@ -33,7 +32,6 @@ export const PersonaCreatorTabs = ({
   language,
   setLanguage,
   isCreating,
-  avatarAnimating,
   personas,
   isDeploying,
   handleCreatePersona,
@@ -44,26 +42,19 @@ export const PersonaCreatorTabs = ({
 }: PersonaCreatorTabsProps) => {
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <PersonaForm
-            name={name}
-            setName={setName}
-            description={description}
-            setDescription={setDescription}
-            voiceStyle={voiceStyle}
-            setVoiceStyle={setVoiceStyle}
-            language={language}
-            setLanguage={setLanguage}
-            onSubmit={handleCreatePersona}
-            isCreating={isCreating}
-          />
-        </div>
-        <div className="space-y-6">
-          <PersonaPreview
-            avatarAnimating={avatarAnimating}
-          />
-        </div>
+      <div className="max-w-2xl mx-auto">
+        <PersonaForm
+          name={name}
+          setName={setName}
+          description={description}
+          setDescription={setDescription}
+          voiceStyle={voiceStyle}
+          setVoiceStyle={setVoiceStyle}
+          language={language}
+          setLanguage={setLanguage}
+          onSubmit={handleCreatePersona}
+          isCreating={isCreating}
+        />
       </div>
 
       <div className="mt-12">
