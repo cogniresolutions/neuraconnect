@@ -1,12 +1,14 @@
 import React from 'react';
 
 interface VideoDisplayProps {
-  stream?: MediaStream | null; // Made optional with ?
+  stream?: MediaStream | null;
   videoRef: React.RefObject<HTMLVideoElement>;
   isRecording: boolean;
   currentEmotion: string;
-  trainingVideo: any;
-  isCallActive: boolean;
+  environmentContext?: string;
+  isAnalyzing: boolean;
+  trainingVideo?: any;
+  isCallActive?: boolean;
   className?: string;
 }
 
@@ -15,6 +17,8 @@ export const VideoDisplay: React.FC<VideoDisplayProps> = ({
   videoRef,
   isRecording,
   currentEmotion,
+  environmentContext,
+  isAnalyzing,
   trainingVideo,
   isCallActive,
   className = ""
@@ -31,6 +35,11 @@ export const VideoDisplay: React.FC<VideoDisplayProps> = ({
       {currentEmotion && (
         <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded">
           Emotion: {currentEmotion}
+        </div>
+      )}
+      {environmentContext && (
+        <div className="absolute top-12 left-2 bg-black/50 text-white text-xs p-2 rounded">
+          Environment: {environmentContext}
         </div>
       )}
       {isRecording && (
