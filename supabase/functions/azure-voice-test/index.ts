@@ -27,21 +27,12 @@ serve(async (req) => {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // Parse the request body to get the text and voice
-    const { text, voice } = await req.json();
+    // Parse the request body
+    const requestData = await req.json();
+    const text = requestData.text || "Hello, this is a test message.";
+    const voice = requestData.voice || "en-US-JennyNeural";
     
-    // Map voice styles to Azure Neural voices
-    const voiceMap: Record<string, string> = {
-      alloy: 'en-US-GuyNeural',      // Male neutral
-      echo: 'en-US-DavisNeural',     // Male
-      fable: 'en-US-TonyNeural',     // Male
-      onyx: 'en-US-JasonNeural',     // Male
-      nova: 'en-US-JennyNeural',     // Female
-      shimmer: 'en-US-AriaNeural'    // Female
-    };
-
-    const selectedVoice = voiceMap[voice] || 'en-US-JennyNeural';
-    console.log('Selected voice:', selectedVoice);
+    console.log('Request data:', { text, voice });
 
     // Ensure the endpoint is using tts instead of stt
     const ttsEndpoint = azureSpeechEndpoint.replace('stt.speech', 'tts.speech');
@@ -51,7 +42,7 @@ serve(async (req) => {
     console.log('Testing text-to-speech synthesis...');
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='${selectedVoice}'>
+        <voice name='${voice}'>
           <prosody rate="0%">
             ${text}
           </prosody>

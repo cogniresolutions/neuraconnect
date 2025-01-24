@@ -13,7 +13,12 @@ export default function AzureVoiceTest() {
     setIsLoading(true);
     try {
       console.log('Starting Azure voice test...');
-      const { data, error } = await supabase.functions.invoke('azure-voice-test');
+      const { data, error } = await supabase.functions.invoke('azure-voice-test', {
+        body: { 
+          text: "Hello, this is a test of Azure Speech Services.",
+          voice: "en-US-JennyNeural"
+        }
+      });
 
       console.log('Edge Function Response:', { data, error });
 
