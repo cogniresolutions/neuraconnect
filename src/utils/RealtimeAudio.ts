@@ -133,7 +133,6 @@ export class RealtimeChat {
     try {
       console.log('Initializing chat with persona:', persona);
       
-      // Get chat token from Supabase function
       const { data, error } = await supabase.functions.invoke('generate-chat-token', {
         body: { 
           personaId: persona.id,
@@ -173,7 +172,15 @@ export class RealtimeChat {
     console.log('Establishing WebSocket connection...');
     
     try {
-      const wsUrl = new URL(`${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-realtime-preview/chat/realtime/stream?api-version=2024-12-17`);
+      const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+      if (!endpoint) {
+        throw new Error('Missing Azure OpenAI endpoint');
+      }
+
+      // Ensure the endpoint is properly formatted
+      const baseUrl = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+      const wsUrl = new URL(`${baseUrl}/openai/deployments/gpt-4o-realtime-preview/chat/realtime/stream`);
+      wsUrl.searchParams.append('api-version', '2024-12-17');
       wsUrl.searchParams.append('token', this.clientSecret);
       
       console.log('Connecting to WebSocket with URL:', wsUrl.toString());
