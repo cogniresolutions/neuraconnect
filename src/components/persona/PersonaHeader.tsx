@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
+import { Settings, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,16 @@ export const PersonaHeader = ({ onSignOut }: PersonaHeaderProps) => {
         <p className="text-gray-400 mt-2">Design and customize your AI companion</p>
       </div>
       <div className="flex gap-4">
+        <Button
+          variant="outline"
+          className="bg-white/10 border-purple-400/30"
+          asChild
+        >
+          <Link to="/tools">
+            <FileText className="h-4 w-4 mr-2" />
+            Documents
+          </Link>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="bg-white/10 border-purple-400/30">
