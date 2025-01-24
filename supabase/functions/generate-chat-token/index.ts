@@ -1,11 +1,16 @@
-import { corsHeaders } from '../_shared/cors.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY');
 const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
 const AZURE_SPEECH_KEY = Deno.env.get('AZURE_SPEECH_KEY');
 const AZURE_SPEECH_ENDPOINT = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
-Deno.serve(async (req) => {
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -29,25 +34,9 @@ Deno.serve(async (req) => {
     try {
       console.log('Testing Azure OpenAI connection...');
       const deploymentName = 'gpt-4o-mini';
-      const apiVersion = '2024-02-15-preview';
+      const apiVersion = '2024-08-01-preview';
       
-      // First try to list deployments to check connection
-      const deploymentsResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments?api-version=${apiVersion}`, {
-        headers: {
-          'api-key': AZURE_OPENAI_API_KEY,
-        },
-      });
-
-      if (!deploymentsResponse.ok) {
-        const error = await deploymentsResponse.text();
-        console.error('Failed to list deployments:', error);
-        throw new Error(`Failed to validate Azure OpenAI deployments: ${error}`);
-      }
-
-      const deployments = await deploymentsResponse.json();
-      console.log('Available deployments:', deployments);
-
-      // Then test the specific deployment
+      // Test the deployment directly with a chat completion request
       const deploymentResponse = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`, {
         method: 'POST',
         headers: {
