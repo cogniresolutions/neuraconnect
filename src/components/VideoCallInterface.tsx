@@ -13,7 +13,7 @@ interface VideoCallInterfaceProps {
   isVideoMode?: boolean;
 }
 
-const AZURE_CONTAINER_VIDEO_URL = "http://emma-server.dbfdh9d2gxhhgpd7.centralus.azurecontainer.io:8080/video";
+const AZURE_CONTAINER_VIDEO_URL = "https://emma-server.dbfdh9d2gxhhgpd7.centralus.azurecontainer.io:8080/video";
 
 export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
@@ -272,3 +272,4 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     </div>
   );
 };
+

@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Mic, MicOff } from 'lucide-react';
 
-const AZURE_CONTAINER_VIDEO_URL = "http://emma-server.dbfdh9d2gxhhgpd7.centralus.azurecontainer.io:8080/video";
+const AZURE_CONTAINER_VIDEO_URL = "https://emma-server.dbfdh9d2gxhhgpd7.centralus.azurecontainer.io:8080/video";
 
 const AzureIntegrationTest = () => {
   const { toast } = useToast();
