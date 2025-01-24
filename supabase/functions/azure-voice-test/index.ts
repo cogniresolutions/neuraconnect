@@ -7,17 +7,17 @@ const corsHeaders = {
 
 console.log('Azure Voice Test Function loaded');
 
-// Map of language codes to their corresponding voice models
+// Map of language codes to their corresponding voice models based on Azure's documentation
 const languageVoiceMap: Record<string, string[]> = {
-  'en-US': ['Jenny', 'Guy', 'Aria', 'Davis', 'Jane', 'Jason', 'Nancy', 'Tony', 'Sara', 'Brandon'],
-  'en-GB': ['Sonia', 'Ryan', 'Libby', 'Oliver'],
-  'es-ES': ['Elvira', 'Alvaro', 'Teresa', 'Alberto'],
-  'fr-FR': ['Denise', 'Henri', 'Eloise', 'Jean'],
-  'de-DE': ['Katja', 'Conrad', 'Amala', 'Caspar'],
-  'it-IT': ['Elsa', 'Diego', 'Isabella', 'Benigno'],
-  'ja-JP': ['Nanami', 'Keita', 'Sachiko', 'Daisuke'],
-  'ko-KR': ['SunHi', 'InJoon', 'JiYoung', 'HyunJun'],
-  'zh-CN': ['Xiaoxiao', 'Yunyang', 'Xiaohan', 'Yunfeng']
+  'en-US': ['JennyMultilingualV2', 'JennyNeural', 'GuyNeural', 'AriaNeural', 'DavisNeural'],
+  'en-GB': ['SoniaNeural', 'RyanNeural', 'LibbyNeural', 'AbbiNeural', 'AlfieNeural', 'BellaNeural', 'ElliotNeural', 'EthanNeural', 'HollieNeural', 'MaisieNeural', 'NoahNeural', 'OliverNeural', 'ThomasNeural'],
+  'es-ES': ['ElviraNeural', 'AlvaroNeural', 'AbrilNeural', 'ArnauNeural', 'DarioNeural', 'EliasNeural', 'EstrellaNeural', 'IreneNeural', 'LaiaNeural', 'LiaNeural', 'NilNeural', 'SaulNeural', 'TeoNeural', 'TrianaNeural', 'VeronicaNeural'],
+  'fr-FR': ['DeniseNeural', 'HenriNeural', 'AlainNeural', 'BrigitteNeural', 'CelesteNeural', 'ClaudeNeural', 'CoralieNeural', 'EloiseNeural', 'JacquelineNeural', 'JeromeNeural', 'JosephineNeural', 'MauriceNeural', 'YvesNeural', 'YvetteNeural'],
+  'de-DE': ['KatjaNeural', 'ConradNeural', 'AmalaNeural', 'BerndNeural', 'ChristophNeural', 'ElkeNeural', 'GiselaNeural', 'KasperNeural', 'KillianNeural', 'KlarissaNeural', 'KlausNeural', 'LouisaNeural', 'MajaNeural', 'RalfNeural', 'TanjaNeural'],
+  'it-IT': ['ElsaNeural', 'IsabellaNeural', 'DiegoNeural', 'BenignoNeural', 'CalimeroNeural', 'CataldoNeural', 'FabiolaNeural', 'FiammaNeural', 'GianniNeural', 'LisandroNeural', 'PalmiraNeural', 'PierinaNeural', 'RinaldoNeural'],
+  'ja-JP': ['NanamiNeural', 'KeitaNeural', 'AoiNeural', 'DaichiNeural', 'MayuNeural', 'NaokiNeural', 'ShioriNeural', 'AkihiroNeural', 'AoiNeural', 'DaichiNeural', 'MayuNeural', 'NaokiNeural', 'ShioriNeural'],
+  'ko-KR': ['SunHiNeural', 'InJoonNeural', 'BongJinNeural', 'GookMinNeural', 'JiMinNeural', 'SeoHyeonNeural', 'SoonBokNeural', 'YuJinNeural'],
+  'zh-CN': ['XiaoxiaoNeural', 'YunxiNeural', 'YunjianNeural', 'XiaoyiNeural', 'YunyangNeural', 'XiaochenNeural', 'XiaohanNeural', 'XiaomoNeural', 'XiaoqiuNeural', 'XiaoruiNeural', 'XiaoshuangNeural', 'XiaoxuanNeural', 'XiaoyanNeural', 'XiaoyouNeural', 'YunfengNeural', 'YunhaoNeural', 'YunxiaNeural', 'YunzeNeural']
 };
 
 // Localized test messages for each language
@@ -70,16 +70,26 @@ serve(async (req) => {
     const region = azureSpeechEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
     console.log('Using region:', region);
 
+    // Get the available voices for the selected language
+    const availableVoices = languageVoiceMap[language];
+    console.log('Available voices for language:', availableVoices);
+
     // Format the voice name according to Azure's naming convention
     const formattedVoice = voice.replace(/[^a-zA-Z]/g, ''); // Remove any non-letter characters
-    const voiceName = `${language}-${formattedVoice}Neural`;
-    console.log('Using voice:', voiceName);
+    let selectedVoiceName = `${language}-${formattedVoice}Neural`;
+
+    // If the requested voice isn't in the available voices, use the first available voice
+    if (!availableVoices.includes(formattedVoice + 'Neural')) {
+      console.log('Requested voice not found, using first available voice');
+      selectedVoiceName = `${language}-${availableVoices[0]}`;
+    }
+    console.log('Selected voice name:', selectedVoiceName);
 
     // Get localized message based on language
     const messageToSpeak = text || localizedMessages[language] || localizedMessages['en-US'];
     console.log('Message to speak:', messageToSpeak);
 
-    // Check available voices
+    // Check available voices from Azure
     const voicesUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`;
     console.log('Fetching available voices from:', voicesUrl);
     
@@ -101,20 +111,6 @@ serve(async (req) => {
 
     const voices = await voicesResponse.json();
     console.log('Available voices for language:', voices.filter((v: any) => v.Locale === language).map((v: any) => v.ShortName));
-
-    // Find a matching voice for the language if the requested voice isn't available
-    const availableVoices = voices.filter((v: any) => v.Locale === language);
-    let selectedVoiceName = voiceName;
-    
-    if (!voices.some((v: any) => v.ShortName === voiceName)) {
-      console.log('Requested voice not found, using first available voice for language');
-      if (availableVoices.length > 0) {
-        selectedVoiceName = availableVoices[0].ShortName;
-        console.log('Selected alternative voice:', selectedVoiceName);
-      } else {
-        throw new Error(`No voices available for language ${language}`);
-      }
-    }
 
     // Prepare SSML with proper escaping and language setting
     const escapedText = messageToSpeak
