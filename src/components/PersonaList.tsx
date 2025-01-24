@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Card,
   CardContent,
@@ -41,6 +42,7 @@ import {
   RefreshCw,
   Video,
   Loader2,
+  Upload,
 } from "lucide-react";
 import {
   Select,
@@ -59,6 +61,7 @@ type Persona = {
   status: string;
   voice_style: string;
   updated_at: string;
+  profile_picture_url?: string;
 };
 
 interface PersonaListProps {

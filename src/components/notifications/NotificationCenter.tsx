@@ -18,6 +18,8 @@ interface Notification {
   status: 'success' | 'error' | 'pending';
   error_message: string | null;
   created_at: string;
+  response_time?: number;
+  user_id?: string;
 }
 
 export const NotificationCenter = () => {
@@ -57,7 +59,12 @@ export const NotificationCenter = () => {
       .limit(50);
 
     if (!error && data) {
-      setNotifications(data);
+      // Convert the status to the correct type
+      const typedNotifications: Notification[] = data.map(notification => ({
+        ...notification,
+        status: notification.status as 'success' | 'error' | 'pending'
+      }));
+      setNotifications(typedNotifications);
     }
   };
 
