@@ -39,8 +39,13 @@ serve(async (req) => {
       .eq('id', personaId)
       .single();
 
-    if (personaError || !persona) {
-      console.error('Persona not found:', personaError);
+    if (personaError) {
+      console.error('Error fetching persona:', personaError);
+      throw new Error(`Failed to fetch persona: ${personaError.message}`);
+    }
+
+    if (!persona) {
+      console.error('Persona not found for ID:', personaId);
       throw new Error('Persona not found');
     }
 
@@ -94,7 +99,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error generating chat token:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
+        details: error instanceof Error ? error.stack : undefined
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
