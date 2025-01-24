@@ -1,52 +1,52 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
+const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY');
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const AZURE_OPENAI_KEY = Deno.env.get('AZURE_OPENAI_API_KEY');
-    const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
+    const { personaId, config } = await req.json();
 
-    if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT) {
-      console.error('Azure OpenAI credentials are not configured');
-      throw new Error('Azure OpenAI credentials are not configured');
+    if (!personaId) {
+      throw new Error('Persona ID is required');
     }
 
-    const { personaId, config } = await req.json();
+    if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_API_KEY) {
+      throw new Error('Azure OpenAI credentials not configured');
+    }
+
     console.log('Generating token for persona:', personaId, 'with config:', config);
 
-    // Request a token from Azure OpenAI for real-time chat
-    // Updated API version and endpoint to match the latest Azure OpenAI specifications
-    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/realtime/token?api-version=2024-02-15-preview`;
+    // Using the official Azure OpenAI API structure
+    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4/chat/completions?api-version=2024-01-01-preview`;
     console.log('Requesting token from:', tokenUrl);
 
     const response = await fetch(tokenUrl, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "api-key": AZURE_OPENAI_KEY,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
+        'api-key': AZURE_OPENAI_API_KEY,
       },
       body: JSON.stringify({
-        voice: config.voice || "alloy",
-        instructions: `You are ${config.name}, an AI assistant with the following personality: ${config.personality}. You have expertise in: ${JSON.stringify(config.skills)}. You should focus on discussing topics related to: ${config.topics.join(', ')}.`
+        messages: [
+          {
+            role: 'system',
+            content: 'Initialize chat session',
+          },
+        ],
+        max_tokens: config?.max_tokens || 800,
+        temperature: config?.temperature || 0.7,
+        stream: true,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Azure OpenAI token generation error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
+      console.error('Token generation failed:', errorText);
       throw new Error(`Failed to generate token: ${errorText}`);
     }
 
@@ -57,11 +57,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Error:", error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      details: error.stack
-    }), {
+    console.error('Error:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
