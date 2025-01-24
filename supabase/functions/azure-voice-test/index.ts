@@ -42,12 +42,14 @@ serve(async (req) => {
     const formattedVoice = voice.includes('Neural') ? voice : `${voice}Neural`;
     console.log('Formatted voice name:', formattedVoice);
 
-    // Ensure the endpoint is properly formatted
+    // Ensure the endpoint is properly formatted - remove trailing slash if present
     const baseEndpoint = azureSpeechEndpoint.endsWith('/') 
       ? azureSpeechEndpoint.slice(0, -1) 
       : azureSpeechEndpoint;
-    
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/tts/synthesize`;
+
+    // Use the same endpoint format as in the test-azure function
+    const region = baseEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
+    const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Prepare SSML with proper XML escaping
