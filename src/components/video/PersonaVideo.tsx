@@ -2,11 +2,11 @@ import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface PersonaVideoProps {
-  isCallActive: boolean;
   persona: any;
+  isCallActive?: boolean; // Made optional with ?
 }
 
-export const PersonaVideo: React.FC<PersonaVideoProps> = ({ isCallActive, persona }) => {
+export const PersonaVideo: React.FC<PersonaVideoProps> = ({ isCallActive = true, persona }) => {
   return (
     <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
       {!isCallActive ? (
