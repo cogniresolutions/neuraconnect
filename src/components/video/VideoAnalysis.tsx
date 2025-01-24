@@ -43,7 +43,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
           recognition.interimResults = true;
           recognition.lang = language;
 
-          recognition.onresult = async (event) => {
+          recognition.onresult = async (event: SpeechRecognitionEvent) => {
             const last = event.results.length - 1;
             const text = event.results[last][0].transcript;
             
