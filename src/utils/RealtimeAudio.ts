@@ -23,7 +23,7 @@ export class AudioRecorder {
     const dataArray = new Uint8Array(bufferLength);
     
     let lastSpeakingState = false;
-    let debounceTimeout: number | null = null;
+    let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
     
     const analyze = () => {
       if (!this.audioContext) return;
