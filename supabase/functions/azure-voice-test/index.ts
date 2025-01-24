@@ -1,81 +1,80 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log('Starting Azure voice test...');
-    const { text, voice, language } = await req.json();
-    console.log('Request parameters:', { text, voice, language });
+    console.log('Starting Azure voice test...')
+    const { voice = 'en-US-JennyNeural' } = await req.json()
     
-    if (!text || !voice) {
-      throw new Error('Missing required parameters: text and voice are required');
+    const speechKey = Deno.env.get('AZURE_SPEECH_KEY')
+    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')
+
+    if (!speechKey || !speechEndpoint) {
+      console.error('Missing Azure Speech credentials')
+      throw new Error('Azure Speech credentials not configured')
     }
 
-    const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
-
-    if (!azureSpeechKey || !azureSpeechEndpoint) {
-      console.error('Azure Speech credentials missing');
-      throw new Error('Azure Speech credentials not configured');
-    }
-
-    console.log('Using Azure Speech endpoint:', azureSpeechEndpoint);
+    console.log('Using voice:', voice)
+    console.log('Endpoint:', speechEndpoint)
 
     const ssml = `
-      <speak version='1.0' xml:lang='${language}'>
+      <speak version='1.0' xml:lang='en-US' xmlns='http://www.w3.org/2001/10/synthesis'>
         <voice name='${voice}'>
-          ${text}
+          This is a test of the Azure Speech Service.
         </voice>
-      </speak>
-    `;
+      </speak>`
 
-    console.log('Sending SSML to Azure:', ssml);
-
-    const response = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1`, {
+    console.log('Making request to Azure Speech Service...')
+    const response = await fetch(`${speechEndpoint}/cognitiveservices/v1`, {
       method: 'POST',
       headers: {
-        'Ocp-Apim-Subscription-Key': azureSpeechKey,
+        'Ocp-Apim-Subscription-Key': speechKey,
         'Content-Type': 'application/ssml+xml',
         'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
       },
-      body: ssml,
-    });
+      body: ssml
+    })
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Azure Speech API error:', {
+      const errorText = await response.text()
+      console.error('Azure Speech error:', {
         status: response.status,
         statusText: response.statusText,
         error: errorText
-      });
-      throw new Error(`Azure Speech API error: ${response.status} - ${errorText}`);
+      })
+      throw new Error(`Speech synthesis failed: ${response.status} - ${errorText}`)
     }
 
-    console.log('Successfully received audio response from Azure');
-    const arrayBuffer = await response.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-
+    console.log('Successfully received audio response')
+    const audioData = await response.arrayBuffer()
+    
     return new Response(
-      JSON.stringify({ audioContent: base64Audio }),
+      JSON.stringify({ 
+        success: true,
+        audioContent: btoa(String.fromCharCode(...new Uint8Array(audioData)))
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    )
+
   } catch (error) {
-    console.error('Error in azure-voice-test:', error);
+    console.error('Voice test error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message 
+      }),
       { 
-        status: 500,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    );
+    )
   }
-});
+})

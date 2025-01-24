@@ -292,17 +292,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
               )}
               <VideoAnalysis
                 personaId={persona.id}
-                onAnalysisComplete={() => {}}
+                onAnalysisComplete={handleAnalysisComplete}
                 onSpeechDetected={setSubtitles}
               />
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
                 <User className="h-4 w-4" />
                 <span className="text-sm font-medium">{userName || 'You'}</span>
-              </div>
-              <div className="absolute top-4 right-4">
-                <Badge variant="secondary" className="bg-black/50 text-white">
-                  {isRecording ? 'Recording' : 'Live'}
-                </Badge>
               </div>
             </div>
           </Card>
@@ -326,14 +321,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
               </div>
             </div>
           </Card>
-          
-          {(subtitles || translatedSubtitles) && (
-            <div className="col-span-2 p-4 rounded-lg bg-black/80 backdrop-blur-sm">
-              <p className="text-lg text-center text-white font-medium">
-                {translatedSubtitles || subtitles}
-              </p>
-            </div>
-          )}
         </div>
       )}
 

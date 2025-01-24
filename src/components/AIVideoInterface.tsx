@@ -27,18 +27,20 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   const initializeAudioContext = async () => {
     try {
+      console.log('Initializing audio context...');
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext({
           sampleRate: 44100,
           latencyHint: 'interactive'
         });
-        console.log('Audio context initialized:', audioContextRef.current.state);
       }
 
       if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
-        console.log('Audio context resumed');
+        console.log('Audio context resumed:', audioContextRef.current.state);
       }
+
+      return audioContextRef.current;
     } catch (error) {
       console.error('Error initializing audio context:', error);
       throw error;
@@ -51,9 +53,9 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     }
 
     try {
-      await initializeAudioContext();
-      
+      const audioContext = await initializeAudioContext();
       isPlayingRef.current = true;
+      
       const audioBuffer = audioQueueRef.current.shift();
       if (!audioBuffer) return;
 
@@ -63,9 +65,9 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
         sampleRate: audioBuffer.sampleRate
       });
 
-      const source = audioContextRef.current.createBufferSource();
+      const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(audioContextRef.current.destination);
+      source.connect(audioContext.destination);
       
       source.onended = () => {
         isPlayingRef.current = false;
