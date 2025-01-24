@@ -67,6 +67,7 @@ export const PersonaList = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showAllPersonas, setShowAllPersonas] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -114,82 +115,25 @@ export const PersonaList = () => {
 
   const handleDelete = async (personaId: string) => {
     setIsDeleting(true);
+    setDeleteProgress(10);
     try {
-      console.log('Deleting persona:', personaId);
+      console.log('Initiating deletion process for persona:', personaId);
 
-      // Delete training materials
-      const { error: trainingError } = await supabase
-        .from('persona_training_materials')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (trainingError) {
-        console.error('Error deleting training materials:', trainingError);
-        throw trainingError;
-      }
-
-      // Delete training videos
-      const { error: videosError } = await supabase
-        .from('training_videos')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (videosError) {
-        console.error('Error deleting training videos:', videosError);
-        throw videosError;
-      }
-
-      // Delete emotion analysis data
-      const { error: emotionError } = await supabase
-        .from('emotion_analysis')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (emotionError) {
-        console.error('Error deleting emotion analysis:', emotionError);
-        throw emotionError;
-      }
-
-      // Delete API keys associated with the persona
-      const { error: apiKeyError } = await supabase
-        .from('api_keys')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (apiKeyError) {
-        console.error('Error deleting API keys:', apiKeyError);
-        throw apiKeyError;
-      }
-
-      // Delete persona appearances
-      const { error: appearanceError } = await supabase
-        .from('persona_appearances')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (appearanceError) {
-        console.error('Error deleting persona appearances:', appearanceError);
-        throw appearanceError;
-      }
-
-      // Finally delete the persona
-      const { error: personaError } = await supabase
-        .from('personas')
-        .delete()
-        .eq('id', personaId);
-
-      if (personaError) {
-        console.error('Error deleting persona:', personaError);
-        throw personaError;
-      }
-
-      // Remove the deleted persona from local state
+      // Remove the persona from local state immediately for better UX
       setPersonas(prevPersonas => prevPersonas.filter(p => p.id !== personaId));
+
+      // Trigger the background deletion process
+      const { error } = await supabase.functions.invoke('delete-persona', {
+        body: { personaId }
+      });
+
+      if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Persona and associated data deleted successfully",
+        description: "Persona deletion process initiated successfully",
       });
+
     } catch (error: any) {
       console.error('Delete persona error:', error);
       toast({
@@ -199,6 +143,7 @@ export const PersonaList = () => {
       });
     } finally {
       setIsDeleting(false);
+      setDeleteProgress(0);
     }
   };
 
