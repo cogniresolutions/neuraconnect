@@ -142,108 +142,44 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
-  const initializePersonaStream = async () => {
+  const initializeAzureServices = async () => {
     try {
-      // Initialize chat for persona audio
-      chatRef.current = new RealtimeChat(async (event) => {
-        if (event.type === 'response.audio.delta' && event.audio) {
-          // Convert base64 audio to stream
-          const audioData = atob(event.audio);
-          const arrayBuffer = new ArrayBuffer(audioData.length);
-          const view = new Uint8Array(arrayBuffer);
-          for (let i = 0; i < audioData.length; i++) {
-            view[i] = audioData.charCodeAt(i);
-          }
-
-          if (!audioContextRef.current) {
-            audioContextRef.current = new AudioContext();
-          }
-
-          const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-          const source = audioContextRef.current.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(audioContextRef.current.destination);
-          source.start(0);
-        }
+      const response = await fetch('/api/azure-video-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personaId: persona.id,
+          action: 'initialize',
+        }),
       });
 
-      await chatRef.current.init(persona);
-      console.log('Persona chat initialized successfully');
-
-      // Create a MediaStream for the persona's video
-      const personaVideoStream = new MediaStream();
-      const videoUrl = externalVideoUrl || persona.video_url;
-      
-      if (videoUrl) {
-        const videoElement = document.createElement('video');
-        videoElement.src = videoUrl;
-        videoElement.autoplay = true;
-        videoElement.muted = true;
-        videoElement.loop = true; // Add loop for Tavus videos
-        videoElement.crossOrigin = "anonymous"; // Add for external URLs
-        videoElement.play().catch(console.error);
-        
-        // Wait for video to be ready
-        await new Promise((resolve) => {
-          videoElement.oncanplay = resolve;
-        });
-        
-        const videoTrack = videoElement.captureStream().getVideoTracks()[0];
-        personaVideoStream.addTrack(videoTrack);
+      if (!response.ok) {
+        throw new Error('Failed to initialize Azure services');
       }
 
-      setPersonaStream(personaVideoStream);
+      const data = await response.json();
+      console.log('Azure services initialized:', data);
       
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = personaVideoStream;
-        await remoteVideoRef.current.play().catch(console.error);
-        console.log('Persona video stream connected successfully');
-      }
+      return data;
     } catch (error) {
-      console.error('Error initializing persona stream:', error);
+      console.error('Error initializing Azure services:', error);
       throw error;
     }
   };
 
-  const startCamera = async () => {
-    if (isInitializing) {
-      console.log('Already initializing camera...');
-      return;
-    }
-    
+  const startCall = async () => {
     try {
       setIsInitializing(true);
       console.log('Starting new video call session...');
       
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      if (!user) throw new Error('User not authenticated');
 
-      // Create the participants array as a properly formatted JSON object
-      const participants = JSON.stringify([
-        { user_id: user.id, type: 'user' },
-        { persona_id: persona.id, type: 'persona' }
-      ]);
+      await initializeAzureServices();
 
-      const { data: session, error: sessionError } = await supabase
-        .from('tavus_sessions')
-        .insert({
-          conversation_id: crypto.randomUUID(),
-          user_id: user.id,
-          status: 'active',
-          is_active: true,
-          session_type: 'video_call',
-          participants: JSON.parse(participants) // Parse it back to ensure proper JSON format
-        })
-        .select()
-        .single();
-
-      if (sessionError) throw sessionError;
-      sessionIdRef.current = session.id;
-
-      console.log('Requesting media permissions...');
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
@@ -256,53 +192,40 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
-      console.log('Media stream obtained:', mediaStream.id);
-
-      if (!mountedRef.current) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        return;
-      }
-
-      setStream(mediaStream);
-      
-      await initializeAudioContext(mediaStream);
-      await initializePersonaStream();
-      
+      mediaStreamRef.current = stream;
       if (localVideoRef.current) {
-        console.log('Connecting stream to local video element');
-        localVideoRef.current.srcObject = mediaStream;
-        
-        try {
-          await localVideoRef.current.play();
-          console.log('Local video playback started successfully');
-        } catch (error) {
-          console.error('Error playing local video:', error);
-          throw new Error('Failed to start video playback');
-        }
-      } else {
-        console.error('Local video reference not found');
-        throw new Error('Video element not initialized');
+        localVideoRef.current.srcObject = stream;
       }
+
+      const { data: session, error } = await supabase.functions.invoke('video-call', {
+        body: {
+          action: 'start',
+          personaId: persona.id,
+          userId: user.id,
+          personaConfig: {
+            name: persona.name,
+            voice: persona.voice_style,
+            personality: persona.personality
+          }
+        }
+      });
+
+      if (error) throw error;
 
       setIsCallActive(true);
-      onCallStateChange?.(true);
-      
+      startVideoAnalysis();
+
       toast({
-        title: "Call Connected",
+        title: "Call Started",
         description: `You're now in a call with ${persona.name}`,
       });
-
     } catch (error: any) {
-      console.error('Camera/audio initialization error:', error);
-      await cleanup();
-      
+      console.error('Error starting call:', error);
       toast({
-        title: "Connection Error",
-        description: error.message || "Failed to start video call. Please check your camera and microphone permissions.",
+        title: "Error",
+        description: "Failed to start video call. Please check your camera and microphone permissions.",
         variant: "destructive",
       });
-      
-      throw error;
     } finally {
       setIsInitializing(false);
     }
@@ -357,7 +280,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             isCallActive={isCallActive}
             isAudioEnabled={isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
-            onStartCall={startCamera}
+            onStartCall={startCall}
             onEndCall={cleanup}
             onToggleAudio={() => {
               if (stream) {
