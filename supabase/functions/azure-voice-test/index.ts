@@ -9,14 +9,15 @@ console.log('Azure Voice Test Function loaded');
 
 // Map of language codes to their corresponding voice models
 const languageVoiceMap: Record<string, string[]> = {
-  'en-US': ['Jenny', 'Guy', 'Aria', 'Davis'],
-  'ja-JP': ['Nanami', 'Keita'],
-  'es-ES': ['Elvira', 'Alvaro'],
-  'fr-FR': ['Denise', 'Henri'],
-  'de-DE': ['Katja', 'Conrad'],
-  'it-IT': ['Elsa', 'Diego'],
-  'ko-KR': ['Sun-Hi', 'In-Ho'],
-  'zh-CN': ['Xiaoxiao', 'Yunyang']
+  'en-US': ['Jenny', 'Guy', 'Aria', 'Davis', 'Jane', 'Jason', 'Nancy', 'Tony', 'Sara', 'Brandon'],
+  'en-GB': ['Sonia', 'Ryan', 'Libby', 'Oliver'],
+  'es-ES': ['Elvira', 'Alvaro', 'Teresa', 'Alberto'],
+  'fr-FR': ['Denise', 'Henri', 'Eloise', 'Jean'],
+  'de-DE': ['Katja', 'Conrad', 'Amala', 'Caspar'],
+  'it-IT': ['Elsa', 'Diego', 'Isabella', 'Benigno'],
+  'ja-JP': ['Nanami', 'Keita', 'Sachiko', 'Daisuke'],
+  'ko-KR': ['SunHi', 'InJoon', 'JiYoung', 'HyunJun'],
+  'zh-CN': ['Xiaoxiao', 'Yunyang', 'Xiaohan', 'Yunfeng']
 };
 
 serve(async (req) => {
@@ -31,6 +32,12 @@ serve(async (req) => {
 
     if (!text || !voice) {
       throw new Error('Missing required fields: text and voice are required');
+    }
+
+    // Verify language is supported
+    if (!languageVoiceMap[language]) {
+      console.error('Unsupported language:', language);
+      throw new Error(`Language ${language} is not supported`);
     }
 
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
@@ -51,7 +58,6 @@ serve(async (req) => {
     console.log('Using region:', region);
 
     // Format the voice name according to Azure's naming convention
-    // Example: "Jenny" becomes "en-US-JennyNeural" for US English
     const voiceName = `${language}-${voice}Neural`;
     console.log('Using voice:', voiceName);
 
@@ -78,11 +84,18 @@ serve(async (req) => {
     const voices = await voicesResponse.json();
     console.log('Available voices for language:', voices.filter((v: any) => v.Locale === language).map((v: any) => v.ShortName));
 
-    const voiceExists = voices.some((v: any) => v.ShortName === voiceName);
-    if (!voiceExists) {
-      console.error('Voice not found:', voiceName);
-      console.log('Available voices:', voices.map((v: any) => v.ShortName));
-      throw new Error(`Voice '${voiceName}' not found in available voices for language ${language}`);
+    // Find a matching voice for the language if the requested voice isn't available
+    const availableVoices = voices.filter((v: any) => v.Locale === language);
+    let selectedVoiceName = voiceName;
+    
+    if (!voices.some((v: any) => v.ShortName === voiceName)) {
+      console.log('Requested voice not found, using first available voice for language');
+      if (availableVoices.length > 0) {
+        selectedVoiceName = availableVoices[0].ShortName;
+        console.log('Selected alternative voice:', selectedVoiceName);
+      } else {
+        throw new Error(`No voices available for language ${language}`);
+      }
     }
 
     // Prepare SSML with proper escaping and language setting
@@ -95,7 +108,7 @@ serve(async (req) => {
 
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
-        <voice name='${voiceName}'>
+        <voice name='${selectedVoiceName}'>
           ${escapedText}
         </voice>
       </speak>
@@ -139,7 +152,7 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice: voiceName,
+          voice: selectedVoiceName,
           language,
           endpoint: ttsUrl,
           region: region,
