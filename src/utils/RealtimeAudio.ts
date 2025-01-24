@@ -14,9 +14,10 @@ export class AudioRecorder {
 
   async start() {
     try {
+      console.log('Starting audio recorder...');
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 24000,
+          sampleRate: 44100,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -24,8 +25,11 @@ export class AudioRecorder {
         }
       });
       
+      console.log('Audio stream initialized:', this.stream.getAudioTracks()[0].getSettings());
+      
       this.audioContext = new AudioContext({
-        sampleRate: 24000,
+        sampleRate: 44100,
+        latencyHint: 'interactive'
       });
       
       this.source = this.audioContext.createMediaStreamSource(this.stream);
@@ -38,6 +42,7 @@ export class AudioRecorder {
       
       this.source.connect(this.processor);
       this.processor.connect(this.audioContext.destination);
+      console.log('Audio processing pipeline established');
     } catch (error) {
       console.error('Error accessing microphone:', error);
       throw error;
@@ -45,6 +50,7 @@ export class AudioRecorder {
   }
 
   stop() {
+    console.log('Stopping audio recorder...');
     if (this.source) {
       this.source.disconnect();
       this.source = null;
@@ -54,12 +60,16 @@ export class AudioRecorder {
       this.processor = null;
     }
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Audio track stopped:', track.kind);
+      });
       this.stream = null;
     }
     if (this.audioContext) {
       this.audioContext.close();
       this.audioContext = null;
+      console.log('Audio context closed');
     }
   }
 }

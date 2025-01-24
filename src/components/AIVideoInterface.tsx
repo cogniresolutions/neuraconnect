@@ -25,25 +25,60 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
 
+  const initializeAudioContext = async () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext({
+          sampleRate: 44100,
+          latencyHint: 'interactive'
+        });
+        console.log('Audio context initialized:', audioContextRef.current.state);
+      }
+
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+        console.log('Audio context resumed');
+      }
+    } catch (error) {
+      console.error('Error initializing audio context:', error);
+      throw error;
+    }
+  };
+
   const playNextAudio = async () => {
     if (!audioContextRef.current || audioQueueRef.current.length === 0 || isPlayingRef.current) {
       return;
     }
 
-    isPlayingRef.current = true;
-    const audioBuffer = audioQueueRef.current.shift();
-    if (!audioBuffer) return;
+    try {
+      await initializeAudioContext();
+      
+      isPlayingRef.current = true;
+      const audioBuffer = audioQueueRef.current.shift();
+      if (!audioBuffer) return;
 
-    const source = audioContextRef.current.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContextRef.current.destination);
-    
-    source.onended = () => {
+      console.log('Playing audio buffer:', {
+        duration: audioBuffer.duration,
+        numberOfChannels: audioBuffer.numberOfChannels,
+        sampleRate: audioBuffer.sampleRate
+      });
+
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContextRef.current.destination);
+      
+      source.onended = () => {
+        isPlayingRef.current = false;
+        console.log('Audio playback completed');
+        playNextAudio();
+      };
+
+      source.start(0);
+      console.log('Started playing audio buffer');
+    } catch (error) {
+      console.error('Error playing audio:', error);
       isPlayingRef.current = false;
-      playNextAudio();
-    };
-
-    source.start(0);
+    }
   };
 
   const handleMessage = async (event: any) => {
@@ -103,16 +138,21 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       setIsLoading(true);
       console.log('Initializing chat with persona:', persona);
       
+      // Initialize audio context first
+      await initializeAudioContext();
+      
       // Initialize audio with specific constraints
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 44100
+          sampleRate: 44100,
+          channelCount: 1
         }
       });
       
+      console.log('Audio stream initialized:', stream.getAudioTracks()[0].getSettings());
       streamRef.current = stream;
       
       chatRef.current = new RealtimeChat(handleMessage);

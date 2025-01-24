@@ -12,18 +12,23 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Starting Azure voice test...');
     const { text, voice, language } = await req.json();
+    console.log('Request parameters:', { text, voice, language });
     
     if (!text || !voice) {
-      throw new Error('Missing required parameters');
+      throw new Error('Missing required parameters: text and voice are required');
     }
 
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
+      console.error('Azure Speech credentials missing');
       throw new Error('Azure Speech credentials not configured');
     }
+
+    console.log('Using Azure Speech endpoint:', azureSpeechEndpoint);
 
     const ssml = `
       <speak version='1.0' xml:lang='${language}'>
@@ -32,6 +37,8 @@ serve(async (req) => {
         </voice>
       </speak>
     `;
+
+    console.log('Sending SSML to Azure:', ssml);
 
     const response = await fetch(`${azureSpeechEndpoint}/cognitiveservices/v1`, {
       method: 'POST',
@@ -44,9 +51,16 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Azure Speech API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Azure Speech API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      throw new Error(`Azure Speech API error: ${response.status} - ${errorText}`);
     }
 
+    console.log('Successfully received audio response from Azure');
     const arrayBuffer = await response.arrayBuffer();
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
