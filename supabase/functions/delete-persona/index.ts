@@ -1,149 +1,153 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    const { personaId } = await req.json();
-    console.log('Starting background deletion for persona:', personaId);
+    const { personaId } = await req.json()
 
-    // Get persona details first
-    const { data: persona, error: personaError } = await supabase
+    if (!personaId) {
+      throw new Error('Persona ID is required')
+    }
+
+    console.log('Starting deletion process for persona:', personaId)
+
+    // First verify the persona exists
+    const { data: persona, error: personaError } = await supabaseClient
       .from('personas')
       .select('*')
       .eq('id', personaId)
-      .single();
+      .single()
 
-    if (personaError) {
-      throw personaError;
+    if (personaError || !persona) {
+      throw new Error('Persona not found')
     }
 
-    // Delete training materials from storage
-    const { data: trainingMaterials, error: materialsError } = await supabase
-      .from('persona_training_materials')
-      .select('file_path')
-      .eq('persona_id', personaId);
-
-    if (materialsError) {
-      console.error('Error fetching training materials:', materialsError);
-    } else if (trainingMaterials?.length) {
-      const { error: storageError } = await supabase.storage
-        .from('training_materials')
-        .remove(trainingMaterials.map(tm => tm.file_path));
-
-      if (storageError) {
-        console.error('Error deleting training materials from storage:', storageError);
-      }
-    }
-
-    // Delete training videos from storage
-    const { data: videos, error: videosError } = await supabase
-      .from('training_videos')
-      .select('video_url, consent_url')
-      .eq('persona_id', personaId);
-
-    if (videosError) {
-      console.error('Error fetching training videos:', videosError);
-    } else if (videos?.length) {
-      const videoUrls = videos.flatMap(v => [v.video_url, v.consent_url].filter(Boolean));
-      const { error: videoStorageError } = await supabase.storage
-        .from('training_videos')
-        .remove(videoUrls);
-
-      if (videoStorageError) {
-        console.error('Error deleting training videos from storage:', videoStorageError);
-      }
-    }
-
-    // Delete profile picture if exists
-    if (persona.profile_picture_url) {
-      const { error: profilePicError } = await supabase.storage
-        .from('persona_profiles')
-        .remove([persona.profile_picture_url]);
-
-      if (profilePicError) {
-        console.error('Error deleting profile picture:', profilePicError);
-      }
-    }
-
-    // Delete avatar if exists
+    // Delete files from storage
     if (persona.avatar_url) {
-      const { error: avatarError } = await supabase.storage
+      const { error: avatarError } = await supabaseClient
+        .storage
         .from('persona_assets')
-        .remove([persona.avatar_url]);
+        .remove([persona.avatar_url])
 
       if (avatarError) {
-        console.error('Error deleting avatar:', avatarError);
+        console.error('Error deleting avatar:', avatarError)
+      }
+    }
+
+    if (persona.profile_picture_url) {
+      const { error: profilePicError } = await supabaseClient
+        .storage
+        .from('persona_profiles')
+        .remove([persona.profile_picture_url])
+
+      if (profilePicError) {
+        console.error('Error deleting profile picture:', profilePicError)
+      }
+    }
+
+    // Get and delete training materials
+    const { data: trainingMaterials } = await supabaseClient
+      .from('persona_training_materials')
+      .select('file_path')
+      .eq('persona_id', personaId)
+
+    if (trainingMaterials?.length) {
+      const { error: materialsError } = await supabaseClient
+        .storage
+        .from('training_materials')
+        .remove(trainingMaterials.map(tm => tm.file_path))
+
+      if (materialsError) {
+        console.error('Error deleting training materials:', materialsError)
+      }
+    }
+
+    // Get and delete training videos
+    const { data: trainingVideos } = await supabaseClient
+      .from('training_videos')
+      .select('video_url, consent_url')
+      .eq('persona_id', personaId)
+
+    if (trainingVideos?.length) {
+      const videoUrls = trainingVideos.flatMap(tv => [tv.video_url, tv.consent_url].filter(Boolean))
+      const { error: videosError } = await supabaseClient
+        .storage
+        .from('training_videos')
+        .remove(videoUrls)
+
+      if (videosError) {
+        console.error('Error deleting training videos:', videosError)
       }
     }
 
     // Delete all related database records in the correct order
     const deleteOperations = [
-      supabase.from('persona_training_materials').delete().eq('persona_id', personaId),
-      supabase.from('training_videos').delete().eq('persona_id', personaId),
-      supabase.from('emotion_analysis').delete().eq('persona_id', personaId),
-      supabase.from('api_keys').delete().eq('persona_id', personaId),
-      supabase.from('persona_appearances').delete().eq('persona_id', personaId),
-      supabase.from('conversations').delete().eq('persona_id', personaId),
-      supabase.from('personas').delete().eq('id', personaId)
-    ];
+      // First delete child records
+      supabaseClient.from('conversation_sessions').delete().eq('conversation_id', personaId),
+      supabaseClient.from('conversations').delete().eq('persona_id', personaId),
+      supabaseClient.from('persona_training_materials').delete().eq('persona_id', personaId),
+      supabaseClient.from('training_videos').delete().eq('persona_id', personaId),
+      supabaseClient.from('emotion_analysis').delete().eq('persona_id', personaId),
+      supabaseClient.from('api_keys').delete().eq('persona_id', personaId),
+      supabaseClient.from('persona_appearances').delete().eq('persona_id', personaId),
+      // Finally delete the persona itself
+      supabaseClient.from('personas').delete().eq('id', personaId)
+    ]
 
-    const results = await Promise.allSettled(deleteOperations);
-    
-    // Log any errors that occurred during deletion
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        console.error(`Error in delete operation ${index}:`, result.reason);
-      }
-    });
+    // Execute all delete operations
+    const deleteResults = await Promise.all(deleteOperations)
+    const deleteErrors = deleteResults.filter(result => result.error)
 
-    // Verify complete cleanup
-    const verificationQueries = [
-      supabase.from('personas').select('id').eq('id', personaId),
-      supabase.from('persona_training_materials').select('id').eq('persona_id', personaId),
-      supabase.from('training_videos').select('id').eq('persona_id', personaId),
-      supabase.from('emotion_analysis').select('id').eq('persona_id', personaId),
-      supabase.from('api_keys').select('id').eq('persona_id', personaId),
-      supabase.from('persona_appearances').select('id').eq('persona_id', personaId),
-      supabase.from('conversations').select('id').eq('persona_id', personaId)
-    ];
-
-    const verificationResults = await Promise.all(verificationQueries);
-    const anyDataRemaining = verificationResults.some(result => result.data && result.data.length > 0);
-
-    if (anyDataRemaining) {
-      console.error('Warning: Some data still remains after deletion');
-      throw new Error('Incomplete deletion detected');
+    if (deleteErrors.length > 0) {
+      console.error('Errors during deletion:', deleteErrors)
+      throw new Error('Failed to delete some related records')
     }
 
-    console.log('Verification complete: All data successfully deleted');
+    // Verify complete deletion
+    const verificationQueries = [
+      supabaseClient.from('conversations').select('id').eq('persona_id', personaId),
+      supabaseClient.from('persona_training_materials').select('id').eq('persona_id', personaId),
+      supabaseClient.from('training_videos').select('id').eq('persona_id', personaId),
+      supabaseClient.from('emotion_analysis').select('id').eq('persona_id', personaId),
+      supabaseClient.from('api_keys').select('id').eq('persona_id', personaId),
+      supabaseClient.from('persona_appearances').select('id').eq('persona_id', personaId),
+      supabaseClient.from('personas').select('id').eq('id', personaId)
+    ]
+
+    const verificationResults = await Promise.all(verificationQueries)
+    const anyDataRemaining = verificationResults.some(result => result.data?.length > 0)
+
+    if (anyDataRemaining) {
+      console.error('Warning: Some data still remains after deletion')
+      throw new Error('Incomplete deletion detected')
+    }
+
+    console.log('Verification complete: All data successfully deleted')
 
     return new Response(
       JSON.stringify({ success: true, message: 'Deletion process completed' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    )
 
   } catch (error) {
-    console.error('Error in delete-persona function:', error);
+    console.error('Error:', error.message)
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+    )
   }
-});
+})

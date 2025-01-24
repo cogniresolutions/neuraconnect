@@ -71,26 +71,26 @@ export const PersonaList = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const fetchPersonas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPersonas(data || []);
+    } catch (error: any) {
+      console.error('Fetch personas error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load personas",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
-    const fetchPersonas = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('personas')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setPersonas(data || []);
-      } catch (error: any) {
-        console.error('Fetch personas error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load personas",
-          variant: "destructive",
-        });
-      }
-    };
-
     fetchPersonas();
 
     const channel = supabase
@@ -123,13 +123,15 @@ export const PersonaList = () => {
       setPersonas(prevPersonas => prevPersonas.filter(p => p.id !== personaId));
 
       // Trigger the background deletion process
-      const { error } = await supabase.functions.invoke('delete-persona', {
+      const { data, error } = await supabase.functions.invoke('delete-persona', {
         body: { personaId }
       });
 
-      if (error) throw error;
+      if (error || !data.success) {
+        throw new Error(error?.message || data?.error || 'Failed to delete persona');
+      }
 
-      // Verify deletion was successful
+      // Double-check deletion was successful
       const { data: verifyPersona } = await supabase
         .from('personas')
         .select('id')
@@ -140,6 +142,9 @@ export const PersonaList = () => {
         throw new Error('Persona still exists after deletion');
       }
 
+      // Refresh the personas list to ensure UI is in sync
+      await fetchPersonas();
+
       toast({
         title: "Success",
         description: "Persona deletion completed successfully",
@@ -149,14 +154,7 @@ export const PersonaList = () => {
       console.error('Delete persona error:', error);
       
       // Refresh the personas list to ensure UI is in sync with database
-      const { data: refreshedPersonas } = await supabase
-        .from('personas')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (refreshedPersonas) {
-        setPersonas(refreshedPersonas);
-      }
+      await fetchPersonas();
 
       toast({
         title: "Error",
