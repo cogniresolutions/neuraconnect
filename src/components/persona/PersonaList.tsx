@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Json } from "@/integrations/supabase/types";
+import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +54,7 @@ interface PersonaListProps {
 }
 
 export const PersonaList = ({
-  personas,
+  personas: initialPersonas,
   onDeploy,
   onDelete,
   onEdit,
@@ -62,6 +63,8 @@ export const PersonaList = ({
 }: PersonaListProps) => {
   const [selectedVideoPersona, setSelectedVideoPersona] = useState<Persona | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
+  const [localPersonas, setLocalPersonas] = useState<Persona[]>(initialPersonas);
   const { toast } = useToast();
 
   // Use React Query to fetch personas
@@ -88,6 +91,7 @@ export const PersonaList = ({
   const handleDelete = async (personaId: string) => {
     try {
       setIsDeleting(true);
+      setDeleteProgress(10);
       console.log('Deleting persona:', personaId);
 
       // Get all training materials to delete from storage
@@ -95,6 +99,8 @@ export const PersonaList = ({
         .from('persona_training_materials')
         .select('file_path')
         .eq('persona_id', personaId);
+
+      setDeleteProgress(20);
 
       // Delete training materials from storage
       if (trainingMaterials?.length) {
@@ -108,11 +114,15 @@ export const PersonaList = ({
         }
       }
 
+      setDeleteProgress(30);
+
       // Get training videos to delete from storage
       const { data: trainingVideos } = await supabase
         .from('training_videos')
         .select('video_url, consent_url')
         .eq('persona_id', personaId);
+
+      setDeleteProgress(40);
 
       // Delete training videos from storage
       if (trainingVideos?.length) {
@@ -127,12 +137,16 @@ export const PersonaList = ({
         }
       }
 
+      setDeleteProgress(50);
+
       // Get profile picture URL to delete from storage
       const { data: persona } = await supabase
         .from('personas')
         .select('profile_picture_url, avatar_url')
         .eq('id', personaId)
         .single();
+
+      setDeleteProgress(60);
 
       // Delete profile pictures from storage if they exist
       if (persona?.profile_picture_url) {
@@ -157,6 +171,8 @@ export const PersonaList = ({
         }
       }
 
+      setDeleteProgress(70);
+
       // Delete all related database records
       const { error: trainingError } = await supabase
         .from('persona_training_materials')
@@ -168,6 +184,8 @@ export const PersonaList = ({
         throw trainingError;
       }
 
+      setDeleteProgress(75);
+
       const { error: videosError } = await supabase
         .from('training_videos')
         .delete()
@@ -177,6 +195,8 @@ export const PersonaList = ({
         console.error('Error deleting training videos:', videosError);
         throw videosError;
       }
+
+      setDeleteProgress(80);
 
       const { error: emotionError } = await supabase
         .from('emotion_analysis')
@@ -188,6 +208,8 @@ export const PersonaList = ({
         throw emotionError;
       }
 
+      setDeleteProgress(85);
+
       const { error: apiKeyError } = await supabase
         .from('api_keys')
         .delete()
@@ -198,6 +220,8 @@ export const PersonaList = ({
         throw apiKeyError;
       }
 
+      setDeleteProgress(90);
+
       const { error: appearanceError } = await supabase
         .from('persona_appearances')
         .delete()
@@ -207,6 +231,8 @@ export const PersonaList = ({
         console.error('Error deleting persona appearances:', appearanceError);
         throw appearanceError;
       }
+
+      setDeleteProgress(95);
 
       // Finally delete the persona
       const { error: personaError } = await supabase
@@ -219,7 +245,12 @@ export const PersonaList = ({
         throw personaError;
       }
 
-      // Remove the deleted persona from local state
+      setDeleteProgress(100);
+
+      // Update local state to remove the deleted persona
+      setLocalPersonas(prevPersonas => prevPersonas.filter(p => p.id !== personaId));
+      
+      // Call the onDelete prop to update parent state
       onDelete(personaId);
 
       toast({
@@ -235,10 +266,12 @@ export const PersonaList = ({
       });
     } finally {
       setIsDeleting(false);
+      setDeleteProgress(0);
     }
   };
 
-  const allPersonas = fetchedPersonas || personas;
+  // Use localPersonas instead of fetched personas for rendering
+  const allPersonas = localPersonas;
   const createdPersonas = allPersonas.filter(p => p.status === 'ready');
   const deployedPersonas = allPersonas.filter(p => p.status === 'deployed');
 
@@ -326,6 +359,14 @@ export const PersonaList = ({
                               This will permanently delete the persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
+                          {isDeleting && deleteProgress > 0 && (
+                            <div className="space-y-2 my-4">
+                              <Progress value={deleteProgress} className="w-full" />
+                              <p className="text-sm text-center text-gray-400">
+                                Deleting persona... {deleteProgress}%
+                              </p>
+                            </div>
+                          )}
                           <AlertDialogFooter>
                             <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
                             <AlertDialogAction
@@ -393,6 +434,14 @@ export const PersonaList = ({
                               This will permanently delete the deployed persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
+                          {isDeleting && deleteProgress > 0 && (
+                            <div className="space-y-2 my-4">
+                              <Progress value={deleteProgress} className="w-full" />
+                              <p className="text-sm text-center text-gray-400">
+                                Deleting persona... {deleteProgress}%
+                              </p>
+                            </div>
+                          )}
                           <AlertDialogFooter>
                             <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
                             <AlertDialogAction
