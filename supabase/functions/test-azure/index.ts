@@ -10,7 +10,6 @@ console.log('Azure Test Function loaded');
 serve(async (req) => {
   console.log('Request received:', req.method);
   
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('Handling CORS preflight request');
     return new Response(null, {
@@ -25,11 +24,11 @@ serve(async (req) => {
     console.log('Request body:', body);
 
     // Get Azure credentials
-    const cognitiveEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT');
+    const cognitiveEndpoint = Deno.env.get('AZURE_COGNITIVE_ENDPOINT')?.replace(/\/$/, '');
     const cognitiveKey = Deno.env.get('AZURE_COGNITIVE_KEY');
-    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
+    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '');
     const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT');
+    const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT')?.replace(/\/$/, '');
     const visionKey = Deno.env.get('AZURE_VISION_KEY');
 
     console.log('Checking Azure credentials...');
@@ -61,7 +60,10 @@ serve(async (req) => {
     // Test Cognitive Services
     try {
       console.log('Testing Cognitive Services...');
-      const cognitiveResponse = await fetch(`${cognitiveEndpoint}/vision/v3.2/analyze?visualFeatures=Description`, {
+      const cognitiveUrl = `${cognitiveEndpoint}/vision/v3.2/analyze?visualFeatures=Description`;
+      console.log('Cognitive Services URL:', cognitiveUrl);
+      
+      const cognitiveResponse = await fetch(cognitiveUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +96,12 @@ serve(async (req) => {
     // Test Speech Services
     try {
       console.log('Testing Speech Services...');
-      const speechResponse = await fetch(`${speechEndpoint}/cognitiveservices/voices/list`, {
+      // Extract region from speech endpoint
+      const region = speechEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
+      const speechUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`;
+      console.log('Speech Services URL:', speechUrl);
+      
+      const speechResponse = await fetch(speechUrl, {
         method: 'GET',
         headers: {
           'Ocp-Apim-Subscription-Key': speechKey
@@ -123,7 +130,10 @@ serve(async (req) => {
     // Test Vision Services
     try {
       console.log('Testing Vision Services...');
-      const visionResponse = await fetch(`${visionEndpoint}/computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`, {
+      const visionUrl = `${visionEndpoint}/computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`;
+      console.log('Vision Services URL:', visionUrl);
+      
+      const visionResponse = await fetch(visionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
