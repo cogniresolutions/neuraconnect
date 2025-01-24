@@ -18,10 +18,12 @@ serve(async (req) => {
     const apiKey = Deno.env.get('AZURE_OPENAI_API_KEY');
     
     if (!endpoint) {
+      console.error('Azure OpenAI endpoint not configured');
       throw new Error('Azure OpenAI endpoint not configured');
     }
 
     if (!apiKey) {
+      console.error('Azure OpenAI API key not configured');
       throw new Error('Azure OpenAI API key not configured');
     }
 
@@ -38,6 +40,7 @@ serve(async (req) => {
       .single();
 
     if (personaError || !persona) {
+      console.error('Persona not found:', personaError);
       throw new Error('Persona not found');
     }
 
@@ -72,13 +75,15 @@ serve(async (req) => {
       });
 
     if (sessionError) {
+      console.error('Failed to create chat session:', sessionError);
       throw new Error(`Failed to create chat session: ${sessionError.message}`);
     }
 
+    // Return both the token and the endpoint
     return new Response(
       JSON.stringify({ 
         token,
-        endpoint,
+        endpoint: endpoint.replace(/\/$/, ''), // Remove trailing slash if present
         session_id: sessionId
       }),
       { 
