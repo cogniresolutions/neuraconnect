@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 interface TestResult {
   service: string;
-  status: string;
+  status: 'success' | 'error';
   error?: string;
 }
 
@@ -15,51 +15,39 @@ export default function AzureTest() {
   const [results, setResults] = useState<TestResult[]>([]);
   const { toast } = useToast();
 
-  const testAzureAuth = async () => {
+  const testAzureServices = async () => {
     setIsLoading(true);
     setResults([]);
-    
     try {
-      console.log('Starting Azure authentication test...');
-      const { data, error } = await supabase.functions.invoke('azure-auth-test');
+      console.log('Starting Azure services test...');
+      const { data, error } = await supabase.functions.invoke('test-azure', {
+        body: { test: 'all' }
+      });
 
       console.log('Edge Function Response:', { data, error });
 
       if (error) {
         console.error('Supabase function error:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to test Azure authentication: ' + error.message,
-          variant: 'destructive',
-        });
-        return;
+        throw error;
       }
 
-      if (!data?.results) {
-        console.error('Invalid response format:', data);
+      if (data?.results) {
+        setResults(data.results);
+        const hasErrors = data.results.some((result: TestResult) => result.status === 'error');
+        
         toast({
-          title: 'Error',
-          description: 'Invalid response from Azure authentication test',
-          variant: 'destructive',
+          title: hasErrors ? 'Test Completed with Errors' : 'Test Completed Successfully',
+          description: hasErrors 
+            ? 'Some Azure services are not working correctly. Check the results below.'
+            : 'All Azure services are working correctly.',
+          variant: hasErrors ? 'destructive' : 'default',
         });
-        return;
       }
-
-      setResults(data.results);
-      
-      const hasErrors = data.results.some(result => result.status === 'error');
-      toast({
-        title: hasErrors ? 'Warning' : 'Success',
-        description: hasErrors 
-          ? 'Some Azure services are not properly configured' 
-          : 'Azure authentication test completed successfully',
-        variant: hasErrors ? 'destructive' : 'default',
-      });
     } catch (error) {
-      console.error('Error testing Azure auth:', error);
+      console.error('Error testing Azure services:', error);
       toast({
         title: 'Error',
-        description: 'Failed to test Azure authentication: ' + (error instanceof Error ? error.message : 'Unknown error'),
+        description: 'Failed to test Azure services: ' + (error instanceof Error ? error.message : 'Unknown error'),
         variant: 'destructive',
       });
     } finally {
@@ -70,12 +58,12 @@ export default function AzureTest() {
   return (
     <div className="space-y-6 p-6 bg-black/95 text-white rounded-lg">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Azure OpenAI Test</h2>
+        <h2 className="text-2xl font-bold">Azure Services Test</h2>
         <p className="text-sm text-gray-400">
-          Click the button below to verify Azure OpenAI credentials and service connectivity.
+          Click the button below to test Azure services connectivity.
         </p>
         <Button 
-          onClick={testAzureAuth}
+          onClick={testAzureServices}
           variant="outline"
           className="bg-white/10 text-white hover:bg-white/20"
           disabled={isLoading}
@@ -86,34 +74,40 @@ export default function AzureTest() {
               Testing...
             </>
           ) : (
-            'Test Azure OpenAI Services'
+            'Test Azure Services'
           )}
         </Button>
       </div>
       
       {results.length > 0 && (
-        <div className="space-y-4">
-          {results.map((result, index) => (
-            <div
-              key={index}
-              className="p-4 bg-white/5 rounded-lg border border-white/10"
-            >
-              <h3 className="text-lg font-semibold">{result.service}</h3>
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-sm">Status: </span>
-                <span className={`text-sm font-medium ${
-                  result.status === 'success' ? 'text-green-400' : 'text-red-400'
-                }`}>
-                  {result.status}
-                </span>
+        <div className="mt-4 space-y-4">
+          <h3 className="text-lg font-semibold">Test Results</h3>
+          <div className="space-y-2">
+            {results.map((result, index) => (
+              <div 
+                key={index}
+                className={`p-4 rounded-lg ${
+                  result.status === 'success' 
+                    ? 'bg-green-500/20 border border-green-500/30' 
+                    : 'bg-red-500/20 border border-red-500/30'
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{result.service}</span>
+                  <span className={`px-2 py-1 rounded text-sm ${
+                    result.status === 'success' 
+                      ? 'bg-green-500/30 text-green-300' 
+                      : 'bg-red-500/30 text-red-300'
+                  }`}>
+                    {result.status.toUpperCase()}
+                  </span>
+                </div>
+                {result.error && (
+                  <p className="mt-2 text-sm text-red-300">{result.error}</p>
+                )}
               </div>
-              {result.error && (
-                <p className="mt-2 text-sm text-red-400">
-                  Error: {result.error}
-                </p>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
