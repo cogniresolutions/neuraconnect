@@ -15,23 +15,19 @@ const Auth = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user is already authenticated
     const checkAuth = async () => {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error('Session check error:', sessionError);
           setError(sessionError.message);
           return;
         }
         
         if (session) {
-          console.log('User is already authenticated, redirecting...');
           navigate('/');
         }
       } catch (err) {
-        console.error('Auth check error:', err);
         setError('Failed to check authentication status');
       } finally {
         setIsLoading(false);
@@ -41,10 +37,7 @@ const Auth = () => {
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session);
-      
       if (event === 'SIGNED_IN' && session) {
-        console.log('User signed in:', session.user.email);
         toast({
           title: "Success",
           description: "Successfully signed in!",
@@ -53,13 +46,11 @@ const Auth = () => {
       }
     });
 
-    // Check for redirect error
     const hash = window.location.hash;
     if (hash && hash.includes('error')) {
       const params = new URLSearchParams(hash.substring(1));
       const errorDescription = params.get('error_description');
       if (errorDescription) {
-        console.error('Auth redirect error:', errorDescription);
         setError(errorDescription);
         toast({
           variant: "destructive",
@@ -70,7 +61,6 @@ const Auth = () => {
     }
 
     return () => {
-      console.log('Cleaning up auth subscriptions');
       subscription.unsubscribe();
     };
   }, [navigate, toast]);
