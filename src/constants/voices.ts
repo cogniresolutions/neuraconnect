@@ -9,42 +9,43 @@ export type SupportedLanguage =
   | 'ko-KR'
   | 'zh-CN';
 
+// Azure Neural TTS voices mapping
 export const VOICE_MAPPINGS: Record<SupportedLanguage, { male: string[]; female: string[] }> = {
   'en-US': {
-    male: ['Guy', 'Davis', 'Tony'],
-    female: ['Jenny', 'Aria', 'Nancy']
+    male: ['en-US-GuyNeural', 'en-US-DavisNeural', 'en-US-TonyNeural'],
+    female: ['en-US-JennyNeural', 'en-US-AriaNeural', 'en-US-NancyNeural']
   },
   'en-GB': {
-    male: ['Ryan'],
-    female: ['Sonia', 'Libby']
+    male: ['en-GB-RyanNeural'],
+    female: ['en-GB-SoniaNeural', 'en-GB-LibbyNeural']
   },
   'es-ES': {
-    male: ['Alvaro'],
-    female: ['Elvira']
+    male: ['es-ES-AlvaroNeural'],
+    female: ['es-ES-ElviraNeural']
   },
   'fr-FR': {
-    male: ['Henri'],
-    female: ['Denise']
+    male: ['fr-FR-HenriNeural'],
+    female: ['fr-FR-DeniseNeural']
   },
   'de-DE': {
-    male: ['Conrad'],
-    female: ['Katja']
+    male: ['de-DE-ConradNeural'],
+    female: ['de-DE-KatjaNeural']
   },
   'it-IT': {
-    male: ['Diego'],
-    female: ['Elsa']
+    male: ['it-IT-DiegoNeural'],
+    female: ['it-IT-ElsaNeural']
   },
   'ja-JP': {
-    male: ['Keita'],
-    female: ['Nanami']
+    male: ['ja-JP-KeitaNeural'],
+    female: ['ja-JP-NanamiNeural']
   },
   'ko-KR': {
-    male: ['InJoon'],
-    female: ['SunHi']
+    male: ['ko-KR-InJoonNeural'],
+    female: ['ko-KR-SunHiNeural']
   },
   'zh-CN': {
-    male: ['Yunxi'],
-    female: ['Xiaoxiao']
+    male: ['zh-CN-YunxiNeural'],
+    female: ['zh-CN-XiaoxiaoNeural']
   }
 };
 

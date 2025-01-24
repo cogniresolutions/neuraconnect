@@ -32,13 +32,9 @@ serve(async (req) => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
-    // Format the voice name correctly for Azure TTS
-    const formattedVoice = voice.endsWith('Neural') ? voice : `${voice}Neural`;
-    console.log('Formatted voice name:', formattedVoice);
-
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${language}'>
-        <voice name='${formattedVoice}'>
+        <voice name='${voice}'>
           ${escapedText}
         </voice>
       </speak>
@@ -91,7 +87,7 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice: formattedVoice,
+          voice,
           language,
           endpoint: ttsUrl,
           timestamp: new Date().toISOString()
