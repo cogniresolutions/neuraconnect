@@ -42,11 +42,10 @@ serve(async (req) => {
     const region = baseEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
     console.log('Extracted region:', region);
 
-    // Step 3: Check available voices
+    // Step 3: Check available voices using the correct endpoint format
     console.log('Fetching available voices...');
-    // Fix: Use the correct voices list endpoint
-    const voicesUrl = `${baseEndpoint}/cognitiveservices/voices/list`;
-    console.log('Voices URL:', voicesUrl);
+    const voicesUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`;
+    console.log('Using voices list URL:', voicesUrl);
     
     const voicesResponse = await fetch(voicesUrl, {
       headers: {
@@ -95,9 +94,9 @@ serve(async (req) => {
       </speak>
     `;
 
-    // Step 4: Make request to Azure TTS
+    // Step 4: Make request to Azure TTS using the correct endpoint
     console.log('Making request to Azure TTS...');
-    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1`;
+    const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
     
     const ttsResponse = await fetch(
