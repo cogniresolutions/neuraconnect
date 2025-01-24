@@ -23,7 +23,7 @@ serve(async (req) => {
     const { personaId, config } = await req.json();
     console.log('Generating token for persona:', personaId, 'with config:', config);
 
-    // Request a token from Azure OpenAI with updated deployment name and API version
+    // Request a token from Azure OpenAI
     const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-realtime-preview/chat/realtime/token?api-version=2024-12-17`;
     console.log('Requesting token from:', tokenUrl);
 
