@@ -38,6 +38,78 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      cleanup();
+    };
+  }, []);
+
+  const cleanup = async () => {
+    try {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
+      if (chatRef.current) {
+        chatRef.current.disconnect();
+        chatRef.current = null;
+      }
+
+      if (sessionIdRef.current) {
+        await cleanupUserSessions(sessionIdRef.current);
+        sessionIdRef.current = null;
+      }
+
+      setIsCallActive(false);
+      setStream(null);
+      onCallStateChange?.(false);
+      
+    } catch (error) {
+      console.error('Cleanup error:', error);
+    }
+  };
+
+  const startSpeechRecognition = async () => {
+    if (!stream) return;
+
+    try {
+      setIsSpeechRecognitionActive(true);
+      const audioTrack = stream.getAudioTracks()[0];
+      
+      if (!audioTrack) {
+        throw new Error('No audio track available');
+      }
+
+      // Initialize audio context and processing
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+
+      source.connect(processor);
+      processor.connect(audioContextRef.current.destination);
+
+      processor.onaudioprocess = async (e) => {
+        if (!isSpeechRecognitionActive) return;
+        
+        const inputData = e.inputBuffer.getChannelData(0);
+        // Process audio data and send to Azure Speech Services
+        // This is a placeholder for the actual implementation
+        console.log('Processing audio data:', inputData.length);
+      };
+
+    } catch (error) {
+      console.error('Speech recognition error:', error);
+      setIsSpeechRecognitionActive(false);
+      toast({
+        title: "Speech Recognition Error",
+        description: "Failed to start speech recognition",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCaptureScreenshot = async () => {
     if (!localVideoRef.current || !sessionIdRef.current) return;
     
@@ -168,14 +240,14 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       <div className="w-full max-w-6xl p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <LocalVideo
-            videoRef={localVideoRef}
+            onVideoRef={(ref) => { localVideoRef.current = ref; }}
             isRecording={isCallActive}
             currentEmotion={currentEmotion}
             environmentContext={environmentContext}
             isAnalyzing={isAnalyzing}
           />
           <RemoteVideo
-            videoRef={remoteVideoRef}
+            onVideoRef={(ref) => { remoteVideoRef.current = ref; }}
             persona={persona}
             isAnalyzing={isAnalyzing}
           />

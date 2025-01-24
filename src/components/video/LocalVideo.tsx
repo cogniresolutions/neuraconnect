@@ -2,7 +2,7 @@ import React from 'react';
 import { Loader2 } from 'lucide-react';
 
 interface LocalVideoProps {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  onVideoRef: (ref: HTMLVideoElement | null) => void;
   isRecording: boolean;
   currentEmotion?: string;
   environmentContext?: string;
@@ -10,7 +10,7 @@ interface LocalVideoProps {
 }
 
 const LocalVideo = ({ 
-  videoRef, 
+  onVideoRef, 
   isRecording,
   currentEmotion,
   environmentContext,
@@ -19,7 +19,7 @@ const LocalVideo = ({
   return (
     <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video
-        ref={videoRef}
+        ref={onVideoRef}
         autoPlay
         playsInline
         muted

@@ -3,16 +3,16 @@ import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface RemoteVideoProps {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  onVideoRef: (ref: HTMLVideoElement | null) => void;
   persona: any;
   isAnalyzing?: boolean;
 }
 
-const RemoteVideo = ({ videoRef, persona, isAnalyzing }: RemoteVideoProps) => {
+const RemoteVideo = ({ onVideoRef, persona, isAnalyzing }: RemoteVideoProps) => {
   return (
     <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video
-        ref={videoRef}
+        ref={onVideoRef}
         autoPlay
         playsInline
         className="w-full h-full object-cover"
