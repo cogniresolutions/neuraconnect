@@ -10,6 +10,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -23,6 +24,7 @@ const Index = () => {
             description: "Failed to check authentication status",
             variant: "destructive",
           });
+          navigate("/auth");
           return;
         }
 
@@ -32,7 +34,7 @@ const Index = () => {
           return;
         }
 
-        setIsLoading(false);
+        setIsAuthenticated(true);
       } catch (err) {
         console.error("Unexpected error during auth check:", err);
         toast({
@@ -40,6 +42,9 @@ const Index = () => {
           description: "An unexpected error occurred",
           variant: "destructive",
         });
+        navigate("/auth");
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -51,7 +56,10 @@ const Index = () => {
       console.log("Auth state changed:", event, session);
       
       if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
         navigate("/auth");
+      } else if (event === 'SIGNED_IN' && session) {
+        setIsAuthenticated(true);
       }
     });
 
@@ -68,17 +76,16 @@ const Index = () => {
     );
   }
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black">
-      <NotificationCenter />
-      <div className="flex items-center justify-center p-4">
-        <img
-          src="/lovable-uploads/e8089c0d-a187-4542-ba87-883bcc8ecd77.png"
-          alt="Neuraconnect Logo"
-          className="w-20 h-20 object-contain rounded-full shadow-[0_0_20px_rgba(56,182,255,0.4)] transition-transform duration-300 hover:scale-105 border-2 border-[#38b6ff]/30"
-        />
+      <div className="container mx-auto px-4 py-8">
+        <NotificationCenter />
+        <PersonaCreator />
       </div>
-      <PersonaCreator />
     </div>
   );
 };
