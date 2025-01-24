@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Loader2, Video, VideoOff } from 'lucide-react';
 import AIVideoInterface from './AIVideoInterface';
-import { VideoCallInterface } from './VideoCallInterface';
+import VideoCallInterface from './VideoCallInterface';
 import Avatar3D from './Avatar3D';
 
 const VideoChat = () => {
