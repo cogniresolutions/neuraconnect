@@ -16,6 +16,7 @@ export async function logAPIUsage(endpoint: string, status: string, error?: Erro
         status,
         error_message: error?.message,
         response_time: responseTime,
+        user_id: (await supabase.auth.getUser()).data.user?.id
       });
 
     if (dbError) {

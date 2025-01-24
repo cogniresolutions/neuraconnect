@@ -63,6 +63,44 @@ export type Database = {
           },
         ]
       }
+      api_monitoring: {
+        Row: {
+          created_at: string | null
+          endpoint: string
+          error_message: string | null
+          id: string
+          response_time: number | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint: string
+          error_message?: string | null
+          id?: string
+          response_time?: number | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          endpoint?: string
+          error_message?: string | null
+          id?: string
+          response_time?: number | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_monitoring_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emotion_analysis: {
         Row: {
           analysis_timestamp: string | null
