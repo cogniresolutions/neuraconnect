@@ -25,7 +25,7 @@ serve(async (req) => {
 
     // Get Azure credentials
     const cognitiveEndpoint = 'https://neuraconnect.openai.azure.com';
-    const cognitiveKey = Deno.env.get('AZURE_COGNITIVE_KEY');
+    const azureOpenAIKey = Deno.env.get('AZURE_OPENAI_API_KEY');
     const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '');
     const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT')?.replace(/\/$/, '');
@@ -34,14 +34,14 @@ serve(async (req) => {
     console.log('Checking Azure credentials...');
     console.log({
       hasCognitiveEndpoint: !!cognitiveEndpoint,
-      hasCognitiveKey: !!cognitiveKey,
+      hasAzureOpenAIKey: !!azureOpenAIKey,
       hasSpeechEndpoint: !!speechEndpoint,
       hasSpeechKey: !!speechKey,
       hasVisionEndpoint: !!visionEndpoint,
       hasVisionKey: !!visionKey
     });
 
-    if (!cognitiveEndpoint || !cognitiveKey || !speechEndpoint || !speechKey || !visionEndpoint || !visionKey) {
+    if (!cognitiveEndpoint || !azureOpenAIKey || !speechEndpoint || !speechKey || !visionEndpoint || !visionKey) {
       console.error('Missing required Azure credentials');
       return new Response(
         JSON.stringify({
@@ -67,7 +67,7 @@ serve(async (req) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': cognitiveKey
+          'api-key': azureOpenAIKey
         },
         body: JSON.stringify({
           messages: [
