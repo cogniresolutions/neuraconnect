@@ -36,11 +36,8 @@ serve(async (req) => {
     }
 
     // Extract region from endpoint
-    const baseEndpoint = azureSpeechEndpoint.endsWith('/') 
-      ? azureSpeechEndpoint.slice(0, -1) 
-      : azureSpeechEndpoint;
-    const region = baseEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
-    console.log('Extracted region:', region);
+    const region = azureSpeechEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
+    console.log('Using region:', region);
 
     // Step 3: Check available voices using the correct endpoint format
     console.log('Fetching available voices...');
@@ -78,7 +75,7 @@ serve(async (req) => {
       throw new Error(`Voice '${formattedVoice}' not found in available voices`);
     }
 
-    // Prepare SSML
+    // Prepare SSML with proper escaping
     const escapedText = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -94,24 +91,21 @@ serve(async (req) => {
       </speak>
     `;
 
-    // Step 4: Make request to Azure TTS using the correct endpoint
+    // Step 4: Make request to Azure TTS using the correct endpoint format
     console.log('Making request to Azure TTS...');
-    const ttsEndpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
-    console.log('Using TTS endpoint:', ttsEndpoint);
+    const ttsUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1/speak`;
+    console.log('Using TTS URL:', ttsUrl);
     
-    const ttsResponse = await fetch(
-      `${ttsEndpoint}/speak`,
-      {
-        method: 'POST',
-        headers: {
-          'Ocp-Apim-Subscription-Key': azureSpeechKey,
-          'Content-Type': 'application/ssml+xml',
-          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
-          'User-Agent': 'LovableAI'
-        },
-        body: ssml
-      }
-    );
+    const ttsResponse = await fetch(ttsUrl, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': azureSpeechKey,
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+        'User-Agent': 'LovableAI'
+      },
+      body: ssml
+    });
 
     if (!ttsResponse.ok) {
       const errorText = await ttsResponse.text();
@@ -119,7 +113,7 @@ serve(async (req) => {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
         error: errorText,
-        endpoint: ttsEndpoint,
+        endpoint: ttsUrl,
         voice: formattedVoice,
         ssml
       });
@@ -143,7 +137,7 @@ serve(async (req) => {
         audioContent: base64Audio,
         metadata: {
           voice: formattedVoice,
-          endpoint: ttsEndpoint,
+          endpoint: ttsUrl,
           region: region,
           timestamp: new Date().toISOString()
         }
