@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { PersonaCreationForm } from '@/components/persona/PersonaCreationForm';
+import AzureTest from '@/components/AzureTest';
+import AzureVoiceTest from '@/components/AzureVoiceTest';
 import {
   Tabs,
   TabsContent,
@@ -56,9 +58,10 @@ export default function Auth() {
         </div>
 
         <Tabs defaultValue="signin" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="create">Create Your Persona</TabsTrigger>
+            <TabsTrigger value="test">Test Azure</TabsTrigger>
           </TabsList>
           
           <TabsContent value="signin" className="mt-8 space-y-4">
@@ -91,6 +94,11 @@ export default function Auth() {
           
           <TabsContent value="create" className="mt-8">
             <PersonaCreationForm />
+          </TabsContent>
+
+          <TabsContent value="test" className="mt-8 space-y-4">
+            <AzureTest />
+            <AzureVoiceTest />
           </TabsContent>
         </Tabs>
       </div>
