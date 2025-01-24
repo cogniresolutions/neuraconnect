@@ -1,195 +1,108 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-console.log('Azure Test Function loaded');
+};
 
 serve(async (req) => {
-  console.log('Request received:', req.method);
-  
   if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request');
-    return new Response(null, {
-      headers: corsHeaders,
-      status: 200
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Parsing request body...');
-    const body = await req.json();
-    console.log('Request body:', body);
-
-    // Get Azure credentials
-    const cognitiveEndpoint = 'https://neuraconnect.openai.azure.com';
-    const azureOpenAIKey = Deno.env.get('AZURE_OPENAI_API_KEY');
-    const speechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT')?.replace(/\/$/, '');
-    const speechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    const visionEndpoint = Deno.env.get('AZURE_VISION_ENDPOINT')?.replace(/\/$/, '');
-    const visionKey = Deno.env.get('AZURE_VISION_KEY');
-
-    console.log('Checking Azure credentials...');
-    console.log({
-      hasCognitiveEndpoint: !!cognitiveEndpoint,
-      hasAzureOpenAIKey: !!azureOpenAIKey,
-      hasSpeechEndpoint: !!speechEndpoint,
-      hasSpeechKey: !!speechKey,
-      hasVisionEndpoint: !!visionEndpoint,
-      hasVisionKey: !!visionKey
-    });
-
-    if (!cognitiveEndpoint || !azureOpenAIKey || !speechEndpoint || !speechKey || !visionEndpoint || !visionKey) {
-      console.error('Missing required Azure credentials');
-      return new Response(
-        JSON.stringify({
-          error: 'Missing required Azure credentials',
-          details: 'Please check your Azure configuration in Supabase Edge Function secrets'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400
-        }
-      );
-    }
-
+    const { test, model, apiVersion, temperature, top_p, max_tokens } = await req.json();
     const results = [];
 
-    // Test Cognitive Services with specific model and version
+    // Test Azure OpenAI
     try {
-      console.log('Testing Cognitive Services...');
-      const cognitiveUrl = `${cognitiveEndpoint}/openai/deployments/gpt-40-mini/chat/completions?api-version=2024-07-18`;
-      console.log('Cognitive Services URL:', cognitiveUrl);
-      
-      const cognitiveResponse = await fetch(cognitiveUrl, {
+      const openaiResponse = await fetch(`${Deno.env.get('AZURE_OPENAI_ENDPOINT')}/openai/deployments/${model}/chat/completions?api-version=${apiVersion}`, {
         method: 'POST',
         headers: {
+          'api-key': Deno.env.get('AZURE_OPENAI_API_KEY') || '',
           'Content-Type': 'application/json',
-          'api-key': azureOpenAIKey
         },
         body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content: "You are a helpful assistant."
-            },
-            {
-              role: "user",
-              content: "Hello, this is a test message."
-            }
-          ]
-        })
+          messages: [{ role: 'user', content: 'Hello' }],
+          temperature,
+          top_p,
+          max_tokens,
+        }),
       });
 
-      console.log('Cognitive Services response status:', cognitiveResponse.status);
-      const cognitiveData = await cognitiveResponse.text();
-      console.log('Cognitive Services response:', cognitiveData);
-
       results.push({
-        service: 'Azure OpenAI (gpt-40-mini)',
-        status: cognitiveResponse.ok ? 'success' : 'error',
-        statusCode: cognitiveResponse.status,
-        error: cognitiveResponse.ok ? undefined : cognitiveData
+        service: 'Azure OpenAI',
+        status: openaiResponse.ok ? 'success' : 'error',
+        statusCode: openaiResponse.status,
+        error: openaiResponse.ok ? null : await openaiResponse.text(),
       });
     } catch (error) {
-      console.error('Cognitive Services error:', error);
       results.push({
-        service: 'Azure OpenAI (gpt-40-mini)',
+        service: 'Azure OpenAI',
         status: 'error',
-        error: error.message
+        error: error.message,
       });
     }
 
-    // Test Speech Services
+    // Test Azure Speech Services
     try {
-      console.log('Testing Speech Services...');
-      // Extract region from speech endpoint
-      const region = speechEndpoint.match(/https:\/\/([^.]+)\./)?.[1] || 'eastus';
-      const speechUrl = `https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`;
-      console.log('Speech Services URL:', speechUrl);
-      
-      const speechResponse = await fetch(speechUrl, {
-        method: 'GET',
+      const speechResponse = await fetch(`${Deno.env.get('AZURE_SPEECH_ENDPOINT')}/cognitiveservices/voices/list`, {
         headers: {
-          'Ocp-Apim-Subscription-Key': speechKey
-        }
+          'Ocp-Apim-Subscription-Key': Deno.env.get('AZURE_SPEECH_KEY') || '',
+        },
       });
 
-      console.log('Speech Services response status:', speechResponse.status);
-      const speechData = await speechResponse.text();
-      console.log('Speech Services response:', speechData);
-
       results.push({
-        service: 'Speech Services',
+        service: 'Azure Speech Services',
         status: speechResponse.ok ? 'success' : 'error',
         statusCode: speechResponse.status,
-        error: speechResponse.ok ? undefined : speechData
+        error: speechResponse.ok ? null : await speechResponse.text(),
       });
     } catch (error) {
-      console.error('Speech Services error:', error);
       results.push({
-        service: 'Speech Services',
+        service: 'Azure Speech Services',
         status: 'error',
-        error: error.message
+        error: error.message,
       });
     }
 
-    // Test Vision Services
+    // Test Azure Cognitive Services
     try {
-      console.log('Testing Vision Services...');
-      const visionUrl = `${visionEndpoint}/computervision/imageanalysis:analyze?api-version=2023-02-01-preview&features=tags`;
-      console.log('Vision Services URL:', visionUrl);
-      
-      const visionResponse = await fetch(visionUrl, {
+      const cognitiveResponse = await fetch(`${Deno.env.get('AZURE_COGNITIVE_ENDPOINT')}/face/v1.0/detect`, {
         method: 'POST',
         headers: {
+          'Ocp-Apim-Subscription-Key': Deno.env.get('AZURE_COGNITIVE_KEY') || '',
           'Content-Type': 'application/json',
-          'Ocp-Apim-Subscription-Key': visionKey
         },
-        body: JSON.stringify({
-          url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
-        })
+        body: JSON.stringify({ url: 'https://example.com/test.jpg' }),
       });
 
-      console.log('Vision Services response status:', visionResponse.status);
-      const visionData = await visionResponse.text();
-      console.log('Vision Services response:', visionData);
-
       results.push({
-        service: 'Vision Services',
-        status: visionResponse.ok ? 'success' : 'error',
-        statusCode: visionResponse.status,
-        error: visionResponse.ok ? undefined : visionData
+        service: 'Azure Cognitive Services',
+        status: cognitiveResponse.ok ? 'success' : 'error',
+        statusCode: cognitiveResponse.status,
+        error: cognitiveResponse.ok ? null : await cognitiveResponse.text(),
       });
     } catch (error) {
-      console.error('Vision Services error:', error);
       results.push({
-        service: 'Vision Services',
+        service: 'Azure Cognitive Services',
         status: 'error',
-        error: error.message
+        error: error.message,
       });
     }
 
-    console.log('All tests completed. Results:', results);
     return new Response(
       JSON.stringify({ results }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Fatal error in Azure test function:', error);
+    console.error('Error testing Azure services:', error);
     return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        details: error.message
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

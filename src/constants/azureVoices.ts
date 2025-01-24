@@ -1,73 +1,54 @@
-export type SupportedLanguage = 
-  | 'en-US' 
-  | 'en-GB'
-  | 'es-ES'
-  | 'fr-FR'
-  | 'de-DE'
-  | 'it-IT'
-  | 'ja-JP'
-  | 'ko-KR'
-  | 'zh-CN';
-
+export type SupportedLanguage = 'en-US' | 'es-ES' | 'fr-FR' | 'de-DE' | 'it-IT' | 'ja-JP' | 'ko-KR' | 'zh-CN';
 export type VoiceGender = 'Male' | 'Female';
 
-export interface AzureVoice {
+interface AzureVoice {
   name: string;
-  displayName: string;
-  gender: VoiceGender;
   locale: string;
+  gender: VoiceGender;
 }
 
-// Azure Neural TTS voices mapping as per official documentation
 export const AZURE_VOICES: Record<SupportedLanguage, AzureVoice[]> = {
   'en-US': [
-    { name: 'en-US-JennyNeural', displayName: 'Jenny', gender: 'Female', locale: 'en-US' },
-    { name: 'en-US-GuyNeural', displayName: 'Guy', gender: 'Male', locale: 'en-US' },
-    { name: 'en-US-AriaNeural', displayName: 'Aria', gender: 'Female', locale: 'en-US' },
-    { name: 'en-US-DavisNeural', displayName: 'Davis', gender: 'Male', locale: 'en-US' }
-  ],
-  'en-GB': [
-    { name: 'en-GB-SoniaNeural', displayName: 'Sonia', gender: 'Female', locale: 'en-GB' },
-    { name: 'en-GB-RyanNeural', displayName: 'Ryan', gender: 'Male', locale: 'en-GB' }
+    { name: 'en-US-JennyNeural', locale: 'English (US)', gender: 'Female' },
+    { name: 'en-US-GuyNeural', locale: 'English (US)', gender: 'Male' },
   ],
   'es-ES': [
-    { name: 'es-ES-ElviraNeural', displayName: 'Elvira', gender: 'Female', locale: 'es-ES' },
-    { name: 'es-ES-AlvaroNeural', displayName: 'Alvaro', gender: 'Male', locale: 'es-ES' }
+    { name: 'es-ES-ElviraNeural', locale: 'Spanish (Spain)', gender: 'Female' },
+    { name: 'es-ES-AlvaroNeural', locale: 'Spanish (Spain)', gender: 'Male' },
   ],
   'fr-FR': [
-    { name: 'fr-FR-DeniseNeural', displayName: 'Denise', gender: 'Female', locale: 'fr-FR' },
-    { name: 'fr-FR-HenriNeural', displayName: 'Henri', gender: 'Male', locale: 'fr-FR' }
+    { name: 'fr-FR-DeniseNeural', locale: 'French (France)', gender: 'Female' },
+    { name: 'fr-FR-HenriNeural', locale: 'French (France)', gender: 'Male' },
   ],
   'de-DE': [
-    { name: 'de-DE-KatjaNeural', displayName: 'Katja', gender: 'Female', locale: 'de-DE' },
-    { name: 'de-DE-ConradNeural', displayName: 'Conrad', gender: 'Male', locale: 'de-DE' }
+    { name: 'de-DE-KatjaNeural', locale: 'German', gender: 'Female' },
+    { name: 'de-DE-ConradNeural', locale: 'German', gender: 'Male' },
   ],
   'it-IT': [
-    { name: 'it-IT-ElsaNeural', displayName: 'Elsa', gender: 'Female', locale: 'it-IT' },
-    { name: 'it-IT-DiegoNeural', displayName: 'Diego', gender: 'Male', locale: 'it-IT' }
+    { name: 'it-IT-ElsaNeural', locale: 'Italian', gender: 'Female' },
+    { name: 'it-IT-DiegoNeural', locale: 'Italian', gender: 'Male' },
   ],
   'ja-JP': [
-    { name: 'ja-JP-NanamiNeural', displayName: 'Nanami', gender: 'Female', locale: 'ja-JP' },
-    { name: 'ja-JP-KeitaNeural', displayName: 'Keita', gender: 'Male', locale: 'ja-JP' }
+    { name: 'ja-JP-NanamiNeural', locale: 'Japanese', gender: 'Female' },
+    { name: 'ja-JP-KeitaNeural', locale: 'Japanese', gender: 'Male' },
   ],
   'ko-KR': [
-    { name: 'ko-KR-SunHiNeural', displayName: 'SunHi', gender: 'Female', locale: 'ko-KR' },
-    { name: 'ko-KR-InJoonNeural', displayName: 'InJoon', gender: 'Male', locale: 'ko-KR' }
+    { name: 'ko-KR-SunHiNeural', locale: 'Korean', gender: 'Female' },
+    { name: 'ko-KR-InJoonNeural', locale: 'Korean', gender: 'Male' },
   ],
   'zh-CN': [
-    { name: 'zh-CN-XiaoxiaoNeural', displayName: 'Xiaoxiao', gender: 'Female', locale: 'zh-CN' },
-    { name: 'zh-CN-YunxiNeural', displayName: 'Yunxi', gender: 'Male', locale: 'zh-CN' }
-  ]
+    { name: 'zh-CN-XiaoxiaoNeural', locale: 'Chinese (Mandarin)', gender: 'Female' },
+    { name: 'zh-CN-YunxiNeural', locale: 'Chinese (Mandarin)', gender: 'Male' },
+  ],
 };
 
 export const LOCALIZED_TEST_MESSAGES: Record<SupportedLanguage, string> = {
-  'en-US': "Hello! I'm your AI assistant. How can I help you today?",
-  'en-GB': "Hello! I'm your AI assistant. How may I help you today?",
-  'es-ES': "¡Hola! Soy tu asistente de IA. ¿Cómo puedo ayudarte hoy?",
-  'fr-FR': "Bonjour! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui?",
-  'de-DE': "Hallo! Ich bin Ihr KI-Assistent. Wie kann ich Ihnen heute helfen?",
-  'it-IT': "Ciao! Sono il tuo assistente IA. Come posso aiutarti oggi?",
-  'ja-JP': "こんにちは！AIアシスタントです。今日はどのようにお手伝いできますか？",
-  'ko-KR': "안녕하세요! AI 어시스턴트입니다. 오늘 어떻게 도와드릴까요?",
-  'zh-CN': "你好！我是你的AI助手。今天我能帮你什么？"
+  'en-US': 'Hello! This is a test of the Azure Speech Services.',
+  'es-ES': '¡Hola! Esta es una prueba de Azure Speech Services.',
+  'fr-FR': 'Bonjour! Ceci est un test des services Azure Speech.',
+  'de-DE': 'Hallo! Dies ist ein Test der Azure Speech Services.',
+  'it-IT': 'Ciao! Questo è un test di Azure Speech Services.',
+  'ja-JP': 'こんにちは！これはAzure Speech Servicesのテストです。',
+  'ko-KR': '안녕하세요! Azure Speech Services 테스트입니다.',
+  'zh-CN': '你好！这是Azure Speech Services的测试。',
 };
