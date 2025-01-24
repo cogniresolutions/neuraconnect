@@ -13,69 +13,67 @@ const VideoCall = () => {
   const { toast } = useToast();
   const [persona, setPersona] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadPersona = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         console.log('Loading persona with ID:', personaId);
         
-        const startTime = performance.now();
-        
-        if (personaId) {
-          const { data: existingPersona, error } = await supabase
-            .from('personas')
-            .select('*, persona_appearances(*)')
-            .eq('id', personaId)
-            .single();
-
-          const endTime = performance.now();
-          const responseTime = Math.round(endTime - startTime);
-
-          if (!error && existingPersona) {
-            console.log('Loaded persona:', existingPersona);
-            setPersona(existingPersona);
-            
-            // Log successful load
-            await supabase.from('api_monitoring').insert({
-              endpoint: 'load-persona',
-              status: 'success',
-              response_time: responseTime,
-            });
-            
-            return;
-          }
-          
-          if (error) {
-            console.error('Error loading persona:', error);
-            
-            // Log error
-            await supabase.from('api_monitoring').insert({
-              endpoint: 'load-persona',
-              status: 'error',
-              error_message: error.message,
-              response_time: responseTime,
-            });
-            
-            toast({
-              title: "Error",
-              description: "Failed to load persona details",
-              variant: "destructive",
-            });
-          }
+        if (!personaId) {
+          throw new Error('No persona ID provided');
         }
 
-        setPersona(null);
-        
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('User not authenticated');
+        }
+
+        // Load persona with appearances
+        const { data: existingPersona, error: personaError } = await supabase
+          .from('personas')
+          .select(`
+            *,
+            persona_appearances (*)
+          `)
+          .eq('id', personaId)
+          .single();
+
+        if (personaError) {
+          throw personaError;
+        }
+
+        if (!existingPersona) {
+          throw new Error('Persona not found');
+        }
+
+        console.log('Loaded persona:', existingPersona);
+        setPersona(existingPersona);
+
+        // Create or update video call session
+        const { error: sessionError } = await supabase.functions.invoke('video-call', {
+          body: {
+            action: 'start',
+            personaId: existingPersona.id,
+            userId: user.id,
+            personaConfig: {
+              name: existingPersona.name,
+              voice: existingPersona.voice_style,
+              personality: existingPersona.personality
+            }
+          }
+        });
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
       } catch (error: any) {
         console.error('Error loading persona:', error);
-        
-        // Log error
-        await supabase.from('api_monitoring').insert({
-          endpoint: 'load-persona',
-          status: 'error',
-          error_message: error.message,
-        });
+        setError(error.message);
         
         toast({
           title: "Error",
@@ -88,7 +86,23 @@ const VideoCall = () => {
     };
 
     loadPersona();
-  }, [personaId, navigate, toast]);
+
+    // Cleanup function
+    return () => {
+      const cleanup = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.functions.invoke('video-call', {
+            body: {
+              action: 'end',
+              userId: user.id
+            }
+          });
+        }
+      };
+      cleanup();
+    };
+  }, [personaId, toast]);
 
   const handleSpeakingChange = (speaking: boolean) => {
     console.log('Speaking state changed:', speaking);
@@ -102,15 +116,15 @@ const VideoCall = () => {
     );
   }
 
-  if (!persona) {
+  if (error || !persona) {
     return (
       <div className="container mx-auto p-4 min-h-screen bg-background">
         <div className="max-w-2xl mx-auto mt-20">
           <Card>
             <CardHeader>
-              <CardTitle>Persona Not Found</CardTitle>
+              <CardTitle>{error ? "Error" : "Persona Not Found"}</CardTitle>
               <CardDescription>
-                The requested persona could not be found or you don't have access to it.
+                {error || "The requested persona could not be found or you don't have access to it."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -118,6 +132,7 @@ const VideoCall = () => {
                 onClick={() => navigate(-1)}
                 className="w-full"
               >
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 Go Back
               </Button>
             </CardContent>
@@ -141,15 +156,24 @@ const VideoCall = () => {
         <h1 className="text-2xl font-bold">Video Call with {persona?.name}</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <VideoCallInterface
-          persona={persona}
-          onSpeakingChange={handleSpeakingChange}
-          onCallStateChange={(isActive) => {
-            console.log('Call state changed:', isActive);
-          }}
-        />
-      </div>
+      <VideoCallInterface
+        persona={persona}
+        onSpeakingChange={handleSpeakingChange}
+        onCallStateChange={(isActive) => {
+          console.log('Call state changed:', isActive);
+          if (isActive) {
+            toast({
+              title: "Call Started",
+              description: `Connected to video call with ${persona.name}`,
+            });
+          } else {
+            toast({
+              title: "Call Ended",
+              description: "The video call has been disconnected",
+            });
+          }
+        }}
+      />
     </div>
   );
 };

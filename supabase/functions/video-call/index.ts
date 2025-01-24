@@ -23,16 +23,18 @@ serve(async (req) => {
 
     console.log('Request parameters:', { personaId, userId, action });
 
-    if (!personaId || !userId) {
-      console.error('Missing required parameters:', { personaId, userId });
-      throw new Error('Missing required parameters');
+    if (!userId) {
+      throw new Error('User ID is required');
     }
-
-    console.log('Request details:', { action, personaId, userId });
 
     switch (action) {
       case 'start': {
+        if (!personaId || !personaConfig) {
+          throw new Error('Persona ID and configuration are required');
+        }
+
         console.log('Starting new video call session...');
+        
         // Verify persona exists and is accessible to the user
         const { data: persona, error: personaError } = await supabase
           .from('personas')
@@ -45,33 +47,37 @@ serve(async (req) => {
           throw new Error('Invalid persona or access denied');
         }
 
-        // Generate a unique conversation ID and validate it's not null
+        // End any existing active sessions for this user
+        await supabase
+          .from('tavus_sessions')
+          .update({ 
+            status: 'ended', 
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('is_active', true);
+
+        // Generate a unique conversation ID
         const conversationId = crypto.randomUUID();
-        if (!conversationId) {
-          console.error('Failed to generate conversation ID');
-          throw new Error('Failed to generate conversation ID');
-        }
-        console.log('Generated conversation ID:', conversationId);
+        const videoCallId = crypto.randomUUID();
 
-        // Prepare session data with all required fields
-        const sessionData = {
-          user_id: userId,
-          conversation_id: conversationId,
-          status: 'active',
-          participants: [
-            { user_id: userId, type: 'user' },
-            { persona_id: personaId, type: 'persona', config: personaConfig }
-          ],
-          session_type: 'video_call',
-          is_active: true,
-          last_checked_at: new Date().toISOString()
-        };
-
-        console.log('Creating session with data:', sessionData);
-
+        // Create new session
         const { data: session, error: sessionError } = await supabase
           .from('tavus_sessions')
-          .insert(sessionData)
+          .insert({
+            conversation_id: conversationId,
+            video_call_id: videoCallId,
+            user_id: userId,
+            status: 'active',
+            participants: [
+              { user_id: userId, type: 'user' },
+              { persona_id: personaId, type: 'persona', config: personaConfig }
+            ],
+            is_active: true,
+            session_type: 'video_call',
+            last_checked_at: new Date().toISOString()
+          })
           .select()
           .single();
 
@@ -128,7 +134,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error instanceof Error ? error.message : 'An unexpected error occurred' 
       }),
       { 
         status: 400,
