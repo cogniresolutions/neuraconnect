@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonaList } from "./persona/PersonaList";
 import TrainingUploader from "./TrainingUploader";
 import VideoCallUI from "./VideoCallUI";
-import { Upload, User } from "lucide-react";
+import { Upload, User, LogOut } from "lucide-react";
 
 const PersonaCreator = () => {
   const navigate = useNavigate();
@@ -33,6 +33,23 @@ const PersonaCreator = () => {
 
     checkAuth();
   }, [navigate]);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/auth");
+      toast({
+        title: "Signed out successfully",
+        description: "You have been signed out of your account",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error signing out",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -99,6 +116,18 @@ const PersonaCreator = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Create Your Persona</h1>
+        <Button
+          variant="outline"
+          onClick={handleSignOut}
+          className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sign Out
+        </Button>
+      </div>
+
       <Tabs defaultValue="create" className="space-y-8">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="create">Create Persona</TabsTrigger>
@@ -192,7 +221,7 @@ const PersonaCreator = () => {
 
         <TabsContent value="manage">
           <PersonaList
-            personas={[]} // Pass the actual personas array here
+            personas={[]}
             onSelect={setSelectedPersona}
             onDelete={async (id) => {
               try {
@@ -215,9 +244,9 @@ const PersonaCreator = () => {
                 });
               }
             }}
-            onDeploy={async () => {}} // Add empty deploy handler
-            onEdit={() => {}} // Add empty edit handler
-            isDeploying={false} // Add isDeploying prop
+            onDeploy={async () => {}}
+            onEdit={() => {}}
+            isDeploying={false}
           />
         </TabsContent>
       </Tabs>
