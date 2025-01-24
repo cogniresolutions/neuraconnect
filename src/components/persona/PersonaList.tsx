@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface PersonaListProps {
   personas: any[];
@@ -37,6 +39,7 @@ export const PersonaList = ({
   isDeploying
 }: PersonaListProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [localPersonas, setLocalPersonas] = useState(personas);
   const [showAllPersonas, setShowAllPersonas] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -61,9 +64,28 @@ export const PersonaList = ({
     setEditingPersona(null);
   };
 
-  const handleRedeploy = async (personaId: string) => {
-    await onDeploy(personaId);
-    setEditingPersona(null);
+  const handleDelete = async (personaId: string) => {
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', personaId);
+
+      if (error) throw error;
+
+      onDelete(personaId);
+      toast({
+        title: "Success",
+        description: "Persona deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting persona:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete persona",
+      });
+    }
   };
 
   const displayedPersonas = showAllPersonas ? localPersonas : localPersonas.slice(0, 3);
@@ -105,7 +127,7 @@ export const PersonaList = ({
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
-                    onClick={() => onDelete(persona.id)}
+                    onClick={() => handleDelete(persona.id)}
                     className="text-red-600"
                   >
                     <Trash className="mr-2 h-4 w-4" />
@@ -145,20 +167,11 @@ export const PersonaList = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleRedeploy(persona.id)}
-                  disabled={isDeploying}
+                  onClick={() => handleStartVideoCall(persona.id)}
+                  disabled={persona.status !== 'ready'}
                 >
-                  {isDeploying ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Redeploying...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Redeploy
-                    </>
-                  )}
+                  <Video className="mr-2 h-4 w-4" />
+                  Video Call
                 </Button>
               )}
             </div>
