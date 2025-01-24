@@ -214,6 +214,12 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         throw new Error('User not authenticated');
       }
 
+      // Create the participants array as a properly formatted JSON object
+      const participants = JSON.stringify([
+        { user_id: user.id, type: 'user' },
+        { persona_id: persona.id, type: 'persona' }
+      ]);
+
       const { data: session, error: sessionError } = await supabase
         .from('tavus_sessions')
         .insert({
@@ -222,10 +228,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           status: 'active',
           is_active: true,
           session_type: 'video_call',
-          participants: [
-            { user_id: user.id },
-            { persona_id: persona.id }
-          ]
+          participants: JSON.parse(participants) // Parse it back to ensure proper JSON format
         })
         .select()
         .single();
