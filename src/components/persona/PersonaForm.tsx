@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,17 +13,6 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Upload } from "lucide-react";
 import { VoiceTest } from "./VoiceTest";
-import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-
-interface VoiceMapping {
-  id: string;
-  language_code: string;
-  voice_style: string;
-  gender: string;
-  azure_voice_name: string;
-  display_name: string;
-}
 
 interface PersonaFormProps {
   name: string;
@@ -40,18 +28,6 @@ interface PersonaFormProps {
   personaId?: string;
 }
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  'en-US': 'English (US)',
-  'en-GB': 'English (UK)',
-  'es-ES': 'Spanish',
-  'fr-FR': 'French',
-  'de-DE': 'German',
-  'it-IT': 'Italian',
-  'ja-JP': 'Japanese',
-  'ko-KR': 'Korean',
-  'zh-CN': 'Chinese (Simplified)'
-};
-
 export function PersonaForm({
   name,
   setName,
@@ -65,62 +41,42 @@ export function PersonaForm({
   isCreating,
   personaId
 }: PersonaFormProps) {
-  const { toast } = useToast();
-
-  // Query voice mappings with improved error handling
-  const { data: voiceMappingsResponse, isLoading: isLoadingVoices } = useQuery({
-    queryKey: ['voiceMappings'],
-    queryFn: async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-voice-mappings');
-        if (error) throw error;
-        
-        // Validate the response data
-        if (!data || !Array.isArray(data.data)) {
-          throw new Error('Invalid voice mappings data received');
-        }
-        
-        return data;
-      } catch (error) {
-        console.error('Error fetching voice mappings:', error);
-        toast({
-          title: "Error loading voices",
-          description: "Please try again later",
-          variant: "destructive",
-        });
-        throw error;
-      }
-    },
-    staleTime: 24 * 60 * 60 * 1000, // Cache for 24 hours
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-
-  const voiceMappings = voiceMappingsResponse?.data || [];
-  const filteredVoices = language ? voiceMappings.filter(voice => voice.language_code === language) : [];
-
-  // Handle language change with improved voice selection
-  const handleLanguageChange = (newLanguage: string) => {
-    setLanguage(newLanguage);
-    const availableVoices = voiceMappings.filter(voice => voice.language_code === newLanguage);
-    if (availableVoices.length > 0) {
-      setVoiceStyle(availableVoices[0].voice_style);
-    } else {
-      setVoiceStyle('');
-      toast({
-        title: "No voices available",
-        description: `No voices found for ${LANGUAGE_NAMES[newLanguage]}. Please try another language.`,
-        variant: "destructive",
-      });
+  const handleProfilePictureUpload = async (url: string) => {
+    if (!personaId) return;
+    
+    try {
+      await supabase
+        .from('personas')
+        .update({ profile_picture_url: url })
+        .eq('id', personaId);
+    } catch (error) {
+      console.error('Error updating profile picture:', error);
     }
   };
 
-  // Set default voice style when voices are loaded
-  useEffect(() => {
-    if (filteredVoices.length > 0 && !voiceStyle) {
-      setVoiceStyle(filteredVoices[0].voice_style);
+  const handleLanguageChange = async (newLanguage: string) => {
+    setLanguage(newLanguage);
+    // Reset voice style when language changes to ensure compatibility
+    setVoiceStyle('Jenny');
+    
+    if (personaId) {
+      try {
+        await supabase
+          .from('personas')
+          .update({
+            model_config: {
+              model: "gpt-4o-mini",
+              max_tokens: 800,
+              temperature: 0.7,
+              language: newLanguage
+            }
+          })
+          .eq('id', personaId);
+      } catch (error) {
+        console.error('Error updating language:', error);
+      }
     }
-  }, [filteredVoices, voiceStyle, setVoiceStyle]);
+  };
 
   return (
     <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
@@ -151,11 +107,15 @@ export function PersonaForm({
             <SelectValue placeholder="Select a language" />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(LANGUAGE_NAMES).map(([code, name]) => (
-              <SelectItem key={code} value={code}>
-                {name}
-              </SelectItem>
-            ))}
+            <SelectItem value="en-US">English (US)</SelectItem>
+            <SelectItem value="en-GB">English (UK)</SelectItem>
+            <SelectItem value="es-ES">Spanish</SelectItem>
+            <SelectItem value="fr-FR">French</SelectItem>
+            <SelectItem value="de-DE">German</SelectItem>
+            <SelectItem value="it-IT">Italian</SelectItem>
+            <SelectItem value="ja-JP">Japanese</SelectItem>
+            <SelectItem value="ko-KR">Korean</SelectItem>
+            <SelectItem value="zh-CN">Chinese (Simplified)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -163,25 +123,21 @@ export function PersonaForm({
       <div className="space-y-2">
         <Label htmlFor="voice">Voice Style</Label>
         <div className="flex items-center gap-2">
-          <Select 
-            value={voiceStyle} 
-            onValueChange={setVoiceStyle}
-            disabled={isLoadingVoices || !language}
-          >
+          <Select value={voiceStyle} onValueChange={setVoiceStyle}>
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder={
-                isLoadingVoices ? "Loading voices..." :
-                !language ? "Select a language first" :
-                filteredVoices.length === 0 ? "No voices available" :
-                "Select a voice style"
-              } />
+              <SelectValue placeholder="Select a voice style" />
             </SelectTrigger>
             <SelectContent>
-              {filteredVoices.map((voice) => (
-                <SelectItem key={voice.id} value={voice.voice_style}>
-                  {voice.display_name}
-                </SelectItem>
-              ))}
+              <SelectItem value="Jenny">Jenny (Female)</SelectItem>
+              <SelectItem value="Guy">Guy (Male)</SelectItem>
+              <SelectItem value="Aria">Aria (Female)</SelectItem>
+              <SelectItem value="Davis">Davis (Male)</SelectItem>
+              <SelectItem value="Jane">Jane (Female)</SelectItem>
+              <SelectItem value="Jason">Jason (Male)</SelectItem>
+              <SelectItem value="Nancy">Nancy (Female)</SelectItem>
+              <SelectItem value="Tony">Tony (Male)</SelectItem>
+              <SelectItem value="Sara">Sara (Female)</SelectItem>
+              <SelectItem value="Brandon">Brandon (Male)</SelectItem>
             </SelectContent>
           </Select>
           <VoiceTest voiceStyle={voiceStyle} language={language} />
@@ -195,7 +151,7 @@ export function PersonaForm({
             <FileUpload
               personaId={personaId}
               type="profile"
-              onUploadComplete={() => {}}
+              onUploadComplete={handleProfilePictureUpload}
               accept="image/*"
             />
           </div>
@@ -214,7 +170,7 @@ export function PersonaForm({
 
       <Button
         onClick={onSubmit}
-        disabled={isCreating || !name || !description || !voiceStyle}
+        disabled={isCreating || !name || !description}
         className="w-full"
       >
         {isCreating ? (
