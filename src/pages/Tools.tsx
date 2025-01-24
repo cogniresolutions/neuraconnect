@@ -1,25 +1,13 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { APIDocumentation } from "@/components/APIDocumentation";
+import React from 'react';
+import AzureIntegrationTest from '@/components/AzureIntegrationTest';
 
-export default function Tools() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/auth');
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
-
+const Tools = () => {
   return (
     <div className="container mx-auto py-8">
-      <APIDocumentation />
+      <h1 className="text-2xl font-bold mb-6">Azure Integration Test</h1>
+      <AzureIntegrationTest />
     </div>
   );
-}
+};
+
+export default Tools;
