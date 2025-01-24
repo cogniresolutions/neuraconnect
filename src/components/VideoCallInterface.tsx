@@ -58,6 +58,17 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     try {
       cleanup();
 
+      // Initialize chat connection first
+      chatRef.current = new RealtimeChat((event) => {
+        if (event.type === 'response.audio.delta') {
+          onSpeakingChange(true);
+        } else if (event.type === 'response.audio.done') {
+          onSpeakingChange(false);
+        }
+      });
+
+      await chatRef.current.init(persona);
+
       // Wait for video elements to be ready
       await new Promise<void>((resolve) => {
         const checkRefs = () => {
@@ -79,7 +90,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           height: { ideal: 720 },
           frameRate: { ideal: 30 }
         },
-        audio: true
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
 
       console.log('Setting up media stream...');
@@ -93,65 +108,29 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         });
       }
 
+      // Initialize audio context
+      audioContextRef.current = new AudioContext();
+      
       setIsCallActive(true);
       onCallStateChange?.(true);
-      console.log('Camera initialized successfully');
+      
+      toast({
+        title: "Call Connected",
+        description: `You're now in a call with ${persona.name}`,
+      });
+
+      console.log('Camera and audio initialized successfully');
     } catch (error) {
-      console.error('Camera initialization error:', error);
+      console.error('Camera/audio initialization error:', error);
       cleanup();
+      
+      toast({
+        title: "Connection Error",
+        description: "Failed to start video call. Please check your camera and microphone permissions.",
+        variant: "destructive",
+      });
+      
       throw error;
-    }
-  };
-
-  const handleSpeechDetected = async (text: string) => {
-    if (!chatRef.current || isProcessingAudio) return;
-    
-    try {
-      setIsProcessingAudio(true);
-      await chatRef.current.sendMessage(text);
-    } catch (error) {
-      console.error('Error processing speech:', error);
-      toast({
-        title: "Error",
-        description: "Failed to process speech",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessingAudio(false);
-    }
-  };
-
-  const handleStartRecording = () => {
-    try {
-      setIsRecording(true);
-      toast({
-        title: "Recording Started",
-        description: "Your call is now being recorded",
-      });
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start recording",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleStopRecording = () => {
-    try {
-      setIsRecording(false);
-      toast({
-        title: "Recording Stopped",
-        description: "Your recording has been saved",
-      });
-    } catch (error) {
-      console.error('Error stopping recording:', error);
-      toast({
-        title: "Error",
-        description: "Failed to stop recording",
-        variant: "destructive",
-      });
     }
   };
 
@@ -161,6 +140,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         track.enabled = !track.enabled;
       });
       setIsAudioEnabled(!isAudioEnabled);
+      
+      toast({
+        title: isAudioEnabled ? "Microphone Muted" : "Microphone Unmuted",
+        description: isAudioEnabled ? "Others cannot hear you" : "Others can now hear you",
+      });
     }
   };
 
@@ -170,14 +154,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         track.enabled = !track.enabled;
       });
       setIsVideoEnabled(!isVideoEnabled);
-    }
-  };
-
-  const toggleRecording = () => {
-    if (isRecording) {
-      handleStopRecording();
-    } else {
-      handleStartRecording();
+      
+      toast({
+        title: isVideoEnabled ? "Camera Off" : "Camera On",
+        description: isVideoEnabled ? "Your camera is now off" : "Your camera is now on",
+      });
     }
   };
 
@@ -195,13 +176,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
           <VideoControls
+            isCallActive={isCallActive}
             isAudioEnabled={isAudioEnabled}
             isVideoEnabled={isVideoEnabled}
-            isRecording={isRecording}
+            onStartCall={startCamera}
+            onEndCall={cleanup}
             onToggleAudio={toggleAudio}
             onToggleVideo={toggleVideo}
-            onToggleRecording={toggleRecording}
-            onEndCall={cleanup}
           />
         </div>
       </div>
