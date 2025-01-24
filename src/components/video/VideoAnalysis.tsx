@@ -3,28 +3,24 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { captureVideoFrame } from '@/utils/videoCapture';
 
-// Add type definition for WebkitSpeechRecognition
-declare global {
-  interface Window {
-    webkitSpeechRecognition: any;
-  }
-}
-
 interface VideoAnalysisProps {
   personaId: string;
   onAnalysisComplete: (analysis: any) => void;
   onSpeechDetected?: (text: string) => void;
+  onEmotionDetected?: (emotions: any) => void;
 }
 
 export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
   personaId,
   onAnalysisComplete,
-  onSpeechDetected
+  onSpeechDetected,
+  onEmotionDetected
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [language, setLanguage] = useState<string>('en');
 
   useEffect(() => {
     const startCamera = async () => {
@@ -44,11 +40,26 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
           const recognition = new window.webkitSpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
+          recognition.lang = language;
 
-          recognition.onresult = (event) => {
+          recognition.onresult = async (event) => {
             const last = event.results.length - 1;
             const text = event.results[last][0].transcript;
-            onSpeechDetected(text);
+            
+            // Translate text if not in English
+            if (language !== 'en') {
+              const { data: translatedData, error } = await supabase.functions.invoke('azure-translate', {
+                body: { text, targetLanguage: 'en' }
+              });
+              
+              if (!error && translatedData) {
+                onSpeechDetected(translatedData.translatedText);
+              } else {
+                onSpeechDetected(text);
+              }
+            } else {
+              onSpeechDetected(text);
+            }
           };
 
           recognition.start();
@@ -70,7 +81,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [toast, onSpeechDetected]);
+  }, [toast, onSpeechDetected, language]);
 
   useEffect(() => {
     const analyzeInterval = setInterval(async () => {
@@ -89,7 +100,11 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
         });
 
         if (error) throw error;
+        
         onAnalysisComplete(analysis);
+        if (onEmotionDetected && analysis.emotions) {
+          onEmotionDetected(analysis.emotions);
+        }
 
       } catch (error: any) {
         console.error('Analysis error:', error);
@@ -99,7 +114,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
     }, 3000); // Analyze every 3 seconds
 
     return () => clearInterval(analyzeInterval);
-  }, [personaId, onAnalysisComplete, isAnalyzing]);
+  }, [personaId, onAnalysisComplete, onEmotionDetected, isAnalyzing]);
 
   return (
     <video

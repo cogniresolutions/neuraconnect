@@ -2,8 +2,10 @@ import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
-import { Loader2, Mic, MicOff } from 'lucide-react';
+import { Loader2, Mic, MicOff, Globe } from 'lucide-react';
 import { logAPIUsage, handleAPIError, measureResponseTime } from '@/utils/errorHandling';
+import { Select } from '@/components/ui/select';
+import { VOICE_MAPPINGS } from '@/constants/voices';
 
 interface AIVideoInterfaceProps {
   persona: any;
@@ -15,10 +17,11 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en-US');
   const chatRef = useRef<RealtimeChat | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const handleMessage = (event: any) => {
+  const handleMessage = async (event: any) => {
     console.log('Received WebSocket message:', event);
     
     if (event.type === 'response.audio.delta') {
@@ -27,6 +30,21 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
     } else if (event.type === 'response.audio.done') {
       console.log('Audio response completed, persona stopped speaking');
       onSpeakingChange(false);
+    } else if (event.type === 'response.text') {
+      // Translate response if not in English
+      if (selectedLanguage !== 'en-US') {
+        const targetLanguage = selectedLanguage.split('-')[0];
+        const { data, error } = await supabase.functions.invoke('azure-translate', {
+          body: { 
+            text: event.content, 
+            targetLanguage 
+          }
+        });
+
+        if (!error && data) {
+          event.content = data.translatedText;
+        }
+      }
     } else if (event.type === 'error') {
       console.error('WebSocket error:', event.error);
       handleAPIError(event.error, 'WebSocket connection');
@@ -45,7 +63,11 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
       streamRef.current = stream;
       
       chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init(persona);
+      await chatRef.current.init({
+        ...persona,
+        language: selectedLanguage,
+        voice: VOICE_MAPPINGS[selectedLanguage as keyof typeof VOICE_MAPPINGS]?.male[0]
+      });
       
       const responseTime = getMeasureTime();
       await logAPIUsage('start-conversation', 'success', undefined, responseTime);
@@ -106,7 +128,25 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
-      <div className="flex gap-2">
+      <div className="flex items-center gap-4 bg-black/20 p-4 rounded-lg backdrop-blur-sm">
+        <Select
+          value={selectedLanguage}
+          onValueChange={setSelectedLanguage}
+          disabled={isConnected}
+        >
+          <Select.Trigger className="w-[180px]">
+            <Globe className="mr-2 h-4 w-4" />
+            {selectedLanguage}
+          </Select.Trigger>
+          <Select.Content>
+            {Object.keys(VOICE_MAPPINGS).map((lang) => (
+              <Select.Item key={lang} value={lang}>
+                {lang}
+              </Select.Item>
+            ))}
+          </Select.Content>
+        </Select>
+
         {isConnected && (
           <Button
             onClick={toggleMute}
@@ -121,6 +161,7 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
             )}
           </Button>
         )}
+        
         {!isConnected ? (
           <Button 
             onClick={startConversation}
