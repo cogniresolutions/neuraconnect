@@ -79,7 +79,11 @@ export const PersonaList = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState(0);
   const [localPersonas, setLocalPersonas] = useState<Persona[]>(initialPersonas);
+  const [showAllPersonas, setShowAllPersonas] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Update local personas when initialPersonas changes
   useEffect(() => {
@@ -98,35 +102,8 @@ export const PersonaList = ({
         return prevPersonas.filter(p => p.id !== personaId);
       });
 
-      // Trigger the background deletion process
-      const { data, error } = await supabase.functions.invoke('delete-persona', {
-        body: { personaId }
-      });
-
-      console.log('Delete function response:', { data, error });
-
-      if (error || !data?.success) {
-        throw new Error(error?.message || data?.error || 'Failed to delete persona');
-      }
-
-      setDeleteProgress(100);
-
-      // Double-check deletion was successful
-      const { data: verifyPersona } = await supabase
-        .from('personas')
-        .select('id')
-        .eq('id', personaId)
-        .single();
-
-      if (verifyPersona) {
-        console.error('Persona still exists after deletion:', verifyPersona);
-        throw new Error('Persona still exists after deletion');
-      }
-
-      console.log('Persona deletion completed successfully');
-
-      // Call the onDelete prop to update parent state
-      onDelete(personaId);
+      // Call the onDelete prop
+      await onDelete(personaId);
 
       toast({
         title: "Success",
@@ -136,17 +113,6 @@ export const PersonaList = ({
     } catch (error: any) {
       console.error('Delete persona error:', error);
       
-      // Refresh the local state to match the database
-      const { data: refreshedPersonas } = await supabase
-        .from('personas')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (refreshedPersonas) {
-        console.log('Refreshing local state with database data');
-        setLocalPersonas(refreshedPersonas);
-      }
-
       toast({
         title: "Error",
         description: error.message || "Failed to delete persona",
@@ -155,6 +121,58 @@ export const PersonaList = ({
     } finally {
       setIsDeleting(false);
       setDeleteProgress(0);
+    }
+  };
+
+  const handleDeploy = async (persona: Persona) => {
+    try {
+      await onDeploy(persona.id);
+      toast({
+        title: "Success",
+        description: "Deployment initiated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deploy persona",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRedeploy = async (persona: Persona) => {
+    try {
+      await onDeploy(persona.id);
+      toast({
+        title: "Success",
+        description: "Redeployment initiated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to redeploy persona",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!editingPersona) return;
+
+    try {
+      await onEdit(editingPersona);
+      toast({
+        title: "Success",
+        description: "Persona updated successfully",
+      });
+      setIsEditing(false);
+      setEditingPersona(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update persona",
+        variant: "destructive",
+      });
     }
   };
 
@@ -168,6 +186,8 @@ export const PersonaList = ({
   const handleVideoCall = (personaId: string) => {
     navigate(`/video-call/${personaId}`);
   };
+
+  // ... keep existing code (JSX rendering part remains the same)
 
   return (
     <div className="space-y-8">
