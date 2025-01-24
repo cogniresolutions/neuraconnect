@@ -66,10 +66,14 @@ serve(async (req) => {
     const voices = await voicesResponse.json();
     console.log('Available voices count:', voices.length);
 
+    // Format the voice name to match Azure's format
+    const formattedVoice = `${voice}Neural`;
+    console.log('Formatted voice name:', formattedVoice);
+
     // Verify the requested voice exists
-    const voiceExists = voices.some((v: any) => v.ShortName === voice);
+    const voiceExists = voices.some((v: any) => v.ShortName === formattedVoice);
     if (!voiceExists) {
-      throw new Error(`Voice '${voice}' not found in available voices`);
+      throw new Error(`Voice '${formattedVoice}' not found in available voices`);
     }
 
     // Prepare SSML
@@ -82,7 +86,7 @@ serve(async (req) => {
 
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='${voice}'>
+        <voice name='${formattedVoice}'>
           ${escapedText}
         </voice>
       </speak>
@@ -114,7 +118,7 @@ serve(async (req) => {
         statusText: ttsResponse.statusText,
         error: errorText,
         endpoint: ttsEndpoint,
-        voice,
+        voice: formattedVoice,
         ssml
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
@@ -136,7 +140,7 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice,
+          voice: formattedVoice,
           endpoint: ttsEndpoint,
           region: region,
           timestamp: new Date().toISOString()
