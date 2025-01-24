@@ -83,26 +83,29 @@ const PersonaCreator = () => {
       let profilePictureUrl = null;
       if (profilePicture) {
         const fileExt = profilePicture.name.split('.').pop();
-        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError, data } = await supabase.storage
           .from('persona_profiles')
-          .upload(filePath, profilePicture);
+          .upload(fileName, profilePicture, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
           .from('persona_profiles')
-          .getPublicUrl(filePath);
+          .getPublicUrl(fileName);
 
         profilePictureUrl = publicUrl;
       }
 
-      // Create the persona
+      // Create the persona with explicit user_id
       const { data: persona, error: personaError } = await supabase
         .from('personas')
         .insert({
-          user_id: user.id,
+          user_id: user.id, // Explicitly set the user_id
           name,
           description,
           profile_picture_url: profilePictureUrl,
