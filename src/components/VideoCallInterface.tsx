@@ -12,11 +12,13 @@ import { useToast } from '@/hooks/use-toast';
 interface VideoCallInterfaceProps {
   persona: any;
   onCallStateChange: (isActive: boolean) => void;
+  isVideoMode?: boolean; // Add this prop to determine if we're in video mode
 }
 
 export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
   onCallStateChange,
+  isVideoMode = true, // Default to true for backward compatibility
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -29,6 +31,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (isCallActive) {
@@ -53,6 +56,10 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
       }
     };
   }, [isCallActive]);
@@ -146,7 +153,7 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const handleSpeechDetected = async (text: string) => {
-    if (!isCallActive || isProcessingAudio) return;
+    if (!isCallActive || isProcessingAudio || !isVideoMode) return;
     
     setIsProcessingAudio(true);
     try {
@@ -164,20 +171,27 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       if (error) throw error;
 
-      // Convert response to speech using Azure TTS
-      const { data: audioData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-        body: { 
-          text: data.response,
-          voice: persona.voice_style
+      // Convert response to speech using Azure TTS only if in video mode
+      if (isVideoMode) {
+        const { data: audioData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
+          body: { 
+            text: data.response,
+            voice: persona.voice_style
+          }
+        });
+
+        if (ttsError) throw ttsError;
+
+        // Play the audio response
+        if (audioData?.audioContent) {
+          // Create a new AudioContext only when needed
+          if (!audioContextRef.current) {
+            audioContextRef.current = new AudioContext();
+          }
+
+          const audio = new Audio(`data:audio/mp3;base64,${audioData.audioContent}`);
+          await audio.play();
         }
-      });
-
-      if (ttsError) throw ttsError;
-
-      // Play the audio response
-      if (audioData?.audioContent) {
-        const audio = new Audio(`data:audio/mp3;base64,${audioData.audioContent}`);
-        await audio.play();
       }
 
     } catch (error) {
