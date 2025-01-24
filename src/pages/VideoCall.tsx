@@ -21,8 +21,8 @@ const VideoCall = () => {
     const loadPersona = async () => {
       try {
         setIsLoading(true);
+        console.log('Loading persona with ID:', personaId);
         
-        // First try to load the specified persona
         if (personaId) {
           const { data: existingPersona, error } = await supabase
             .from('personas')
@@ -31,12 +31,16 @@ const VideoCall = () => {
             .single();
 
           if (!error && existingPersona) {
+            console.log('Loaded persona:', existingPersona);
             setPersona(existingPersona);
             return;
           }
+          
+          if (error) {
+            console.error('Error loading persona:', error);
+          }
         }
 
-        // If no persona found or no ID provided, show empty state
         setPersona(null);
         
       } catch (error: any) {
@@ -57,6 +61,7 @@ const VideoCall = () => {
   const createTestPersona = async () => {
     try {
       setIsCreatingPersona(true);
+      console.log('Creating test persona...');
       
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user?.id) {
@@ -87,6 +92,7 @@ const VideoCall = () => {
 
       if (createError) throw createError;
 
+      console.log('Created test persona:', newPersona);
       setPersona(newPersona);
       navigate(`/video-call/${newPersona.id}`);
       
@@ -113,15 +119,15 @@ const VideoCall = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (!persona) {
     return (
-      <div className="container mx-auto p-4 min-h-screen">
+      <div className="container mx-auto p-4 min-h-screen bg-background">
         <div className="max-w-2xl mx-auto mt-20">
           <Card>
             <CardHeader>
@@ -153,7 +159,7 @@ const VideoCall = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 min-h-screen">
+    <div className="container mx-auto p-4 min-h-screen bg-background">
       <div className="flex items-center gap-4 mb-8">
         <Button 
           variant="ghost" 
