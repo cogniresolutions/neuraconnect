@@ -20,6 +20,11 @@ serve(async (req) => {
     }
 
     const { message, persona } = await req.json();
+    
+    if (!message || typeof message !== 'string') {
+      throw new Error('Invalid message format: message must be a non-empty string');
+    }
+
     console.log('Processing chat request with message:', message);
 
     const response = await fetch(
