@@ -106,16 +106,25 @@ serve(async (req) => {
       if (!speechEndpoint || !speechKey) {
         throw new Error('Speech credentials not configured');
       }
-      
+
+      // Use the voices/list endpoint for testing as it's more reliable
       const speechResponse = await fetch(`${speechEndpoint}/cognitiveservices/voices/list`, {
         headers: {
-          'Ocp-Apim-Subscription-Key': speechKey
+          'Ocp-Apim-Subscription-Key': speechKey,
         }
       });
 
       const speechResponseText = await speechResponse.text();
       console.log('Speech Services response status:', speechResponse.status);
       console.log('Speech Services response:', speechResponseText);
+
+      // Try to parse the response to see if it's valid JSON
+      try {
+        JSON.parse(speechResponseText);
+      } catch (e) {
+        console.error('Failed to parse Speech Services response:', e);
+        throw new Error('Invalid response from Speech Services');
+      }
 
       results.push({
         service: 'Speech Services',
