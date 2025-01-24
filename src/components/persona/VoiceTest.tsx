@@ -4,6 +4,13 @@ import { Loader2, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { VOICE_MAPPINGS, LOCALIZED_MESSAGES, type SupportedLanguage } from '@/constants/voices';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface VoiceTestProps {
   voiceStyle: string;
@@ -12,64 +19,30 @@ interface VoiceTestProps {
 
 export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedGender, setSelectedGender] = useState<'male' | 'female'>('female');
   const { toast } = useToast();
 
-  const getVoiceName = (style: string, lang: string) => {
-    const language = lang as SupportedLanguage;
-    if (!VOICE_MAPPINGS[language]) {
-      console.warn(`Language ${language} not supported, falling back to en-US`);
+  const getVoiceName = (lang: string, gender: 'male' | 'female'): string => {
+    const supportedLang = lang as SupportedLanguage;
+    if (!VOICE_MAPPINGS[supportedLang]) {
+      console.warn(`Language ${lang} not supported, falling back to en-US`);
       return 'en-US-JennyNeural';
     }
 
-    // Map the voice style to the corresponding Azure voice name and gender
-    const voiceMap: Record<string, { gender: 'male' | 'female', baseName: string }> = {
-      'Jenny': { gender: 'female', baseName: 'Jenny' },
-      'Guy': { gender: 'male', baseName: 'Guy' },
-      'Aria': { gender: 'female', baseName: 'Aria' },
-      'Davis': { gender: 'male', baseName: 'Guy' }, // Changed from Davis to Guy as fallback
-      'Jane': { gender: 'female', baseName: 'Jenny' }, // Changed from Jane to Jenny as fallback
-      'Jason': { gender: 'male', baseName: 'Guy' }, // Changed from Jason to Guy as fallback
-      'Nancy': { gender: 'female', baseName: 'Jenny' }, // Changed from Nancy to Jenny as fallback
-      'Tony': { gender: 'male', baseName: 'Guy' }, // Changed from Tony to Guy as fallback
-      'Sara': { gender: 'female', baseName: 'Jenny' }, // Changed from Sara to Jenny as fallback
-      'Brandon': { gender: 'male', baseName: 'Guy' } // Changed from Brandon to Guy as fallback
-    };
-
-    const voiceInfo = voiceMap[style];
-    if (!voiceInfo) {
-      console.warn(`Voice style ${style} not found, using default female voice`);
-      return `${language}-${VOICE_MAPPINGS[language].female[0]}`;
-    }
-
-    // Get the voice list for the selected gender
-    const voiceList = voiceInfo.gender === 'female' 
-      ? VOICE_MAPPINGS[language].female 
-      : VOICE_MAPPINGS[language].male;
-
-    // Always use the first voice from the list as it's guaranteed to be valid
-    const selectedVoice = voiceList[0];
-
-    console.log('Voice selection:', {
-      style,
-      gender: voiceInfo.gender,
-      language,
-      availableVoices: voiceList,
-      selectedVoice: `${language}-${selectedVoice}`
-    });
-
-    return `${language}-${selectedVoice}`;
+    const voices = VOICE_MAPPINGS[supportedLang][gender];
+    return `${lang}-${voices[0]}`;
   };
 
   const testVoice = async () => {
     try {
       setIsPlaying(true);
-      console.log('Starting voice test...', { voiceStyle, language });
+      console.log('Starting voice test...', { voiceStyle, language, selectedGender });
 
       if (!language) {
         throw new Error('Please select a language before testing the voice');
       }
 
-      const formattedVoice = getVoiceName(voiceStyle, language);
+      const formattedVoice = getVoiceName(language, selectedGender);
       console.log('Using voice:', formattedVoice);
 
       const message = LOCALIZED_MESSAGES[language as SupportedLanguage] || LOCALIZED_MESSAGES['en-US'];
@@ -127,20 +100,35 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
   };
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={testVoice}
-      disabled={isPlaying || !language}
-      className="ml-2"
-      title={!language ? "Please select a language first" : "Test voice"}
-    >
-      {isPlaying ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Volume2 className="h-4 w-4" />
-      )}
-    </Button>
+    <div className="flex gap-2">
+      <Select
+        value={selectedGender}
+        onValueChange={(value) => setSelectedGender(value as 'male' | 'female')}
+      >
+        <SelectTrigger className="w-[100px]">
+          <SelectValue placeholder="Gender" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="male">Male</SelectItem>
+          <SelectItem value="female">Female</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={testVoice}
+        disabled={isPlaying || !language}
+        className="ml-2"
+        title={!language ? "Please select a language first" : "Test voice"}
+      >
+        {isPlaying ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Volume2 className="h-4 w-4" />
+        )}
+      </Button>
+    </div>
   );
 };

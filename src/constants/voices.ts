@@ -1,49 +1,56 @@
-// Azure Neural TTS voices mapped by language
-export const VOICE_MAPPINGS = {
+export type SupportedLanguage = 
+  | 'en-US' 
+  | 'en-GB'
+  | 'es-ES'
+  | 'fr-FR'
+  | 'de-DE'
+  | 'it-IT'
+  | 'ja-JP'
+  | 'ko-KR'
+  | 'zh-CN';
+
+export const VOICE_MAPPINGS: Record<SupportedLanguage, { male: string[]; female: string[] }> = {
   'en-US': {
     male: ['GuyNeural', 'DavisNeural', 'TonyNeural'],
     female: ['JennyNeural', 'AriaNeural', 'NancyNeural']
   },
   'en-GB': {
-    male: ['RyanNeural', 'AlfieNeural', 'ElliotNeural', 'EthanNeural', 'NoahNeural', 'OliverNeural', 'ThomasNeural'],
-    female: ['SoniaNeural', 'LibbyNeural', 'AbbiNeural', 'BellaNeural', 'HollieNeural', 'MaisieNeural']
+    male: ['RyanNeural'],
+    female: ['SoniaNeural', 'LibbyNeural']
   },
   'es-ES': {
-    male: ['AlvaroNeural', 'ArnauNeural', 'DarioNeural', 'EliasNeural', 'NilNeural', 'SaulNeural', 'TeoNeural'],
-    female: ['ElviraNeural', 'AbrilNeural', 'EstrellaNeural', 'IreneNeural', 'LaiaNeural', 'LiaNeural', 'TrianaNeural', 'VeronicaNeural']
+    male: ['AlvaroNeural'],
+    female: ['ElviraNeural']
   },
   'fr-FR': {
-    male: ['HenriNeural', 'AlainNeural', 'ClaudeNeural', 'JeromeNeural', 'MauriceNeural', 'YvesNeural'],
-    female: ['DeniseNeural', 'BrigitteNeural', 'CelesteNeural', 'CoralieNeural', 'EloiseNeural', 'JacquelineNeural', 'JosephineNeural', 'YvetteNeural']
+    male: ['HenriNeural'],
+    female: ['DeniseNeural']
   },
   'de-DE': {
-    male: ['ConradNeural', 'BerndNeural', 'ChristophNeural', 'KasperNeural', 'KillianNeural', 'KlausNeural', 'RalfNeural'],
-    female: ['KatjaNeural', 'AmalaNeural', 'ElkeNeural', 'GiselaNeural', 'KlarissaNeural', 'LouisaNeural', 'MajaNeural', 'TanjaNeural']
+    male: ['ConradNeural'],
+    female: ['KatjaNeural']
   },
   'it-IT': {
-    male: ['DiegoNeural', 'BenignoNeural', 'CalimeroNeural', 'CataldoNeural', 'GianniNeural', 'LisandroNeural', 'RinaldoNeural'],
-    female: ['ElsaNeural', 'IsabellaNeural', 'FabiolaNeural', 'FiammaNeural', 'PalmiraNeural', 'PierinaNeural']
+    male: ['DiegoNeural'],
+    female: ['ElsaNeural']
   },
   'ja-JP': {
-    male: ['KeitaNeural', 'DaichiNeural', 'NaokiNeural', 'AkihiroNeural'],
-    female: ['NanamiNeural', 'AoiNeural', 'MayuNeural', 'ShioriNeural']
+    male: ['KeitaNeural'],
+    female: ['NanamiNeural']
   },
   'ko-KR': {
-    male: ['InJoonNeural', 'BongJinNeural', 'GookMinNeural'],
-    female: ['SunHiNeural', 'JiMinNeural', 'SeoHyeonNeural', 'SoonBokNeural', 'YuJinNeural']
+    male: ['InJoonNeural'],
+    female: ['SunHiNeural']
   },
   'zh-CN': {
-    male: ['YunxiNeural', 'YunjianNeural', 'YunyangNeural', 'YunfengNeural', 'YunhaoNeural', 'YunxiaNeural', 'YunzeNeural'],
-    female: ['XiaoxiaoNeural', 'XiaoyiNeural', 'XiaochenNeural', 'XiaohanNeural', 'XiaomoNeural', 'XiaoqiuNeural', 'XiaoruiNeural', 'XiaoshuangNeural', 'XiaoxuanNeural', 'XiaoyanNeural', 'XiaoyouNeural']
+    male: ['YunxiNeural'],
+    female: ['XiaoxiaoNeural']
   }
-} as const;
+};
 
-export type SupportedLanguage = keyof typeof VOICE_MAPPINGS;
-
-// Localized test messages for each language
 export const LOCALIZED_MESSAGES: Record<SupportedLanguage, string> = {
   'en-US': "Hello! I'm your AI assistant. How can I help you today?",
-  'en-GB': "Hello! I'm your AI assistant. How may I help you today?",
+  'en-GB': "Hello! I'm your AI assistant. How can I help you today?",
   'es-ES': "¡Hola! Soy tu asistente de IA. ¿Cómo puedo ayudarte hoy?",
   'fr-FR': "Bonjour! Je suis votre assistant IA. Comment puis-je vous aider aujourd'hui?",
   'de-DE': "Hallo! Ich bin Ihr KI-Assistent. Wie kann ich Ihnen heute helfen?",
