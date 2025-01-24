@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { User } from 'lucide-react';
 
 interface UserVideoProps {
@@ -7,12 +7,19 @@ interface UserVideoProps {
 }
 
 export const UserVideo: React.FC<UserVideoProps> = ({ videoRef, userName }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    console.log('UserVideo mounted, videoRef status:', videoRef.current ? 'available' : 'not available');
+    console.log('UserVideo mounted, container status:', containerRef.current ? 'available' : 'not available');
+    console.log('UserVideo videoRef status:', videoRef.current ? 'available' : 'not available');
+    
+    return () => {
+      console.log('UserVideo unmounting');
+    };
   }, []);
 
   return (
-    <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+    <div ref={containerRef} className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video
         ref={videoRef}
         autoPlay

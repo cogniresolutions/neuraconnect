@@ -40,43 +40,63 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   useEffect(() => {
     console.log('VideoCallInterface mounted');
     mountedRef.current = true;
+
+    // Initial check for video element
+    if (videoRef.current) {
+      console.log('Video element available immediately');
+      setIsVideoElementReady(true);
+    }
+
     return () => {
+      console.log('VideoCallInterface unmounting');
       mountedRef.current = false;
       cleanup();
     };
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    let checkCount = 0;
+    const maxChecks = 50; // 5 seconds total with 100ms interval
+
     const checkVideoElement = () => {
-      if (videoRef.current && mountedRef.current) {
-        console.log('Video element is ready');
+      if (!isMounted) return;
+      
+      checkCount++;
+      console.log(`Checking video element (${checkCount}/${maxChecks})`);
+
+      if (videoRef.current) {
+        console.log('Video element found and ready');
         setIsVideoElementReady(true);
+        return true;
       }
+
+      if (checkCount >= maxChecks) {
+        console.log('Max check attempts reached');
+        return true;
+      }
+
+      return false;
     };
 
-    // Check immediately
-    checkVideoElement();
-
-    // Also set up a small interval to check for the video element
-    const intervalId = setInterval(checkVideoElement, 100);
-
-    // Clean up interval after 5 seconds
-    const timeoutId = setTimeout(() => {
-      clearInterval(intervalId);
-    }, 5000);
+    const intervalId = setInterval(() => {
+      if (checkVideoElement()) {
+        clearInterval(intervalId);
+      }
+    }, 100);
 
     return () => {
+      isMounted = false;
       clearInterval(intervalId);
-      clearTimeout(timeoutId);
     };
   }, []);
 
   const cleanup = () => {
-    console.log('Cleaning up VideoCallInterface');
+    console.log('Running cleanup in VideoCallInterface');
     if (stream) {
       stream.getTracks().forEach(track => {
         track.stop();
-        console.log('Stopped track:', track.kind);
+        console.log(`Stopped ${track.kind} track`);
       });
       setStream(null);
     }
@@ -130,45 +150,48 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const startCamera = async () => {
-    console.log('Starting camera...');
+    console.log('Starting camera initialization...');
     try {
       cleanup();
 
-      // Wait for video element to be ready with a more robust check
-      const startTime = Date.now();
-      const timeout = 10000; // 10 seconds timeout
-      
-      while (!isVideoElementReady && Date.now() - startTime < timeout) {
-        console.log('Waiting for video element to be ready...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        if (!mountedRef.current) {
-          throw new Error('Component unmounted while waiting for video element');
-        }
+      if (!videoRef.current) {
+        console.log('Waiting for video element initialization...');
+        await new Promise<void>((resolve, reject) => {
+          let attempts = 0;
+          const checkInterval = setInterval(() => {
+            attempts++;
+            if (videoRef.current && isVideoElementReady) {
+              clearInterval(checkInterval);
+              console.log('Video element initialized successfully');
+              resolve();
+            } else if (attempts >= 50) { // 5 seconds timeout
+              clearInterval(checkInterval);
+              reject(new Error('Video element initialization timeout'));
+            }
+          }, 100);
+        });
       }
 
-      if (!videoRef.current || !isVideoElementReady) {
-        throw new Error('Video element initialization timed out');
-      }
-
-      console.log('Video element is ready, requesting media stream...');
+      console.log('Requesting media stream...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
-      
-      if (!mediaStream) {
-        throw new Error('Failed to get media stream');
-      }
 
       if (!mountedRef.current) {
         mediaStream.getTracks().forEach(track => track.stop());
-        throw new Error('Component unmounted while setting up media stream');
+        throw new Error('Component unmounted during initialization');
       }
 
-      console.log('Media stream obtained successfully');
+      console.log('Setting up media stream...');
       setStream(mediaStream);
-      videoRef.current.srcObject = mediaStream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        await videoRef.current.play().catch(error => {
+          console.error('Error playing video:', error);
+          throw error;
+        });
+      }
 
       // Start Azure Container video stream
       if (azureVideoRef.current) {
@@ -189,17 +212,9 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
       console.log('Realtime chat initialized');
       
-      try {
-        await videoRef.current.play();
-        console.log('Video playback started successfully');
-        return true;
-      } catch (playError) {
-        console.error('Error playing video:', playError);
-        cleanup();
-        throw new Error('Failed to start video playback');
-      }
+      return true;
     } catch (error) {
-      console.error('Error accessing camera:', error);
+      console.error('Camera initialization error:', error);
       cleanup();
       throw error;
     }
