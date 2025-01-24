@@ -58,7 +58,8 @@ serve(async (req) => {
     console.log('Using region:', region);
 
     // Format the voice name according to Azure's naming convention
-    const voiceName = `${language}-${voice}Neural`;
+    const formattedVoice = voice.replace(/[^a-zA-Z]/g, ''); // Remove any non-letter characters
+    const voiceName = `${language}-${formattedVoice}Neural`;
     console.log('Using voice:', voiceName);
 
     // Check available voices
