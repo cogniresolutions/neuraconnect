@@ -7,6 +7,7 @@ import LocalVideo from './video/LocalVideo';
 import RemoteVideo from './video/RemoteVideo';
 import VideoControls from './video/VideoControls';
 import { captureAndStoreScreenshot } from '@/utils/screenshotUtils';
+import { analyzeVideoFrame } from '@/utils/videoAnalysis';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -39,6 +40,45 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const chatRef = useRef<RealtimeChat | null>(null);
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const analysisIntervalRef = useRef<number | null>(null);
+
+  const startVideoAnalysis = async () => {
+    if (!localVideoRef.current || !isCallActive) return;
+
+    analysisIntervalRef.current = window.setInterval(async () => {
+      try {
+        setIsAnalyzing(true);
+        const canvas = document.createElement('canvas');
+        canvas.width = localVideoRef.current!.videoWidth;
+        canvas.height = localVideoRef.current!.videoHeight;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) return;
+        
+        ctx.drawImage(localVideoRef.current!, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg');
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const analysisResult = await analyzeVideoFrame(
+          imageData,
+          persona.id,
+          user.id
+        );
+
+        if (analysisResult) {
+          setCurrentEmotion(analysisResult.emotions?.dominant || '');
+          setEnvironmentContext(analysisResult.environment?.description || '');
+        }
+      } catch (error) {
+        console.error('Error during video analysis:', error);
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }, 5000); // Analyze every 5 seconds
+  };
 
   useEffect(() => {
     mountedRef.current = true;
