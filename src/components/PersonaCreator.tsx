@@ -17,6 +17,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import AzureTest from './AzureTest';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 interface Persona {
   id: string;
@@ -296,26 +305,28 @@ const PersonaCreator = () => {
                 <DropdownMenuLabel>Developer Tools</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={testAzureServices}
-                  disabled={isTestingAzure}
+                  onClick={() => {}}
                   className="flex items-center"
                 >
-                  {isTestingAzure ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Testing Azure Services...
-                    </>
-                  ) : azureTestSuccess ? (
-                    <>
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-400" />
-                      Azure Services Connected
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="mr-2 h-4 w-4" />
-                      Test Azure AI Services
-                    </>
-                  )}
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-start">
+                        <Brain className="mr-2 h-4 w-4" />
+                        Test Azure AI Services
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-black/95">
+                      <SheetHeader>
+                        <SheetTitle className="text-white">Azure Services Test</SheetTitle>
+                        <SheetDescription className="text-gray-400">
+                          Test the connection to Azure AI services and verify their functionality.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="mt-6">
+                        <AzureTest />
+                      </div>
+                    </SheetContent>
+                  </Sheet>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

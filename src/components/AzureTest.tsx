@@ -22,7 +22,14 @@ export default function AzureTest() {
     try {
       console.log('Starting Azure services test...');
       const { data, error } = await supabase.functions.invoke('test-azure', {
-        body: { test: 'all' }
+        body: { 
+          test: 'all',
+          model: 'gpt-4o-mini',
+          apiVersion: '2024-02-15-preview',
+          temperature: 0.7,
+          top_p: 0.95,
+          max_tokens: 800
+        }
       });
 
       console.log('Edge Function Response:', { data, error });
@@ -57,16 +64,12 @@ export default function AzureTest() {
   };
 
   return (
-    <div className="space-y-6 p-6 bg-black/95 text-white rounded-lg">
+    <div className="space-y-6">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Azure Services Test</h2>
-        <p className="text-sm text-gray-400">
-          Click the button below to test Azure services connectivity.
-        </p>
         <Button 
           onClick={testAzureServices}
           variant="outline"
-          className="bg-white/10 text-white hover:bg-white/20"
+          className="bg-white/10 text-white hover:bg-white/20 w-full"
           disabled={isLoading}
         >
           {isLoading ? (
@@ -82,7 +85,7 @@ export default function AzureTest() {
       
       {results.length > 0 && (
         <div className="mt-4 space-y-4">
-          <h3 className="text-lg font-semibold">Test Results</h3>
+          <h3 className="text-lg font-semibold text-white">Test Results</h3>
           <div className="space-y-2">
             {results.map((result, index) => (
               <div 
@@ -100,7 +103,7 @@ export default function AzureTest() {
                     ) : (
                       <XCircle className="h-5 w-5 text-red-400" />
                     )}
-                    <span className="font-medium">{result.service}</span>
+                    <span className="font-medium text-white">{result.service}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     {result.statusCode && (
