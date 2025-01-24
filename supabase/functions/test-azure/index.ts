@@ -60,17 +60,27 @@ serve(async (req) => {
     // Test Cognitive Services
     try {
       console.log('Testing Cognitive Services...');
-      const cognitiveUrl = `${cognitiveEndpoint}/vision/v3.2/analyze?visualFeatures=Description`;
+      // Updated to use the correct endpoint format for GPT-4
+      const cognitiveUrl = `${cognitiveEndpoint}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`;
       console.log('Cognitive Services URL:', cognitiveUrl);
       
       const cognitiveResponse = await fetch(cognitiveUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Ocp-Apim-Subscription-Key': cognitiveKey
+          'api-key': cognitiveKey
         },
         body: JSON.stringify({
-          url: 'https://learn.microsoft.com/azure/cognitive-services/computer-vision/images/windows-kitchen.jpg'
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful assistant."
+            },
+            {
+              role: "user",
+              content: "Hello, this is a test message."
+            }
+          ]
         })
       });
 
