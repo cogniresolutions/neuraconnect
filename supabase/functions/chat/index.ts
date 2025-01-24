@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const AZURE_OPENAI_KEY = Deno.env.get("AZURE_OPENAI_API_KEY");
-const AZURE_OPENAI_ENDPOINT = Deno.env.get("AZURE_OPENAI_ENDPOINT");
+const AZURE_OPENAI_ENDPOINT = "https://neuraconnect.openai.azure.com";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,7 +10,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
       headers: corsHeaders 
@@ -43,9 +42,8 @@ serve(async (req) => {
 
     console.log("Making request to Azure OpenAI...");
     
-    // Azure OpenAI requires the deployment name in the URL
-    const deploymentName = "gpt-4o-mini"; // This should match your Azure OpenAI deployment name
-    const apiVersion = "2024-02-15-preview";
+    const deploymentName = "gpt-40-mini";
+    const apiVersion = "2024-07-18";
     
     const completion = await fetch(
       `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`,

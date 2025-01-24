@@ -57,10 +57,10 @@ serve(async (req) => {
 
     const results = [];
 
-    // Test Cognitive Services
+    // Test Cognitive Services with specific model and version
     try {
       console.log('Testing Cognitive Services...');
-      const cognitiveUrl = `${cognitiveEndpoint}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`;
+      const cognitiveUrl = `${cognitiveEndpoint}/openai/deployments/gpt-40-mini/chat/completions?api-version=2024-07-18`;
       console.log('Cognitive Services URL:', cognitiveUrl);
       
       const cognitiveResponse = await fetch(cognitiveUrl, {
@@ -88,7 +88,7 @@ serve(async (req) => {
       console.log('Cognitive Services response:', cognitiveData);
 
       results.push({
-        service: 'Cognitive Services',
+        service: 'Azure OpenAI (gpt-40-mini)',
         status: cognitiveResponse.ok ? 'success' : 'error',
         statusCode: cognitiveResponse.status,
         error: cognitiveResponse.ok ? undefined : cognitiveData
@@ -96,7 +96,7 @@ serve(async (req) => {
     } catch (error) {
       console.error('Cognitive Services error:', error);
       results.push({
-        service: 'Cognitive Services',
+        service: 'Azure OpenAI (gpt-40-mini)',
         status: 'error',
         error: error.message
       });
