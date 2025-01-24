@@ -20,7 +20,8 @@ serve(async (req) => {
 
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint
+      hasEndpoint: !!azureSpeechEndpoint,
+      endpoint: azureSpeechEndpoint
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
