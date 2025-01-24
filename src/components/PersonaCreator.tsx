@@ -12,6 +12,7 @@ import { PersonaList } from "./persona/PersonaList";
 import TrainingUploader from "./TrainingUploader";
 import VideoCallUI from "./VideoCallUI";
 import { Upload, User, LogOut } from "lucide-react";
+import TrainingMaterialUploader from "./training/TrainingMaterialUploader";
 
 const PersonaCreator = () => {
   const navigate = useNavigate();
@@ -269,6 +270,16 @@ const PersonaCreator = () => {
 
           {selectedPersona && (
             <>
+              <TrainingMaterialUploader
+                personaId={selectedPersona.id}
+                onUploadComplete={() => {
+                  toast({
+                    title: "Training Material Added",
+                    description: "The material has been uploaded and will be processed",
+                  });
+                  fetchPersonas();
+                }}
+              />
               <TrainingUploader
                 personaId={selectedPersona.id}
                 onUploadComplete={() => {
