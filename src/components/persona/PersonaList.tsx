@@ -6,6 +6,7 @@ import VideoCallInterface from "@/components/VideoCallInterface";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Json } from "@/integrations/supabase/types";
 
 interface Persona {
   id: string;
@@ -13,10 +14,22 @@ interface Persona {
   description: string | null;
   status: string;
   voice_style?: string | null;
-  emotion_settings?: {
-    sensitivity: number;
-    response_delay: number;
-  };
+  emotion_settings?: Json;
+  avatar_url?: string | null;
+  avatar_model_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  user_id?: string | null;
+  environment_analysis?: boolean;
+  facial_expressions?: Json;
+  model_config?: Json;
+  personality?: string | null;
+  profile_picture_url?: string | null;
+  requires_training_video?: boolean;
+  skills?: Json;
+  topics?: string[] | null;
+  training_materials?: Json;
+  last_analyzed_at?: string | null;
 }
 
 interface PersonaListProps {
