@@ -21,16 +21,41 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-  const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
+
+  // Check and cleanup any hanging sessions on component mount
+  useEffect(() => {
+    const cleanupHangingSessions = async () => {
+      try {
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user) return;
+
+        const { error } = await supabase
+          .from('tavus_sessions')
+          .update({ 
+            status: 'ended',
+            is_active: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.user.id)
+          .eq('is_active', true);
+
+        if (error) {
+          console.error('Error cleaning up hanging sessions:', error);
+        }
+      } catch (error) {
+        console.error('Error in cleanupHangingSessions:', error);
+      }
+    };
+
+    cleanupHangingSessions();
+  }, []);
 
   const forceCleanup = async () => {
     console.log('Force cleaning up video call...');
@@ -83,6 +108,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       setStream(null);
       setIsCallActive(false);
       onCallStateChange?.(false);
+      sessionIdRef.current = null;
 
       toast({
         title: "Call Ended",
