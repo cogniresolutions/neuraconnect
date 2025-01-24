@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,15 +16,11 @@ serve(async (req) => {
     console.log('Request data:', { text, voice, language });
 
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
-    const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
-
-    if (!azureSpeechKey || !azureSpeechEndpoint) {
+    if (!azureSpeechKey) {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    console.log('Using Azure Speech endpoint:', azureSpeechEndpoint);
-
-    // Prepare SSML with proper escaping and language setting
+    // Prepare SSML with proper escaping
     const escapedText = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -42,13 +38,8 @@ serve(async (req) => {
 
     console.log('Making request to Azure TTS with SSML:', ssml);
     
-    // Ensure the endpoint doesn't have a trailing slash before adding the path
-    const baseEndpoint = azureSpeechEndpoint.endsWith('/')
-      ? azureSpeechEndpoint.slice(0, -1)
-      : azureSpeechEndpoint;
-    
-    // Construct the full TTS endpoint URL
-    const ttsUrl = `${baseEndpoint}/cognitiveservices/v1/synthesize`;
+    // Use the correct endpoint URL format
+    const ttsUrl = 'https://eastus.api.cognitive.microsoft.com/cognitiveservices/v1/synthesize';
     console.log('TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
@@ -67,8 +58,10 @@ serve(async (req) => {
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
+        headers: Object.fromEntries(ttsResponse.headers.entries()),
         error: errorText,
-        url: ttsUrl
+        endpoint: ttsUrl,
+        ssml: ssml
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
@@ -99,11 +92,11 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in Azure voice test:', error);
+    console.error('Text-to-speech error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
+        error: error.message,
         timestamp: new Date().toISOString()
       }),
       {
