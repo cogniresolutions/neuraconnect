@@ -13,7 +13,7 @@ serve(async (req) => {
 
   try {
     const AZURE_OPENAI_KEY = Deno.env.get('AZURE_OPENAI_API_KEY');
-    const AZURE_OPENAI_ENDPOINT = 'https://neuraconnect.openai.azure.com';
+    const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
 
     if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT) {
       console.error('Azure OpenAI credentials are not configured');
@@ -23,8 +23,8 @@ serve(async (req) => {
     const { personaId, config } = await req.json();
     console.log('Generating token for persona:', personaId, 'with config:', config);
 
-    // Request a token from Azure OpenAI with correct API version and deployment
-    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`;
+    // Request a token from Azure OpenAI for real-time chat
+    const tokenUrl = `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-realtime/chat/realtime/token?api-version=2024-02-15-preview`;
     console.log('Requesting token from:', tokenUrl);
 
     const response = await fetch(tokenUrl, {
@@ -34,13 +34,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messages: [{
-          role: "system",
-          content: `You are ${config.name}, an AI assistant with the following personality: ${config.personality}. You have expertise in: ${JSON.stringify(config.skills)}. You should focus on discussing topics related to: ${config.topics.join(', ')}.`
-        }],
-        max_tokens: 800,
-        temperature: 0.7,
-        stream: true
+        voice: config.voice || "alloy",
+        instructions: `You are ${config.name}, an AI assistant with the following personality: ${config.personality}. You have expertise in: ${JSON.stringify(config.skills)}. You should focus on discussing topics related to: ${config.topics.join(', ')}.`
       }),
     });
 
