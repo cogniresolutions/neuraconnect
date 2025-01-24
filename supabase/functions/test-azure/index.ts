@@ -60,7 +60,6 @@ serve(async (req) => {
     // Test Cognitive Services
     try {
       console.log('Testing Cognitive Services...');
-      // Updated to use the correct endpoint format for GPT-4
       const cognitiveUrl = `${cognitiveEndpoint}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`;
       console.log('Cognitive Services URL:', cognitiveUrl);
       
