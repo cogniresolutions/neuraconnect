@@ -16,6 +16,7 @@ serve(async (req) => {
     const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT');
 
     if (!AZURE_OPENAI_KEY || !AZURE_OPENAI_ENDPOINT) {
+      console.error('Azure OpenAI credentials are not configured');
       throw new Error('Azure OpenAI credentials are not configured');
     }
 

@@ -130,8 +130,7 @@ export class RealtimeChat {
     console.log('Establishing WebSocket connection...');
     
     try {
-      // Create WebSocket URL with Azure endpoint
-      const wsUrl = new URL(process.env.AZURE_OPENAI_ENDPOINT + '/realtime');
+      const wsUrl = new URL(`${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-realtime-preview/chat/realtime/stream?api-version=2024-12-17`);
       wsUrl.searchParams.append('token', this.clientSecret);
       
       console.log('Connecting to WebSocket with URL:', wsUrl.toString());
