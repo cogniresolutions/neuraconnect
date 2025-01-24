@@ -33,7 +33,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const azureVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Cleanup function to stop all media tracks and reset audio
   const cleanup = () => {
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -64,7 +63,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const startCamera = async () => {
     console.log('Starting camera...');
     try {
-      // First cleanup any existing streams
       cleanup();
 
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -72,14 +70,11 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         audio: true
       });
       
-      console.log('Media stream obtained:', mediaStream);
-      
       if (!mediaStream) {
         throw new Error('Failed to get media stream');
       }
 
       if (!videoRef.current) {
-        console.error('Video ref is null');
         throw new Error('Video element not found');
       }
 
@@ -94,7 +89,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           console.log('Azure video stream started');
         } catch (error) {
           console.error('Error playing Azure video:', error);
-          // Continue even if Azure video fails
         }
       }
       
@@ -126,13 +120,11 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     setIsLoading(true);
     
     try {
-      // First ensure camera is started
       const cameraStarted = await startCamera();
       if (!cameraStarted) {
         throw new Error('Failed to start camera');
       }
 
-      // Then create the conversation
       const { data: conversationData, error: conversationError } = await supabase.functions.invoke('create-conversation', {
         body: {
           persona_id: persona.id,
@@ -144,7 +136,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (conversationError) throw conversationError;
       console.log('Conversation created:', conversationData);
 
-      // Finally activate the call
       setIsCallActive(true);
       onCallStateChange(true);
       
@@ -168,6 +159,49 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
   };
 
+  const handleSpeechDetected = async (text: string) => {
+    if (!isCallActive || isProcessingAudio || !isVideoMode) return;
+    
+    setIsProcessingAudio(true);
+    try {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+
+      const { data, error } = await supabase.functions.invoke('azure-video-chat', {
+        body: { 
+          text,
+          persona
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.audio) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        currentAudioRef.current = audio;
+        
+        audio.addEventListener('ended', () => {
+          if (currentAudioRef.current === audio) {
+            currentAudioRef.current = null;
+          }
+        });
+
+        await audio.play();
+      }
+    } catch (error: any) {
+      console.error('Error processing speech:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process speech",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingAudio(false);
+    }
+  };
+
   const handleEndCall = () => {
     cleanup();
     setIsCallActive(false);
@@ -181,64 +215,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const handleStopRecording = () => {
     setIsRecording(false);
-  };
-
-  const handleSpeechDetected = async (text: string) => {
-    if (!isCallActive || isProcessingAudio || !isVideoMode) return;
-    
-    setIsProcessingAudio(true);
-    try {
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-        currentAudioRef.current = null;
-      }
-
-      const { data, error } = await supabase.functions.invoke('azure-chat', {
-        body: { 
-          message: text,
-          persona_id: persona.id
-        }
-      });
-
-      if (error) throw error;
-
-      if (isVideoMode) {
-        const { data: audioData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-          body: { 
-            text: data.response,
-            voice: persona.voice_style
-          }
-        });
-
-        if (ttsError) throw ttsError;
-
-        if (audioData?.audioContent) {
-          const audio = new Audio(`data:audio/mp3;base64,${audioData.audioContent}`);
-          currentAudioRef.current = audio;
-          
-          if (!audioContextRef.current) {
-            audioContextRef.current = new AudioContext();
-          }
-
-          audio.addEventListener('ended', () => {
-            if (currentAudioRef.current === audio) {
-              currentAudioRef.current = null;
-            }
-          });
-
-          await audio.play();
-        }
-      }
-    } catch (error: any) {
-      console.error('Error processing speech:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process speech",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessingAudio(false);
-    }
   };
 
   return (
