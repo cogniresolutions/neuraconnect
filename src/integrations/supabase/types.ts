@@ -890,6 +890,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_screenshots: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       generate_location_grid_id: {
         Args: {
           lat: number

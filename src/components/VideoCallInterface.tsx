@@ -7,6 +7,8 @@ import LocalVideo from './video/LocalVideo';
 import RemoteVideo from './video/RemoteVideo';
 import VideoControls from './video/VideoControls';
 import { captureAndStoreScreenshot } from '@/utils/screenshotUtils';
+import { captureVideoFrame } from '@/utils/videoCapture';
+import { analyzeVideoFrame } from '@/utils/videoAnalysis';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -300,6 +302,40 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     }
   };
+
+  // Add interval ref for screenshots
+  const screenshotIntervalRef = useRef<number | null>(null);
+
+  const startScreenshotCapture = useCallback(async () => {
+    if (!localVideoRef.current || !sessionIdRef.current) return;
+    
+    try {
+      const imageData = captureVideoFrame(localVideoRef.current);
+      
+      // Analyze the frame
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await analyzeVideoFrame(imageData, persona.id, user.id);
+    } catch (error) {
+      console.error('Error capturing/analyzing screenshot:', error);
+    }
+  }, [persona.id]);
+
+  // Start screenshot capture when call becomes active
+  useEffect(() => {
+    if (isCallActive && !screenshotIntervalRef.current) {
+      // Capture screenshots every 30 seconds
+      screenshotIntervalRef.current = window.setInterval(startScreenshotCapture, 30000);
+    }
+
+    return () => {
+      if (screenshotIntervalRef.current) {
+        clearInterval(screenshotIntervalRef.current);
+        screenshotIntervalRef.current = null;
+      }
+    };
+  }, [isCallActive, startScreenshotCapture]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50">
