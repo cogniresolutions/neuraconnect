@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { VideoAnalysis } from './video/VideoAnalysis';
 import { CallControls } from './video/CallControls';
 import { ConsentDialog } from './video/ConsentDialog';
@@ -20,6 +21,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   persona,
   onCallStateChange
 }) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -177,11 +179,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   return (
     <div className="fixed inset-0 flex flex-col bg-black">
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 bg-black/50">
+      <div className="flex items-center gap-4 p-4 bg-black/50 backdrop-blur-sm">
         <Button 
           variant="ghost" 
           onClick={() => navigate(-1)}
-          className="text-white"
+          className="text-white hover:bg-white/10"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -204,14 +206,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             <User className="h-4 w-4" />
             <span className="text-sm font-medium">{userName || 'You'}</span>
           </div>
-          {/* Hidden VideoAnalysis component */}
-          <div className="hidden">
-            <VideoAnalysis
-              personaId={persona.id}
-              onAnalysisComplete={() => {}}
-              onSpeechDetected={() => {}}
-            />
-          </div>
         </div>
 
         {/* Persona Video/Image */}
@@ -229,7 +223,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
           ) : (
             <>
               {persona.profile_picture_url && (
-                <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center">
                   <img
                     src={persona.profile_picture_url}
                     alt={persona.name}
@@ -247,6 +241,15 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             </>
           )}
         </div>
+      </div>
+
+      {/* Hidden Video Analysis */}
+      <div className="hidden">
+        <VideoAnalysis
+          personaId={persona.id}
+          onAnalysisComplete={() => {}}
+          onSpeechDetected={() => {}}
+        />
       </div>
 
       {/* Controls */}
