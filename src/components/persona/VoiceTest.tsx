@@ -22,13 +22,16 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
     }
 
     // Determine if the selected style maps to a male or female voice
-    const isFemaleVoice = ['Jenny', 'Aria', 'Nancy', 'Sara', 'Jane'].some(name => 
-      style.toLowerCase().includes(name.toLowerCase())
-    );
+    const isFemaleVoice = ['Jenny', 'Aria', 'Nancy', 'Sara', 'Jane'].includes(style);
+    const isMaleVoice = ['Guy', 'Davis', 'Tony', 'Jason', 'Brandon'].includes(style);
 
     // Get the appropriate voice list based on gender
-    const voiceList = isFemaleVoice ? VOICE_MAPPINGS[language].female : VOICE_MAPPINGS[language].male;
-    
+    const voiceList = isFemaleVoice 
+      ? VOICE_MAPPINGS[language].female 
+      : isMaleVoice 
+        ? VOICE_MAPPINGS[language].male 
+        : VOICE_MAPPINGS[language].female;
+
     // Select the first voice from the list as default
     const selectedVoice = voiceList[0];
     
@@ -54,7 +57,8 @@ export const VoiceTest = ({ voiceStyle, language = 'en-US' }: VoiceTestProps) =>
       const { data, error } = await supabase.functions.invoke('azure-voice-test', {
         body: { 
           text: message,
-          voice: formattedVoice
+          voice: formattedVoice,
+          language: language
         }
       });
 
