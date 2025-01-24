@@ -12,12 +12,14 @@ interface VideoCallInterfaceProps {
   persona: any;
   onSpeakingChange: (speaking: boolean) => void;
   onCallStateChange?: (isActive: boolean) => void;
+  externalVideoUrl?: string;
 }
 
 const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({ 
   persona, 
   onSpeakingChange,
-  onCallStateChange 
+  onCallStateChange,
+  externalVideoUrl 
 }) => {
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
@@ -170,11 +172,15 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       // Create a MediaStream for the persona's video
       const personaVideoStream = new MediaStream();
-      if (persona.video_url) {
+      const videoUrl = externalVideoUrl || persona.video_url;
+      
+      if (videoUrl) {
         const videoElement = document.createElement('video');
-        videoElement.src = persona.video_url;
+        videoElement.src = videoUrl;
         videoElement.autoplay = true;
         videoElement.muted = true;
+        videoElement.loop = true; // Add loop for Tavus videos
+        videoElement.crossOrigin = "anonymous"; // Add for external URLs
         videoElement.play().catch(console.error);
         
         // Wait for video to be ready

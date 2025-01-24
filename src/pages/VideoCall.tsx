@@ -13,6 +13,7 @@ const VideoCall = () => {
   const { toast } = useToast();
   const [persona, setPersona] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const externalVideoUrl = "https://tavus.video/943ec60143"; // Add the Tavus video URL
 
   useEffect(() => {
     const loadPersona = async () => {
@@ -88,6 +89,7 @@ const VideoCall = () => {
               onCallStateChange={(isActive) => {
                 console.log('Call state changed:', isActive);
               }}
+              externalVideoUrl={externalVideoUrl}
             />
           </div>
         </div>
