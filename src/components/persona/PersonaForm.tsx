@@ -66,39 +66,36 @@ export function PersonaForm({
   personaId
 }: PersonaFormProps) {
   const { toast } = useToast();
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Query voice mappings with automatic background sync
+  // Query voice mappings with automatic background sync and retry
   const { data: voiceMappings, isLoading: isLoadingVoices } = useQuery({
     queryKey: ['voiceMappings'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: existingData, error: fetchError } = await supabase
         .from('voice_mappings')
         .select('*')
         .order('display_name');
       
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
-      if (!data || data.length === 0) {
-        // Silently trigger sync if no mappings exist
-        const { error: syncError } = await supabase.functions.invoke('sync-voice-mappings');
-        if (syncError) throw syncError;
+      // If no data exists, trigger sync and fetch again
+      if (!existingData || existingData.length === 0) {
+        await supabase.functions.invoke('sync-voice-mappings');
         
-        // Fetch again after sync
-        const { data: syncedData, error: refetchError } = await supabase
+        const { data: syncedData, error: syncError } = await supabase
           .from('voice_mappings')
           .select('*')
           .order('display_name');
           
-        if (refetchError) throw refetchError;
+        if (syncError) throw syncError;
         return syncedData as VoiceMapping[];
       }
 
-      return data as VoiceMapping[];
+      return existingData as VoiceMapping[];
     },
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    retry: 2,
-    retryDelay: 1000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 30000),
   });
 
   // Filter voices based on selected language
@@ -110,19 +107,22 @@ export function PersonaForm({
   const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage);
     
-    // Set first available voice for the new language if any exist
-    if (filteredVoices.length > 0) {
-      setVoiceStyle(filteredVoices[0].voice_style);
+    // Set first available voice for the new language
+    const availableVoices = voiceMappings?.filter(
+      voice => voice.language_code === newLanguage
+    ) || [];
+    
+    if (availableVoices.length > 0) {
+      setVoiceStyle(availableVoices[0].voice_style);
     }
   };
 
   // Set initial voice style when voices are loaded
   useEffect(() => {
-    if (isInitialLoad && filteredVoices.length > 0 && !voiceStyle) {
+    if (filteredVoices.length > 0 && !voiceStyle) {
       setVoiceStyle(filteredVoices[0].voice_style);
-      setIsInitialLoad(false);
     }
-  }, [filteredVoices, isInitialLoad, voiceStyle, setVoiceStyle]);
+  }, [filteredVoices, voiceStyle, setVoiceStyle]);
 
   return (
     <div className="space-y-6 bg-white/5 p-6 rounded-lg border border-purple-400/20">
@@ -173,7 +173,7 @@ export function PersonaForm({
             <SelectTrigger className="flex-1">
               <SelectValue placeholder={
                 isLoadingVoices ? "Loading voices..." :
-                filteredVoices.length === 0 ? "No voices available" :
+                filteredVoices.length === 0 ? "No voices available for this language" :
                 "Select a voice style"
               } />
             </SelectTrigger>
