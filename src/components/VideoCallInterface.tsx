@@ -9,6 +9,8 @@ import { VideoGrid } from "./video/VideoGrid";
 import { RealtimeChat } from "@/utils/RealtimeAudio";
 import AzureVideoService from '@/services/AzureVideoService';
 
+const AZURE_CONTAINER_VIDEO_URL = "https://persona--zw6su7w.graygrass-5ab083e6.eastus.azurecontainerapps.io/video";
+
 interface VideoCallInterfaceProps {
   persona: any;
   onCallStateChange: (isActive: boolean) => void;
@@ -68,7 +70,8 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     }
     
     if (azureVideoRef.current) {
-      AzureVideoService.getInstance().cleanup();
+      azureVideoRef.current.src = '';
+      azureVideoRef.current.load();
     }
     
     if (chatRef.current) {
@@ -110,7 +113,13 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
 
       // Initialize Azure video stream
-      await AzureVideoService.getInstance().initialize(azureVideoRef.current);
+      if (azureVideoRef.current) {
+        azureVideoRef.current.src = AZURE_CONTAINER_VIDEO_URL;
+        await azureVideoRef.current.play().catch(error => {
+          console.error('Error playing Azure video:', error);
+          throw error;
+        });
+      }
       
       // Initialize realtime chat
       chatRef.current = new RealtimeChat(handleMessage);
