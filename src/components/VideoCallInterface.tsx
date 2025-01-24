@@ -22,6 +22,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isCallActive, setIsCallActive] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -30,37 +31,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const mountedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
 
-  // Check and cleanup any hanging sessions on component mount and auth state change
-  useEffect(() => {
-    const cleanupHangingSessions = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) {
-          await cleanupUserSessions(user.id);
-        }
-      } catch (error) {
-        console.error('Error in cleanupHangingSessions:', error);
-      }
-    };
-
-    cleanupHangingSessions();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'SIGNED_OUT') {
-        console.log('User signed out, cleaning up sessions...');
-        await forceCleanup();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const forceCleanup = async () => {
-    console.log('Force cleaning up video call...');
-    
+  // Cleanup function
+  const cleanup = useCallback(async () => {
+    console.log('Running cleanup in VideoCallInterface');
     try {
       // Stop all media tracks
       if (stream) {
@@ -90,7 +63,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         remoteVideoRef.current.srcObject = null;
       }
 
-      // Update session status in database if we have a session ID
+      // Update session status if we have a session ID
       if (sessionIdRef.current) {
         const { error } = await supabase
           .from('tavus_sessions')
@@ -106,10 +79,10 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       }
 
-      // Clean up any other hanging sessions
+      // Clean up any hanging sessions
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.id) {
-        await cleanupUserSessions(user.id);
+        await cleanupUserSessions(user?.id);
       }
 
       setStream(null);
@@ -117,38 +90,58 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       onCallStateChange?.(false);
       sessionIdRef.current = null;
 
-      toast({
-        title: "Call Ended",
-        description: "The video call has been terminated",
-      });
-
     } catch (error) {
-      console.error('Error during force cleanup:', error);
+      console.error('Error during cleanup:', error);
       toast({
         title: "Error",
         description: "Failed to completely clean up the call. Please refresh the page.",
         variant: "destructive",
       });
     }
-  };
+  }, [stream, onCallStateChange, toast]);
 
-  const cleanup = useCallback(() => {
-    console.log('Running cleanup in VideoCallInterface');
-    forceCleanup();
-  }, []);
-
+  // Cleanup on unmount
   useEffect(() => {
     mountedRef.current = true;
+
+    // Clean up any hanging sessions on mount
+    const initialCleanup = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        await cleanupUserSessions(user.id);
+      }
+    };
+    initialCleanup();
+
     return () => {
       mountedRef.current = false;
       cleanup();
     };
   }, [cleanup]);
 
-  const startCamera = async () => {
-    try {
-      cleanup();
+  // Handle auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_OUT') {
+        console.log('User signed out, cleaning up sessions...');
+        await cleanup();
+      }
+    });
 
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [cleanup]);
+
+  const startCamera = async () => {
+    if (isInitializing) return;
+    
+    try {
+      setIsInitializing(true);
+      await cleanup(); // Clean up any existing sessions first
+
+      console.log('Starting new video call session...');
+      
       // Create a new session
       const { data: session, error: sessionError } = await supabase
         .from('tavus_sessions')
@@ -208,6 +201,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
+      if (!mountedRef.current) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
       console.log('Setting up media stream...');
       setStream(mediaStream);
       
@@ -231,9 +229,9 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
 
       console.log('Camera and audio initialized successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Camera/audio initialization error:', error);
-      cleanup();
+      await cleanup();
       
       toast({
         title: "Connection Error",
@@ -242,6 +240,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
       
       throw error;
+    } finally {
+      setIsInitializing(false);
     }
   };
 
