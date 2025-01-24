@@ -8,9 +8,14 @@ import VideoControls from './video/VideoControls';
 interface VideoCallInterfaceProps {
   persona: any;
   onSpeakingChange: (speaking: boolean) => void;
+  onCallStateChange?: (isActive: boolean) => void;
 }
 
-const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({ persona, onSpeakingChange }) => {
+const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({ 
+  persona, 
+  onSpeakingChange,
+  onCallStateChange 
+}) => {
   const { toast } = useToast();
   const [isCallActive, setIsCallActive] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
@@ -38,7 +43,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({ persona, onSpea
     }
     setStream(null);
     setIsCallActive(false);
-  }, [stream]);
+    onCallStateChange?.(false);
+  }, [stream, onCallStateChange]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -88,6 +94,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({ persona, onSpea
       }
 
       setIsCallActive(true);
+      onCallStateChange?.(true);
       console.log('Camera initialized successfully');
     } catch (error) {
       console.error('Camera initialization error:', error);
