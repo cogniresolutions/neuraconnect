@@ -2,121 +2,64 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import VideoCallInterface from "./VideoCallInterface";
-import { PersonaHeader } from "./persona/PersonaHeader";
-import { PersonaCreatorTabs } from "./persona/PersonaCreatorTabs";
-
-interface Persona {
-  id: string;
-  user_id?: string;
-  name: string;
-  description: string | null;
-  voice_style?: string | null;
-  personality?: string | null;
-  avatar_url?: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  skills?: any;
-  topics?: string[];
-  model_config?: any;
-  avatar_model_url?: string | null;
-  emotion_settings?: {
-    sensitivity: number;
-    response_delay: number;
-  };
-  environment_analysis?: boolean;
-  facial_expressions?: any[];
-}
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PersonaList } from "./persona/PersonaList";
+import TrainingUploader from "./TrainingUploader";
+import VideoCallUI from "./VideoCallUI";
+import { Upload, User } from "lucide-react";
 
 const PersonaCreator = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [avatarAnimating, setAvatarAnimating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [voiceStyle, setVoiceStyle] = useState<string>("alloy");
-  const [language, setLanguage] = useState<string>("en");
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [personas, setPersonas] = useState<Persona[]>([]);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
-  const [isCallActive, setIsCallActive] = useState(false);
+  const [selectedPersona, setSelectedPersona] = useState<any>(null);
 
   useEffect(() => {
-    const checkAuthAndFetchPersonas = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return;
-      }
+    const checkAuth = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
       
-      const { data: personasData, error } = await supabase
-        .from('personas')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        toast({
-          title: "Error fetching personas",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
+      if (error || !session) {
+        navigate("/auth");
       }
-
-      const typedPersonas = (personasData || []).map(persona => ({
-        ...persona,
-        emotion_settings: persona.emotion_settings as { sensitivity: number; response_delay: number }
-      })) as Persona[];
-
-      setPersonas(typedPersonas);
     };
-    
-    checkAuthAndFetchPersonas();
 
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'personas'
-        },
-        () => {
-          checkAuthAndFetchPersonas();
-        }
-      )
-      .subscribe();
+    checkAuth();
+  }, [navigate]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [navigate, toast]);
-
-  const signInWithGoogle = async () => {
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`
-        }
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sign in",
-        variant: "destructive",
-      });
-    }
+  const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setProfilePicture(file);
   };
 
   const handleCreatePersona = async () => {
-    setIsCreating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("You must be logged in to create a persona");
+      setIsCreating(true);
+
+      let profilePictureUrl = null;
+      if (profilePicture) {
+        const fileExt = profilePicture.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('persona_profiles')
+          .upload(filePath, profilePicture);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('persona_profiles')
+          .getPublicUrl(filePath);
+
+        profilePictureUrl = publicUrl;
       }
 
       const { data: persona, error: createError } = await supabase
@@ -124,45 +67,29 @@ const PersonaCreator = () => {
         .insert({
           name,
           description,
-          voice_style: voiceStyle,
-          status: 'ready',
-          user_id: session.user.id,
-          model_config: {
-            model: "gpt-4o-mini",
-            max_tokens: 800,
-            temperature: 0.7,
-            language
-          }
+          profile_picture_url: profilePictureUrl,
+          status: 'draft'
         })
         .select()
         .single();
 
       if (createError) throw createError;
 
-      const { error: functionError } = await supabase.functions.invoke('create-persona', {
-        body: { 
-          name,
-          description,
-          voiceStyle,
-          personality: "friendly and helpful",
-          personaId: persona.id,
-          language
-        }
-      });
-
-      if (functionError) throw functionError;
-
       toast({
         title: "Success",
         description: "Persona created successfully",
       });
 
-      navigate('/');
+      setName("");
+      setDescription("");
+      setProfilePicture(null);
+      setSelectedPersona(persona);
+
     } catch (error: any) {
       console.error('Error creating persona:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create persona",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -170,117 +97,126 @@ const PersonaCreator = () => {
     }
   };
 
-  const handleDeploy = async (personaId: string) => {
-    setIsDeploying(true);
-    try {
-      const { error } = await supabase.functions.invoke("deploy-persona", {
-        body: { personaId }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Deployment initiated successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to deploy persona",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeploying(false);
-    }
-  };
-
-  const handleDelete = async (personaId: string) => {
-    try {
-      const { error } = await supabase
-        .from('personas')
-        .delete()
-        .eq('id', personaId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Persona deleted successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete persona",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEdit = (persona: Persona) => {
-    setName(persona.name);
-    setDescription(persona.description || '');
-    setVoiceStyle(persona.voice_style || 'alloy');
-    toast({
-      title: "Persona loaded for editing",
-      description: "You can now make changes to the persona.",
-    });
-  };
-
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      navigate("/auth");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sign out",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePersonaSelect = (persona: Persona) => {
-    setSelectedPersona(persona);
-  };
-
-  const handleCallStateChange = (isActive: boolean) => {
-    setIsCallActive(isActive);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-gray-900 to-black p-6">
-      <div className="max-w-6xl mx-auto">
-        <PersonaHeader onSignOut={handleSignOut} />
-        
-        <PersonaCreatorTabs
-          name={name}
-          setName={setName}
-          description={description}
-          setDescription={setDescription}
-          voiceStyle={voiceStyle}
-          setVoiceStyle={setVoiceStyle}
-          language={language}
-          setLanguage={setLanguage}
-          isCreating={isCreating}
-          avatarAnimating={avatarAnimating}
-          personas={personas}
-          isDeploying={isDeploying}
-          handleCreatePersona={handleCreatePersona}
-          handleDeploy={handleDeploy}
-          handleDelete={handleDelete}
-          handleEdit={handleEdit}
-          handlePersonaSelect={handlePersonaSelect}
-          signInWithGoogle={signInWithGoogle}
-        />
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <Tabs defaultValue="create" className="space-y-8">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="create">Create Persona</TabsTrigger>
+          <TabsTrigger value="manage">Manage Personas</TabsTrigger>
+        </TabsList>
 
-        {selectedPersona && (
-          <VideoCallInterface
-            persona={selectedPersona}
-            onCallStateChange={handleCallStateChange}
+        <TabsContent value="create" className="space-y-8">
+          <Card className="p-6">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter persona name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe your persona"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="profile-picture">Profile Picture</Label>
+                <div className="flex items-center gap-4">
+                  {profilePicture && (
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100">
+                      <img
+                        src={URL.createObjectURL(profilePicture)}
+                        alt="Profile preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('profile-picture')?.click()}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Picture
+                  </Button>
+                  <input
+                    id="profile-picture"
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleProfilePictureChange}
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleCreatePersona}
+                disabled={isCreating || !name}
+                className="w-full"
+              >
+                {isCreating ? (
+                  "Creating..."
+                ) : (
+                  <>
+                    <User className="w-4 h-4 mr-2" />
+                    Create Persona
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+
+          {selectedPersona && (
+            <>
+              <TrainingUploader
+                personaId={selectedPersona.id}
+                onUploadComplete={() => {
+                  toast({
+                    title: "Training Material Added",
+                    description: "The material has been uploaded and will be processed",
+                  });
+                }}
+              />
+              <VideoCallUI persona={selectedPersona} />
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="manage">
+          <PersonaList
+            onSelect={setSelectedPersona}
+            onDelete={async (id) => {
+              try {
+                const { error } = await supabase
+                  .from('personas')
+                  .delete()
+                  .eq('id', id);
+
+                if (error) throw error;
+
+                toast({
+                  title: "Success",
+                  description: "Persona deleted successfully",
+                });
+              } catch (error: any) {
+                toast({
+                  title: "Error",
+                  description: error.message,
+                  variant: "destructive",
+                });
+              }
+            }}
           />
-        )}
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
