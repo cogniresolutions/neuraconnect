@@ -107,6 +107,7 @@ const VideoChat = () => {
           <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
             <VideoCallInterface 
               persona={persona}
+              onSpeakingChange={handleSpeakingChange}
               onCallStateChange={handleCallStateChange}
             />
           </div>

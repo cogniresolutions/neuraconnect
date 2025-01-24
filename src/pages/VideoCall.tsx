@@ -55,6 +55,10 @@ const VideoCall = () => {
     loadPersona();
   }, [personaId, navigate, toast]);
 
+  const handleSpeakingChange = (speaking: boolean) => {
+    console.log('Speaking state changed:', speaking);
+  };
+
   return (
     <div className="container mx-auto p-4 min-h-screen">
       <div className="flex items-center gap-4 mb-8">
@@ -80,6 +84,7 @@ const VideoCall = () => {
           <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
             <VideoCallInterface
               persona={persona}
+              onSpeakingChange={handleSpeakingChange}
               onCallStateChange={(isActive) => {
                 console.log('Call state changed:', isActive);
               }}
