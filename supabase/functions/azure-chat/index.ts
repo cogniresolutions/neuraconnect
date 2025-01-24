@@ -20,7 +20,7 @@ serve(async (req) => {
     }
 
     const { message, persona } = await req.json();
-    console.log('Processing chat request for persona:', persona?.name);
+    console.log('Processing chat request with message:', message);
 
     const response = await fetch(
       `${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview`,
@@ -47,15 +47,16 @@ serve(async (req) => {
     );
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Azure OpenAI API error: ${error}`);
+      const errorText = await response.text();
+      console.error('Azure OpenAI API error:', errorText);
+      throw new Error(`Azure OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
     console.log('Successfully generated response');
 
     return new Response(
-      JSON.stringify({ response: data.choices[0].message.content }),
+      JSON.stringify({ text: data.choices[0].message.content }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -63,7 +64,7 @@ serve(async (req) => {
     console.error('Error in azure-chat function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
+      { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

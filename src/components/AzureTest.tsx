@@ -3,17 +3,23 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AzureTest = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const testConnection = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('azure-chat', {
+      console.log('Testing Azure OpenAI connection...');
+      
+      const { data, error: functionError } = await supabase.functions.invoke('azure-chat', {
         body: { 
-          text: "Hello! This is a test message.",
+          message: "Hello! This is a test message.",
           persona: {
             name: "Test Assistant",
             personality: "helpful and friendly",
@@ -23,20 +29,28 @@ const AzureTest = () => {
         }
       });
 
-      if (error) throw error;
+      console.log('Azure OpenAI Response:', data);
+
+      if (functionError) {
+        throw new Error(functionError.message || 'Error calling Azure OpenAI');
+      }
+
+      if (!data) {
+        throw new Error('No response received from Azure OpenAI');
+      }
 
       toast({
         title: "Connection Successful",
-        description: data.text,
+        description: "Successfully connected to Azure OpenAI",
       });
-
-      console.log('Azure OpenAI Response:', data);
 
     } catch (error: any) {
       console.error('Azure test error:', error);
+      const errorMessage = error.message || 'An unexpected error occurred';
+      setError(errorMessage);
       toast({
         title: "Connection Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -51,6 +65,11 @@ const AzureTest = () => {
         <p className="text-center text-gray-600">
           Click the button below to test the Azure OpenAI connection
         </p>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <Button
           onClick={testConnection}
           disabled={isLoading}
