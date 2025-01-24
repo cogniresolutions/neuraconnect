@@ -40,8 +40,9 @@ serve(async (req) => {
 
     console.log('Making request to Azure TTS with SSML:', ssml);
     
-    // Construct the full endpoint URL for text-to-speech
-    const ttsUrl = `${azureSpeechEndpoint}/cognitiveservices/v1/synthesize`;
+    // Remove trailing slash if present and append the correct path
+    const baseEndpoint = azureSpeechEndpoint.replace(/\/$/, '');
+    const ttsUrl = `${baseEndpoint}/cognitiveservices/v1`;
     console.log('TTS URL:', ttsUrl);
     
     const ttsResponse = await fetch(ttsUrl, {
