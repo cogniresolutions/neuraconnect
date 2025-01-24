@@ -1,13 +1,23 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { PlayCircle, Trash2, Edit2, Phone, Video } from "lucide-react";
-import VideoCallInterface from "@/components/VideoCallInterface";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Json } from "@/integrations/supabase/types";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,39 +29,36 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  CheckCircle2,
+  PlayCircle,
+  Edit2,
+  Trash2,
+  ServerIcon,
+  List,
+  RefreshCw,
+  Video,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { VOICE_MAPPINGS } from "@/constants/voices";
+import { useNavigate } from 'react-router-dom';
 
-interface Persona {
+type Persona = {
   id: string;
   name: string;
   description: string | null;
   status: string;
-  voice_style?: string | null;
-  emotion_settings?: Json;
-  avatar_url?: string | null;
-  avatar_model_url?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  user_id?: string | null;
-  environment_analysis?: boolean;
-  facial_expressions?: Json;
-  model_config?: Json;
-  personality?: string | null;
-  profile_picture_url?: string | null;
-  requires_training_video?: boolean;
-  skills?: Json;
-  topics?: string[] | null;
-  training_materials?: Json;
-  last_analyzed_at?: string | null;
-}
-
-interface PersonaListProps {
-  personas: Persona[];
-  onDeploy: (id: string) => void;
-  onDelete: (id: string) => void;
-  onEdit: (persona: Persona) => void;
-  onSelect: (persona: Persona) => void;
-  isDeploying: boolean;
-}
+  voice_style: string;
+  updated_at: string;
+};
 
 export const PersonaList = ({
   personas: initialPersonas,
@@ -60,196 +67,64 @@ export const PersonaList = ({
   onEdit,
   onSelect,
   isDeploying,
-}: PersonaListProps) => {
+}: {
+  personas: Persona[];
+  onDeploy: (id: string) => void;
+  onDelete: (id: string) => void;
+  onEdit: (persona: Persona) => void;
+  onSelect: (persona: Persona) => void;
+  isDeploying: boolean;
+}) => {
   const [selectedVideoPersona, setSelectedVideoPersona] = useState<Persona | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState(0);
   const [localPersonas, setLocalPersonas] = useState<Persona[]>(initialPersonas);
   const { toast } = useToast();
 
-  // Use React Query to fetch personas
-  const { data: fetchedPersonas, isLoading } = useQuery({
-    queryKey: ['personas'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        toast({
-          title: "Error fetching personas",
-          description: error.message,
-          variant: "destructive",
-        });
-        throw error;
-      }
-      return data as Persona[];
-    },
-  });
+  // Update local personas when initialPersonas changes
+  useEffect(() => {
+    setLocalPersonas(initialPersonas);
+  }, [initialPersonas]);
 
   const handleDelete = async (personaId: string) => {
     try {
       setIsDeleting(true);
       setDeleteProgress(10);
-      console.log('Deleting persona:', personaId);
+      console.log('Starting deletion process for persona:', personaId);
 
-      // Get all training materials to delete from storage
-      const { data: trainingMaterials } = await supabase
-        .from('persona_training_materials')
-        .select('file_path')
-        .eq('persona_id', personaId);
+      // Remove from local state immediately for better UX
+      setLocalPersonas(prevPersonas => {
+        console.log('Removing persona from local state:', personaId);
+        return prevPersonas.filter(p => p.id !== personaId);
+      });
 
-      setDeleteProgress(20);
+      // Trigger the background deletion process
+      const { data, error } = await supabase.functions.invoke('delete-persona', {
+        body: { personaId }
+      });
 
-      // Delete training materials from storage
-      if (trainingMaterials?.length) {
-        const { error: storageError } = await supabase.storage
-          .from('training_materials')
-          .remove(trainingMaterials.map(tm => tm.file_path));
+      console.log('Delete function response:', { data, error });
 
-        if (storageError) {
-          console.error('Error deleting training materials from storage:', storageError);
-          throw storageError;
-        }
-      }
-
-      setDeleteProgress(30);
-
-      // Get training videos to delete from storage
-      const { data: trainingVideos } = await supabase
-        .from('training_videos')
-        .select('video_url, consent_url')
-        .eq('persona_id', personaId);
-
-      setDeleteProgress(40);
-
-      // Delete training videos from storage
-      if (trainingVideos?.length) {
-        const videoUrls = trainingVideos.flatMap(tv => [tv.video_url, tv.consent_url].filter(Boolean));
-        const { error: videoStorageError } = await supabase.storage
-          .from('training_videos')
-          .remove(videoUrls);
-
-        if (videoStorageError) {
-          console.error('Error deleting training videos from storage:', videoStorageError);
-          throw videoStorageError;
-        }
-      }
-
-      setDeleteProgress(50);
-
-      // Get profile picture URL to delete from storage
-      const { data: persona } = await supabase
-        .from('personas')
-        .select('profile_picture_url, avatar_url')
-        .eq('id', personaId)
-        .single();
-
-      setDeleteProgress(60);
-
-      // Delete profile pictures from storage if they exist
-      if (persona?.profile_picture_url) {
-        const { error: profilePicError } = await supabase.storage
-          .from('persona_profiles')
-          .remove([persona.profile_picture_url]);
-
-        if (profilePicError) {
-          console.error('Error deleting profile picture:', profilePicError);
-          throw profilePicError;
-        }
-      }
-
-      if (persona?.avatar_url) {
-        const { error: avatarError } = await supabase.storage
-          .from('persona_assets')
-          .remove([persona.avatar_url]);
-
-        if (avatarError) {
-          console.error('Error deleting avatar:', avatarError);
-          throw avatarError;
-        }
-      }
-
-      setDeleteProgress(70);
-
-      // Delete all related database records
-      const { error: trainingError } = await supabase
-        .from('persona_training_materials')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (trainingError) {
-        console.error('Error deleting training materials:', trainingError);
-        throw trainingError;
-      }
-
-      setDeleteProgress(75);
-
-      const { error: videosError } = await supabase
-        .from('training_videos')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (videosError) {
-        console.error('Error deleting training videos:', videosError);
-        throw videosError;
-      }
-
-      setDeleteProgress(80);
-
-      const { error: emotionError } = await supabase
-        .from('emotion_analysis')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (emotionError) {
-        console.error('Error deleting emotion analysis:', emotionError);
-        throw emotionError;
-      }
-
-      setDeleteProgress(85);
-
-      const { error: apiKeyError } = await supabase
-        .from('api_keys')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (apiKeyError) {
-        console.error('Error deleting API keys:', apiKeyError);
-        throw apiKeyError;
-      }
-
-      setDeleteProgress(90);
-
-      const { error: appearanceError } = await supabase
-        .from('persona_appearances')
-        .delete()
-        .eq('persona_id', personaId);
-
-      if (appearanceError) {
-        console.error('Error deleting persona appearances:', appearanceError);
-        throw appearanceError;
-      }
-
-      setDeleteProgress(95);
-
-      // Finally delete the persona
-      const { error: personaError } = await supabase
-        .from('personas')
-        .delete()
-        .eq('id', personaId);
-
-      if (personaError) {
-        console.error('Error deleting persona:', personaError);
-        throw personaError;
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || 'Failed to delete persona');
       }
 
       setDeleteProgress(100);
 
-      // Update local state to remove the deleted persona
-      setLocalPersonas(prevPersonas => prevPersonas.filter(p => p.id !== personaId));
-      
+      // Double-check deletion was successful
+      const { data: verifyPersona } = await supabase
+        .from('personas')
+        .select('id')
+        .eq('id', personaId)
+        .single();
+
+      if (verifyPersona) {
+        console.error('Persona still exists after deletion:', verifyPersona);
+        throw new Error('Persona still exists after deletion');
+      }
+
+      console.log('Persona deletion completed successfully');
+
       // Call the onDelete prop to update parent state
       onDelete(personaId);
 
@@ -257,8 +132,21 @@ export const PersonaList = ({
         title: "Success",
         description: "Persona and all associated data deleted successfully",
       });
+
     } catch (error: any) {
       console.error('Delete persona error:', error);
+      
+      // Refresh the local state to match the database
+      const { data: refreshedPersonas } = await supabase
+        .from('personas')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (refreshedPersonas) {
+        console.log('Refreshing local state with database data');
+        setLocalPersonas(refreshedPersonas);
+      }
+
       toast({
         title: "Error",
         description: error.message || "Failed to delete persona",
@@ -270,190 +158,257 @@ export const PersonaList = ({
     }
   };
 
-  // Use localPersonas instead of fetched personas for rendering
-  const allPersonas = localPersonas;
-  const createdPersonas = allPersonas.filter(p => p.status === 'ready');
-  const deployedPersonas = allPersonas.filter(p => p.status === 'deployed');
+  const allVoices = Object.values(VOICE_MAPPINGS).flatMap(
+    language => [...language.male, ...language.female]
+  ).map(voice => voice.replace('Neural', ''));
 
-  if (isLoading) {
-    return <div>Loading personas...</div>;
-  }
+  const createdPersonas = localPersonas.filter(p => p.status === 'ready');
+  const deployedPersonas = localPersonas.filter(p => p.status === 'deployed');
+
+  const handleVideoCall = (personaId: string) => {
+    navigate(`/video-call/${personaId}`);
+  };
 
   return (
-    <div className="space-y-6">
-      {selectedVideoPersona && (
-        <VideoCallInterface
-          persona={selectedVideoPersona}
-          onSpeakingChange={(speaking: boolean) => {
-            console.log('Speaking state changed:', speaking);
-          }}
-          onCallStateChange={(isActive) => {
-            if (!isActive) {
-              setSelectedVideoPersona(null);
-            }
-          }}
-        />
-      )}
+    <div className="space-y-8">
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowAllPersonas(!showAllPersonas)}
+          className="bg-gray-700 hover:bg-gray-600"
+        >
+          <List className="h-4 w-4 mr-2" />
+          {showAllPersonas ? "Show Created Only" : "Show All Personas"}
+        </Button>
+      </div>
 
-      {createdPersonas.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-white">Created Personas</h2>
-          <div className="grid gap-4">
-            {createdPersonas.map((persona) => (
-              <Card key={persona.id} className="bg-white/5 border-0">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-medium text-white">{persona.name}</h3>
-                      <p className="text-sm text-gray-400">{persona.description}</p>
-                    </div>
-                    <div className="flex gap-2">
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <CheckCircle2 className="h-5 w-5 text-green-500 cursor-pointer" />
+          <h2 className="text-xl font-semibold text-white">
+            {showAllPersonas ? "All Personas" : "Created Personas"}
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {createdPersonas.map((persona) => (
+            <Card key={persona.id} className="bg-gray-800 border-gray-700">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-white">{persona.name}</CardTitle>
+                  <Badge variant="outline" className="bg-gray-700/50 text-gray-300">
+                    ID: {persona.id}
+                  </Badge>
+                </div>
+                <CardDescription className="text-gray-400">
+                  {persona.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500"
+                    onClick={() => handleVideoCall(persona.id)}
+                  >
+                    <Video className="h-4 w-4 mr-2" />
+                    Video Call
+                  </Button>
+                  <Dialog open={isEditing && editingPersona?.id === persona.id} onOpenChange={(open) => {
+                    setIsEditing(open);
+                    if (!open) setEditingPersona(null);
+                  }}>
+                    <DialogTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onEdit(persona)}
-                        className="text-purple-400 border-purple-400/30"
+                        className="bg-gray-700 hover:bg-gray-600"
+                        onClick={() => setEditingPersona(persona)}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-gray-800 text-white">
+                      <DialogHeader>
+                        <DialogTitle>Edit Persona</DialogTitle>
+                        <DialogDescription>
+                          Make changes to your persona here.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 mt-4">
+                        <Input
+                          value={editingPersona?.name || ''}
+                          onChange={(e) => setEditingPersona(prev => prev ? {...prev, name: e.target.value} : null)}
+                          placeholder="Name"
+                          className="bg-gray-700 border-gray-600"
+                        />
+                        <Textarea
+                          value={editingPersona?.description || ''}
+                          onChange={(e) => setEditingPersona(prev => prev ? {...prev, description: e.target.value} : null)}
+                          placeholder="Description"
+                          className="bg-gray-700 border-gray-600"
+                        />
+                        <Select 
+                          value={editingPersona?.voice_style} 
+                          onValueChange={(value) => setEditingPersona(prev => prev ? {...prev, voice_style: value} : null)}
+                        >
+                          <SelectTrigger className="bg-gray-700 border-gray-600">
+                            <SelectValue placeholder="Select voice style" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allVoices.map((voice) => (
+                              <SelectItem key={voice} value={voice}>
+                                {voice}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button onClick={handleEdit} className="w-full">
+                          Save Changes
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onDeploy(persona.id)}
-                        disabled={isDeploying}
-                        className="text-green-400 border-green-400/30"
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                        disabled={isDeleting}
                       >
-                        <PlayCircle className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onSelect(persona)}
-                        className="text-blue-400 border-blue-400/30"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedVideoPersona(persona)}
-                        className="text-indigo-400 border-indigo-400/30"
-                      >
-                        <Video className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-400 border-red-400/30"
-                            disabled={isDeleting}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-gray-800 text-white">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete the persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          {isDeleting && deleteProgress > 0 && (
-                            <div className="space-y-2 my-4">
-                              <Progress value={deleteProgress} className="w-full" />
-                              <p className="text-sm text-center text-gray-400">
-                                Deleting persona... {deleteProgress}%
-                              </p>
-                            </div>
-                          )}
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-red-500 hover:bg-red-600"
-                              onClick={() => handleDelete(persona.id)}
-                            >
-                              {isDeleting ? "Deleting..." : "Delete"}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-gray-800 text-white">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-500 hover:bg-red-600"
+                          onClick={() => handleDelete(persona.id)}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  
+                  {persona.status === 'ready' && (
+                    <Button
+                      onClick={() => handleDeploy(persona)}
+                      disabled={isDeploying}
+                      size="sm"
+                      className="ml-auto bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isDeploying ? (
+                        <ServerIcon className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <>
+                          <ServerIcon className="h-4 w-4 mr-2" />
+                          Deploy
+                        </>
+                      )}
+                    </Button>
+                  )}
 
-      {deployedPersonas.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-white">Deployed Personas</h2>
-          <div className="grid gap-4">
+                  {persona.status === 'deployed' && (
+                    <Button
+                      onClick={() => handleRedeploy(persona)}
+                      disabled={isDeploying}
+                      size="sm"
+                      className="ml-auto bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isDeploying ? (
+                        <RefreshCw className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Redeploy
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {!showAllPersonas && deployedPersonas.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <PlayCircle className="h-5 w-5 text-blue-500" />
+            <h2 className="text-xl font-semibold text-white">Deployed Personas</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {deployedPersonas.map((persona) => (
-              <Card key={persona.id} className="bg-white/5 border-0">
-                <CardContent className="p-4">
+              <Card key={persona.id} className="bg-gray-800 border-gray-700">
+                <CardHeader>
                   <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-medium text-white">{persona.name}</h3>
-                      <p className="text-sm text-gray-400">{persona.description}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedVideoPersona(persona)}
-                        className="text-indigo-400 border-indigo-400/30"
-                      >
-                        <Video className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onSelect(persona)}
-                        className="text-blue-400 border-blue-400/30"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-400 border-red-400/30"
-                            disabled={isDeleting}
+                    <CardTitle className="text-white">{persona.name}</CardTitle>
+                    <Badge variant="outline" className="bg-gray-700/50 text-gray-300">
+                      ID: {persona.id}
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-gray-300">
+                    {persona.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-end gap-2">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-gray-800 text-white">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the deployed persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-500 hover:bg-red-600"
+                            onClick={() => handleDelete(persona.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-gray-800 text-white">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete the deployed persona and all associated data including training materials, videos, and API keys. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          {isDeleting && deleteProgress > 0 && (
-                            <div className="space-y-2 my-4">
-                              <Progress value={deleteProgress} className="w-full" />
-                              <p className="text-sm text-center text-gray-400">
-                                Deleting persona... {deleteProgress}%
-                              </p>
-                            </div>
-                          )}
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="bg-gray-700 hover:bg-gray-600">Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-red-500 hover:bg-red-600"
-                              onClick={() => handleDelete(persona.id)}
-                            >
-                              {isDeleting ? "Deleting..." : "Delete"}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                            {isDeleting ? "Deleting..." : "Delete"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <Button
+                      onClick={() => handleRedeploy(persona)}
+                      disabled={isDeploying}
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isDeploying ? (
+                        <RefreshCw className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Redeploy
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
