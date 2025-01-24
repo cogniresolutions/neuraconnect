@@ -98,8 +98,6 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
     
     try {
       setIsInitializing(true);
-      await cleanup();
-
       console.log('Starting new video call session...');
       
       const { data: { user } } = await supabase.auth.getUser();
@@ -148,35 +146,24 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       setStream(mediaStream);
+      setIsCallActive(true);
+      onCallStateChange?.(true);
       
       if (localVideoRef.current) {
         console.log('Connecting stream to local video element');
         localVideoRef.current.srcObject = mediaStream;
         
-        // Explicitly play the video with error handling
         try {
-          const playPromise = localVideoRef.current.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(error => {
-              console.error('Error playing video:', error);
-              toast({
-                title: "Video Playback Error",
-                description: "Failed to start video playback. Please try again.",
-                variant: "destructive",
-              });
-            });
-          }
+          await localVideoRef.current.play();
+          console.log('Local video playback started successfully');
         } catch (error) {
-          console.error('Error starting video playback:', error);
+          console.error('Error playing local video:', error);
           throw new Error('Failed to start video playback');
         }
       } else {
         console.error('Local video reference not found');
         throw new Error('Video element not initialized');
       }
-
-      setIsCallActive(true);
-      onCallStateChange?.(true);
       
       toast({
         title: "Call Connected",
@@ -220,7 +207,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="w-full max-w-6xl p-4 space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <LocalVideo
