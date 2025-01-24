@@ -44,22 +44,24 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
           recognition.lang = language;
 
           recognition.onresult = async (event: SpeechRecognitionEvent) => {
-            const last = event.results.length - 1;
-            const text = event.results[last][0].transcript;
-            
-            // Translate text if not in English
-            if (language !== 'en') {
-              const { data: translatedData, error } = await supabase.functions.invoke('azure-translate', {
-                body: { text, targetLanguage: 'en' }
-              });
+            if (event.results && typeof event.results.length === 'number' && event.results.length > 0) {
+              const last = event.results.length - 1;
+              const text = event.results[last][0].transcript;
               
-              if (!error && translatedData) {
-                onSpeechDetected(translatedData.translatedText);
+              // Translate text if not in English
+              if (language !== 'en') {
+                const { data: translatedData, error } = await supabase.functions.invoke('azure-translate', {
+                  body: { text, targetLanguage: 'en' }
+                });
+                
+                if (!error && translatedData) {
+                  onSpeechDetected(translatedData.translatedText);
+                } else {
+                  onSpeechDetected(text);
+                }
               } else {
                 onSpeechDetected(text);
               }
-            } else {
-              onSpeechDetected(text);
             }
           };
 
