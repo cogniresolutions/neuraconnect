@@ -44,21 +44,22 @@ serve(async (req) => {
 
     // Step 3: Check available voices
     console.log('Fetching available voices...');
-    const voicesResponse = await fetch(
-      `${baseEndpoint}/cognitiveservices/voices/list`,
-      {
-        headers: {
-          'Ocp-Apim-Subscription-Key': azureSpeechKey,
-        },
-      }
-    );
+    const voicesUrl = `${baseEndpoint}/cognitiveservices/voices/list`;
+    console.log('Voices URL:', voicesUrl);
+    
+    const voicesResponse = await fetch(voicesUrl, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': azureSpeechKey,
+      },
+    });
 
     if (!voicesResponse.ok) {
       const errorText = await voicesResponse.text();
       console.error('Error fetching voices:', {
         status: voicesResponse.status,
         statusText: voicesResponse.statusText,
-        error: errorText
+        error: errorText,
+        endpoint: voicesUrl
       });
       throw new Error(`Failed to fetch voices: ${voicesResponse.status} - ${errorText}`);
     }
@@ -67,7 +68,7 @@ serve(async (req) => {
     console.log('Available voices count:', voices.length);
 
     // Format the voice name to match Azure's format
-    const formattedVoice = `${voice}Neural`;
+    const formattedVoice = voice.endsWith('Neural') ? voice : `${voice}Neural`;
     console.log('Formatted voice name:', formattedVoice);
 
     // Verify the requested voice exists
