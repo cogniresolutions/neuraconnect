@@ -21,7 +21,7 @@ serve(async (req) => {
     console.log('Checking Azure Speech credentials:', {
       hasKey: !!azureSpeechKey,
       hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint // Log the endpoint for verification
+      endpoint: azureSpeechEndpoint
     });
 
     if (!azureSpeechKey || !azureSpeechEndpoint) {
@@ -35,14 +35,12 @@ serve(async (req) => {
     if (!text || !voice) {
       throw new Error('Missing required parameters: text or voice');
     }
-    
+
     console.log('Request data:', { text, voice });
 
-    // Extract region from endpoint URL
-    const region = azureSpeechEndpoint.match(/https:\/\/([^.]+)\./)?.[1];
-    if (!region) {
-      throw new Error('Invalid Azure Speech endpoint format');
-    }
+    // Format the voice name correctly for Azure
+    const formattedVoice = voice.includes('Neural') ? voice : `${voice}Neural`;
+    console.log('Formatted voice name:', formattedVoice);
 
     const ttsEndpoint = `${azureSpeechEndpoint}/cognitiveservices/v1`;
     console.log('Using TTS endpoint:', ttsEndpoint);
@@ -57,7 +55,7 @@ serve(async (req) => {
 
     const ssml = `
       <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='${voice}'>
+        <voice name='${formattedVoice}'>
           ${escapedText}
         </voice>
       </speak>
@@ -84,7 +82,10 @@ serve(async (req) => {
       console.error('TTS error:', {
         status: ttsResponse.status,
         statusText: ttsResponse.statusText,
-        error: errorText
+        error: errorText,
+        endpoint: ttsEndpoint,
+        formattedVoice,
+        ssml
       });
       throw new Error(`Text-to-speech synthesis failed: ${ttsResponse.status} - ${errorText}`);
     }
@@ -101,7 +102,7 @@ serve(async (req) => {
         success: true,
         audioContent: base64Audio,
         metadata: {
-          voice,
+          voice: formattedVoice,
           endpoint: ttsEndpoint,
           timestamp: new Date().toISOString()
         }
@@ -117,7 +118,11 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        details: {
+          name: error.name,
+          stack: error.stack
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
