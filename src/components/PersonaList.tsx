@@ -111,7 +111,7 @@ export const PersonaList = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, []);
 
   const handleDelete = async (personaId: string) => {
     setIsDeleting(true);
@@ -254,16 +254,16 @@ export const PersonaList = () => {
     }
   };
 
+  const handleVideoCall = (personaId: string) => {
+    navigate(`/video-call/${personaId}`);
+  };
+
   const allVoices = Object.values(VOICE_MAPPINGS).flatMap(
     language => [...language.male, ...language.female]
   ).map(voice => voice.replace('Neural', ''));
 
   const createdPersonas = personas.filter(p => p.status === 'ready');
   const deployedPersonas = personas.filter(p => p.status === 'deployed');
-
-  const handleVideoCall = (personaId: string) => {
-    navigate(`/video-call/${personaId}`);
-  };
 
   return (
     <div className="space-y-8">
@@ -301,15 +301,6 @@ export const PersonaList = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500"
-                    onClick={() => handleVideoCall(persona.id)}
-                  >
-                    <Video className="h-4 w-4 mr-2" />
-                    Video Call
-                  </Button>
                   <Dialog open={isEditing && editingPersona?.id === persona.id} onOpenChange={(open) => {
                     setIsEditing(open);
                     if (!open) setEditingPersona(null);
@@ -415,21 +406,32 @@ export const PersonaList = () => {
                   )}
 
                   {persona.status === 'deployed' && (
-                    <Button
-                      onClick={() => handleRedeploy(persona)}
-                      disabled={isDeploying}
-                      size="sm"
-                      className="ml-auto bg-purple-600 hover:bg-purple-700"
-                    >
-                      {isDeploying ? (
-                        <RefreshCw className="h-4 w-4 animate-pulse" />
-                      ) : (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Redeploy
-                        </>
-                      )}
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500"
+                        onClick={() => handleVideoCall(persona.id)}
+                      >
+                        <Video className="h-4 w-4 mr-2" />
+                        Video Call
+                      </Button>
+                      <Button
+                        onClick={() => handleRedeploy(persona)}
+                        disabled={isDeploying}
+                        size="sm"
+                        className="ml-auto bg-purple-600 hover:bg-purple-700"
+                      >
+                        {isDeploying ? (
+                          <RefreshCw className="h-4 w-4 animate-pulse" />
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Redeploy
+                          </>
+                        )}
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardContent>
@@ -460,6 +462,15 @@ export const PersonaList = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-500"
+                      onClick={() => handleVideoCall(persona.id)}
+                    >
+                      <Video className="h-4 w-4 mr-2" />
+                      Video Call
+                    </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
