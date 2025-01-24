@@ -3,11 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface VideoAnalysisProps {
   onSpeechDetected: (text: string) => void;
+  onAnalysisComplete?: (analysis: any) => void;
+  personaId?: string;
   language?: string;
 }
 
 export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({
   onSpeechDetected,
+  onAnalysisComplete,
+  personaId,
   language = 'en'
 }) => {
   const [isListening, setIsListening] = useState(false);
