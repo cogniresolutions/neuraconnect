@@ -107,8 +107,16 @@ serve(async (req) => {
         throw new Error('Speech credentials not configured');
       }
 
-      // Use the voices/list endpoint for testing as it's more reliable
-      const speechResponse = await fetch(`${speechEndpoint}/cognitiveservices/voices/list`, {
+      // Validate Speech Services endpoint format
+      if (!speechEndpoint.includes('tts.speech.microsoft.com')) {
+        throw new Error('Invalid Speech Services endpoint. The endpoint should be in the format: https://{region}.tts.speech.microsoft.com/');
+      }
+
+      // Use the voices/list endpoint for testing
+      const voicesEndpoint = `${speechEndpoint}cognitiveservices/voices/list`;
+      console.log('Testing Speech Services endpoint:', voicesEndpoint);
+      
+      const speechResponse = await fetch(voicesEndpoint, {
         headers: {
           'Ocp-Apim-Subscription-Key': speechKey,
         }
@@ -123,7 +131,7 @@ serve(async (req) => {
         JSON.parse(speechResponseText);
       } catch (e) {
         console.error('Failed to parse Speech Services response:', e);
-        throw new Error('Invalid response from Speech Services');
+        throw new Error('Invalid response from Speech Services. Please verify the endpoint is correct: https://{region}.tts.speech.microsoft.com/');
       }
 
       results.push({
