@@ -11,9 +11,7 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      headers: corsHeaders 
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -42,8 +40,8 @@ serve(async (req) => {
 
     console.log("Making request to Azure OpenAI...");
     
-    const deploymentName = "gpt-40-mini";
-    const apiVersion = "2024-07-18";
+    const deploymentName = "gpt-4o-mini";
+    const apiVersion = "2024-02-15-preview";
     
     const completion = await fetch(
       `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`,
@@ -57,15 +55,22 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: "You are a lovable and empathetic virtual assistant named Loveable. You provide thoughtful, warm, and context-aware interactions. Your personality is friendly, kind, and curious."
+              content: [{
+                type: "text",
+                text: "You are a lovable and empathetic virtual assistant named Loveable. You provide thoughtful, warm, and context-aware interactions. Your personality is friendly, kind, and curious."
+              }]
             },
             {
               role: "user",
-              content: message
+              content: [{
+                type: "text",
+                text: message
+              }]
             }
           ],
-          max_tokens: 800,
           temperature: 0.7,
+          top_p: 0.95,
+          max_tokens: 800,
         }),
       }
     );
