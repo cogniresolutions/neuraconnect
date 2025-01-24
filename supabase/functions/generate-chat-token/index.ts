@@ -68,34 +68,39 @@ serve(async (req) => {
     // Encode the token payload
     const token = base64Encode(JSON.stringify(tokenPayload));
 
-    // Store session information
-    const { error: sessionError } = await supabase
-      .from('chat_sessions')
-      .insert({
-        id: sessionId,
-        persona_id: personaId,
-        token: token,
-        status: 'active',
-        config: tokenPayload.config
-      });
+    try {
+      // Store session information
+      const { error: sessionError } = await supabase
+        .from('chat_sessions')
+        .insert({
+          id: sessionId,
+          persona_id: personaId,
+          token: token,
+          status: 'active',
+          config: tokenPayload.config
+        });
 
-    if (sessionError) {
-      console.error('Failed to create chat session:', sessionError);
-      throw new Error(`Failed to create chat session: ${sessionError.message}`);
-    }
-
-    // Return both the token and the endpoint
-    return new Response(
-      JSON.stringify({ 
-        token,
-        endpoint: endpoint.replace(/\/$/, ''), // Remove trailing slash if present
-        session_id: sessionId
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
+      if (sessionError) {
+        console.error('Failed to create chat session:', sessionError);
+        throw new Error(`Failed to create chat session: ${sessionError.message}`);
       }
-    );
+
+      // Return both the token and the endpoint
+      return new Response(
+        JSON.stringify({ 
+          token,
+          endpoint: endpoint.replace(/\/$/, ''), // Remove trailing slash if present
+          session_id: sessionId
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    } catch (sessionCreationError) {
+      console.error('Error creating chat session:', sessionCreationError);
+      throw new Error(`Failed to create chat session: ${sessionCreationError instanceof Error ? sessionCreationError.message : 'Unknown error'}`);
+    }
   } catch (error) {
     console.error('Error generating chat token:', error);
     return new Response(
