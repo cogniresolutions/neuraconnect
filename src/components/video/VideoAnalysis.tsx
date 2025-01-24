@@ -6,7 +6,7 @@ import { captureVideoFrame } from '@/utils/videoCapture';
 // Add type definition for WebkitSpeechRecognition
 declare global {
   interface Window {
-    webkitSpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: any;
   }
 }
 

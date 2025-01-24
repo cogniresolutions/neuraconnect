@@ -18,14 +18,17 @@ serve(async (req) => {
     }
 
     const key = Deno.env.get('AZURE_TRANSLATOR_KEY');
-    const endpoint = Deno.env.get('AZURE_TRANSLATOR_ENDPOINT');
     const location = Deno.env.get('AZURE_TRANSLATOR_LOCATION');
 
-    if (!key || !endpoint || !location) {
+    if (!key || !location) {
       throw new Error('Azure Translator credentials not configured');
     }
 
+    // Use the Text Translation endpoint
+    const endpoint = "https://api.cognitive.microsofttranslator.com";
     const url = `${endpoint}/translate?api-version=3.0&to=${targetLanguage}`;
+
+    console.log('Sending translation request to:', url);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -38,11 +41,14 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      console.error('Translation API error:', response.statusText);
       throw new Error(`Translation failed: ${response.statusText}`);
     }
 
     const data = await response.json();
     const translatedText = data[0]?.translations[0]?.text;
+
+    console.log('Translation successful:', { originalText: text, translatedText });
 
     return new Response(
       JSON.stringify({ translatedText }),
