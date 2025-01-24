@@ -42,7 +42,12 @@ serve(async (req) => {
     const formattedVoice = voice.includes('Neural') ? voice : `${voice}Neural`;
     console.log('Formatted voice name:', formattedVoice);
 
-    const ttsEndpoint = `${azureSpeechEndpoint}/cognitiveservices/v1`;
+    // Ensure the endpoint is properly formatted
+    const baseEndpoint = azureSpeechEndpoint.endsWith('/') 
+      ? azureSpeechEndpoint.slice(0, -1) 
+      : azureSpeechEndpoint;
+    
+    const ttsEndpoint = `${baseEndpoint}/cognitiveservices/v1/tts/synthesize`;
     console.log('Using TTS endpoint:', ttsEndpoint);
 
     // Prepare SSML with proper XML escaping
