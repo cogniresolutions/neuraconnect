@@ -100,14 +100,15 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
           }
           
           if (!audioContextRef.current) {
-            audioContextRef.current = new AudioContext();
+            await initializeAudioContext();
           }
           
-          const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+          const audioBuffer = await audioContextRef.current!.decodeAudioData(arrayBuffer);
           audioQueueRef.current.push(audioBuffer);
-          playNextAudio();
+          await playNextAudio();
         } catch (error) {
-          console.error('Error playing audio:', error);
+          console.error('Error processing audio:', error);
+          handleAPIError(error, 'Audio processing');
         }
       }
     } else if (event.type === 'response.audio.done') {
@@ -127,9 +128,6 @@ const AIVideoInterface: React.FC<AIVideoInterfaceProps> = ({ persona, onSpeaking
           event.content = data.translatedText;
         }
       }
-    } else if (event.type === 'error') {
-      console.error('WebSocket error:', event.error);
-      handleAPIError(event.error, 'WebSocket connection');
     }
   };
 
