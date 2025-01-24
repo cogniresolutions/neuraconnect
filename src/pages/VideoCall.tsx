@@ -13,13 +13,14 @@ const VideoCall = () => {
   const { toast } = useToast();
   const [persona, setPersona] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreatingPersona, setIsCreatingPersona] = useState(false);
 
   useEffect(() => {
     const loadPersona = async () => {
       try {
         setIsLoading(true);
         console.log('Loading persona with ID:', personaId);
+        
+        const startTime = performance.now();
         
         if (personaId) {
           const { data: existingPersona, error } = await supabase
@@ -28,14 +29,34 @@ const VideoCall = () => {
             .eq('id', personaId)
             .single();
 
+          const endTime = performance.now();
+          const responseTime = Math.round(endTime - startTime);
+
           if (!error && existingPersona) {
             console.log('Loaded persona:', existingPersona);
             setPersona(existingPersona);
+            
+            // Log successful load
+            await supabase.from('api_monitoring').insert({
+              endpoint: 'load-persona',
+              status: 'success',
+              response_time: responseTime,
+            });
+            
             return;
           }
           
           if (error) {
             console.error('Error loading persona:', error);
+            
+            // Log error
+            await supabase.from('api_monitoring').insert({
+              endpoint: 'load-persona',
+              status: 'error',
+              error_message: error.message,
+              response_time: responseTime,
+            });
+            
             toast({
               title: "Error",
               description: "Failed to load persona details",
@@ -48,6 +69,14 @@ const VideoCall = () => {
         
       } catch (error: any) {
         console.error('Error loading persona:', error);
+        
+        // Log error
+        await supabase.from('api_monitoring').insert({
+          endpoint: 'load-persona',
+          status: 'error',
+          error_message: error.message,
+        });
+        
         toast({
           title: "Error",
           description: error.message,

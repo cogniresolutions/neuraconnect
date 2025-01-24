@@ -7,19 +7,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,25 +21,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  CheckCircle2,
-  PlayCircle,
-  Edit2,
-  Trash2,
-  ServerIcon,
-  List,
-  RefreshCw,
   Video,
   Loader2,
   Upload,
+  Trash2,
+  Edit2,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { VOICE_MAPPINGS } from "@/constants/voices";
 
 type Persona = {
   id: string;
@@ -91,8 +67,48 @@ export const PersonaList = ({
     setLocalPersonas(personas);
   }, [personas]);
 
-  const handleStartVideoCall = (personaId: string) => {
-    navigate(`/video-call/${personaId}`);
+  const handleStartVideoCall = async (personaId: string) => {
+    try {
+      const startTime = performance.now();
+      
+      // Create a new video call session
+      const { data: session, error: sessionError } = await supabase.functions.invoke('video-call', {
+        body: { 
+          action: 'start',
+          personaId,
+          userId: (await supabase.auth.getUser()).data.user?.id
+        }
+      });
+
+      if (sessionError) throw sessionError;
+
+      const endTime = performance.now();
+      const responseTime = Math.round(endTime - startTime);
+
+      // Log successful session creation
+      await supabase.from('api_monitoring').insert({
+        endpoint: 'video-call',
+        status: 'success',
+        response_time: responseTime,
+      });
+
+      navigate(`/video-call/${personaId}`);
+    } catch (error: any) {
+      console.error('Error starting video call:', error);
+      
+      // Log error
+      await supabase.from('api_monitoring').insert({
+        endpoint: 'video-call',
+        status: 'error',
+        error_message: error.message,
+      });
+
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to start video call. Please try again.",
+      });
+    }
   };
 
   const handleEdit = (persona: Persona) => {
