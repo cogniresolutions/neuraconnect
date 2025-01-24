@@ -175,6 +175,13 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         videoElement.src = persona.video_url;
         videoElement.autoplay = true;
         videoElement.muted = true;
+        videoElement.play().catch(console.error);
+        
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+          videoElement.oncanplay = resolve;
+        });
+        
         const videoTrack = videoElement.captureStream().getVideoTracks()[0];
         personaVideoStream.addTrack(videoTrack);
       }
@@ -183,7 +190,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = personaVideoStream;
-        await remoteVideoRef.current.play();
+        await remoteVideoRef.current.play().catch(console.error);
         console.log('Persona video stream connected successfully');
       }
     } catch (error) {
