@@ -5,19 +5,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-console.log('Azure Voice Test Function loaded');
-
 // Map of language codes to their corresponding voice models based on Azure's documentation
-const languageVoiceMap: Record<string, string[]> = {
-  'en-US': ['JennyMultilingualV2', 'JennyNeural', 'GuyNeural', 'AriaNeural', 'DavisNeural'],
-  'en-GB': ['SoniaNeural', 'RyanNeural', 'LibbyNeural', 'AbbiNeural', 'AlfieNeural', 'BellaNeural', 'ElliotNeural', 'EthanNeural', 'HollieNeural', 'MaisieNeural', 'NoahNeural', 'OliverNeural', 'ThomasNeural'],
-  'es-ES': ['ElviraNeural', 'AlvaroNeural', 'AbrilNeural', 'ArnauNeural', 'DarioNeural', 'EliasNeural', 'EstrellaNeural', 'IreneNeural', 'LaiaNeural', 'LiaNeural', 'NilNeural', 'SaulNeural', 'TeoNeural', 'TrianaNeural', 'VeronicaNeural'],
-  'fr-FR': ['DeniseNeural', 'HenriNeural', 'AlainNeural', 'BrigitteNeural', 'CelesteNeural', 'ClaudeNeural', 'CoralieNeural', 'EloiseNeural', 'JacquelineNeural', 'JeromeNeural', 'JosephineNeural', 'MauriceNeural', 'YvesNeural', 'YvetteNeural'],
-  'de-DE': ['KatjaNeural', 'ConradNeural', 'AmalaNeural', 'BerndNeural', 'ChristophNeural', 'ElkeNeural', 'GiselaNeural', 'KasperNeural', 'KillianNeural', 'KlarissaNeural', 'KlausNeural', 'LouisaNeural', 'MajaNeural', 'RalfNeural', 'TanjaNeural'],
-  'it-IT': ['ElsaNeural', 'IsabellaNeural', 'DiegoNeural', 'BenignoNeural', 'CalimeroNeural', 'CataldoNeural', 'FabiolaNeural', 'FiammaNeural', 'GianniNeural', 'LisandroNeural', 'PalmiraNeural', 'PierinaNeural', 'RinaldoNeural'],
-  'ja-JP': ['NanamiNeural', 'KeitaNeural', 'AoiNeural', 'DaichiNeural', 'MayuNeural', 'NaokiNeural', 'ShioriNeural', 'AkihiroNeural', 'AoiNeural', 'DaichiNeural', 'MayuNeural', 'NaokiNeural', 'ShioriNeural'],
-  'ko-KR': ['SunHiNeural', 'InJoonNeural', 'BongJinNeural', 'GookMinNeural', 'JiMinNeural', 'SeoHyeonNeural', 'SoonBokNeural', 'YuJinNeural'],
-  'zh-CN': ['XiaoxiaoNeural', 'YunxiNeural', 'YunjianNeural', 'XiaoyiNeural', 'YunyangNeural', 'XiaochenNeural', 'XiaohanNeural', 'XiaomoNeural', 'XiaoqiuNeural', 'XiaoruiNeural', 'XiaoshuangNeural', 'XiaoxuanNeural', 'XiaoyanNeural', 'XiaoyouNeural', 'YunfengNeural', 'YunhaoNeural', 'YunxiaNeural', 'YunzeNeural']
+const languageVoiceMap: Record<string, { male: string[], female: string[] }> = {
+  'en-US': {
+    male: ['GuyNeural', 'DavisNeural', 'TonyNeural'],
+    female: ['JennyNeural', 'AriaNeural', 'NancyNeural']
+  },
+  'en-GB': {
+    male: ['RyanNeural', 'AlfieNeural', 'ElliotNeural', 'EthanNeural', 'NoahNeural', 'OliverNeural', 'ThomasNeural'],
+    female: ['SoniaNeural', 'LibbyNeural', 'AbbiNeural', 'BellaNeural', 'HollieNeural', 'MaisieNeural']
+  },
+  'es-ES': {
+    male: ['AlvaroNeural', 'ArnauNeural', 'DarioNeural', 'EliasNeural', 'NilNeural', 'SaulNeural', 'TeoNeural'],
+    female: ['ElviraNeural', 'AbrilNeural', 'EstrellaNeural', 'IreneNeural', 'LaiaNeural', 'LiaNeural', 'TrianaNeural', 'VeronicaNeural']
+  },
+  'fr-FR': {
+    male: ['HenriNeural', 'AlainNeural', 'ClaudeNeural', 'JeromeNeural', 'MauriceNeural', 'YvesNeural'],
+    female: ['DeniseNeural', 'BrigitteNeural', 'CelesteNeural', 'CoralieNeural', 'EloiseNeural', 'JacquelineNeural', 'JosephineNeural', 'YvetteNeural']
+  },
+  'de-DE': {
+    male: ['ConradNeural', 'BerndNeural', 'ChristophNeural', 'KasperNeural', 'KillianNeural', 'KlausNeural', 'RalfNeural'],
+    female: ['KatjaNeural', 'AmalaNeural', 'ElkeNeural', 'GiselaNeural', 'KlarissaNeural', 'LouisaNeural', 'MajaNeural', 'TanjaNeural']
+  },
+  'it-IT': {
+    male: ['DiegoNeural', 'BenignoNeural', 'CalimeroNeural', 'CataldoNeural', 'GianniNeural', 'LisandroNeural', 'RinaldoNeural'],
+    female: ['ElsaNeural', 'IsabellaNeural', 'FabiolaNeural', 'FiammaNeural', 'PalmiraNeural', 'PierinaNeural']
+  },
+  'ja-JP': {
+    male: ['KeitaNeural', 'DaichiNeural', 'NaokiNeural', 'AkihiroNeural'],
+    female: ['NanamiNeural', 'AoiNeural', 'MayuNeural', 'ShioriNeural']
+  },
+  'ko-KR': {
+    male: ['InJoonNeural', 'BongJinNeural', 'GookMinNeural'],
+    female: ['SunHiNeural', 'JiMinNeural', 'SeoHyeonNeural', 'SoonBokNeural', 'YuJinNeural']
+  },
+  'zh-CN': {
+    male: ['YunxiNeural', 'YunjianNeural', 'YunyangNeural', 'YunfengNeural', 'YunhaoNeural', 'YunxiaNeural', 'YunzeNeural'],
+    female: ['XiaoxiaoNeural', 'XiaoyiNeural', 'XiaochenNeural', 'XiaohanNeural', 'XiaomoNeural', 'XiaoqiuNeural', 'XiaoruiNeural', 'XiaoshuangNeural', 'XiaoxuanNeural', 'XiaoyanNeural', 'XiaoyouNeural']
+  }
 };
 
 // Localized test messages for each language
@@ -43,10 +68,6 @@ serve(async (req) => {
     const { text, voice, language = 'en-US' } = await req.json();
     console.log('Request data:', { text, voice, language });
 
-    if (!voice) {
-      throw new Error('Voice is required');
-    }
-
     // Verify language is supported
     if (!languageVoiceMap[language]) {
       console.error('Unsupported language:', language);
@@ -56,12 +77,6 @@ serve(async (req) => {
     const azureSpeechKey = Deno.env.get('AZURE_SPEECH_KEY');
     const azureSpeechEndpoint = Deno.env.get('AZURE_SPEECH_ENDPOINT');
 
-    console.log('Checking Azure Speech credentials:', {
-      hasKey: !!azureSpeechKey,
-      hasEndpoint: !!azureSpeechEndpoint,
-      endpoint: azureSpeechEndpoint
-    });
-
     if (!azureSpeechKey || !azureSpeechEndpoint) {
       throw new Error('Azure Speech credentials not configured');
     }
@@ -70,19 +85,21 @@ serve(async (req) => {
     const region = azureSpeechEndpoint.match(/\/\/([^.]+)\./)?.[1] || 'eastus';
     console.log('Using region:', region);
 
-    // Get the available voices for the selected language
-    const availableVoices = languageVoiceMap[language];
-    console.log('Available voices for language:', availableVoices);
+    // Determine if the voice is male or female based on the voice name
+    const voiceName = voice.replace(/[^a-zA-Z]/g, '');
+    let selectedVoiceName: string;
 
-    // Format the voice name according to Azure's naming convention
-    const formattedVoice = voice.replace(/[^a-zA-Z]/g, ''); // Remove any non-letter characters
-    let selectedVoiceName = `${language}-${formattedVoice}Neural`;
-
-    // If the requested voice isn't in the available voices, use the first available voice
-    if (!availableVoices.includes(formattedVoice + 'Neural')) {
-      console.log('Requested voice not found, using first available voice');
-      selectedVoiceName = `${language}-${availableVoices[0]}`;
+    // Check if the voice exists in either male or female arrays for the selected language
+    if (languageVoiceMap[language].male.includes(voiceName + 'Neural')) {
+      selectedVoiceName = `${language}-${voiceName}Neural`;
+    } else if (languageVoiceMap[language].female.includes(voiceName + 'Neural')) {
+      selectedVoiceName = `${language}-${voiceName}Neural`;
+    } else {
+      // Fallback to first voice of the language if the requested voice is not found
+      selectedVoiceName = `${language}-${languageVoiceMap[language].female[0]}`;
+      console.log('Voice not found for language, using fallback voice:', selectedVoiceName);
     }
+
     console.log('Selected voice name:', selectedVoiceName);
 
     // Get localized message based on language
