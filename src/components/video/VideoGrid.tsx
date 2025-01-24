@@ -16,7 +16,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   persona,
 }) => {
   return (
-    <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+    <div className="grid grid-cols-1 gap-4">
       <UserVideo videoRef={videoRef} userName={userName} />
       {isCallActive && <PersonaVideo persona={persona} />}
     </div>

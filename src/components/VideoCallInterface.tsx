@@ -111,7 +111,6 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
       setStream(mediaStream);
 
-      // Make sure videoRef is properly initialized
       if (!videoRef.current) {
         console.error('Video element not found - this should not happen');
         throw new Error('Video element not found');

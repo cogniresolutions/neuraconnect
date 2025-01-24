@@ -8,7 +8,7 @@ interface UserVideoProps {
 
 export const UserVideo: React.FC<UserVideoProps> = ({ videoRef, userName }) => {
   return (
-    <div className="relative w-full h-full">
+    <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
       <video
         ref={videoRef}
         autoPlay
