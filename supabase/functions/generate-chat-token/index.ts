@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,7 +23,7 @@ serve(async (req) => {
     console.log('Generating token for persona:', personaId, 'with config:', config);
 
     // Request a token from Azure OpenAI
-    const response = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-4o-mini/chat/realtime/token?api-version=2024-02-15-preview`, {
+    const response = await fetch(`${AZURE_OPENAI_ENDPOINT}/openai/deployments/gpt-40-realtime-preview/chat/realtime/token?api-version=2024-02-15-preview`, {
       method: "POST",
       headers: {
         "api-key": AZURE_OPENAI_KEY,
