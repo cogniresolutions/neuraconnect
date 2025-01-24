@@ -134,6 +134,17 @@ export const PersonaList = ({
         throw apiKeyError;
       }
 
+      // Delete persona appearances
+      const { error: appearanceError } = await supabase
+        .from('persona_appearances')
+        .delete()
+        .eq('persona_id', personaId);
+
+      if (appearanceError) {
+        console.error('Error deleting persona appearances:', appearanceError);
+        throw appearanceError;
+      }
+
       // Finally delete the persona
       const { error: personaError } = await supabase
         .from('personas')
