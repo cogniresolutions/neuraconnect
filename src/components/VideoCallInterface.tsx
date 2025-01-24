@@ -257,14 +257,12 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             </div>
           </div>
         ) : (
-          <VideoDisplay
-            stream={stream}
-            videoRef={videoRef}
-            isRecording={isRecording}
-            currentEmotion={currentEmotion}
-            trainingVideo={null}
-            isCallActive={isCallActive}
-          />
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-bold">Ready to start your call with {persona.name}?</h2>
+              <p className="text-gray-500">Click the "Start Call" button below to begin your conversation.</p>
+            </div>
+          </div>
         )}
       </div>
 
@@ -276,15 +274,17 @@ export const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         />
       )}
 
-      <CallControls
-        isCallActive={isCallActive}
-        isLoading={isLoading}
-        isRecording={isRecording}
-        onStartCall={handleStartCall}
-        onEndCall={handleEndCall}
-        onStartRecording={() => setIsRecording(true)}
-        onStopRecording={() => setIsRecording(false)}
-      />
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+        <CallControls
+          isCallActive={isCallActive}
+          isLoading={isLoading}
+          isRecording={isRecording}
+          onStartCall={handleStartCall}
+          onEndCall={handleEndCall}
+          onStartRecording={handleStartRecording}
+          onStopRecording={handleStopRecording}
+        />
+      </div>
     </div>
   );
 };
