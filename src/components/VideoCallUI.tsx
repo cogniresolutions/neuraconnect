@@ -22,6 +22,11 @@ const VideoCallUI: React.FC<VideoCallUIProps> = ({ persona }) => {
     try {
       setCallStatus('connecting');
       
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase.functions.invoke('create-conversation', {
         body: {
           persona_id: persona.id,
