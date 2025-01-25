@@ -20,8 +20,28 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
     setIsDeleting(true);
     
     try {
+      // First check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('You must be logged in to delete a persona');
+      }
+
       console.log('Starting deletion process for persona:', personaId);
       
+      // Verify the persona belongs to the user before deletion
+      const { data: persona, error: fetchError } = await supabase
+        .from('personas')
+        .select('user_id')
+        .eq('id', personaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      
+      if (persona.user_id !== user.id) {
+        throw new Error('You do not have permission to delete this persona');
+      }
+
       const { error } = await supabase
         .from('personas')
         .delete()
@@ -36,7 +56,8 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
       await supabase.from('api_monitoring').insert({
         endpoint: 'delete-persona',
         status: 'success',
-        response_time: responseTime
+        response_time: responseTime,
+        user_id: user.id
       });
 
       toast({
@@ -48,17 +69,20 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
     } catch (error: any) {
       console.error('Error deleting persona:', error);
       
-      // Log error
+      // Log error with user context if available
+      const { data: { user } } = await supabase.auth.getUser();
+      
       await supabase.from('api_monitoring').insert({
         endpoint: 'delete-persona',
         status: 'error',
-        error_message: error.message
+        error_message: error.message,
+        user_id: user?.id
       });
 
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to delete persona. Please try again.",
+        description: error.message || "Failed to delete persona. Please try again.",
       });
     } finally {
       setIsDeleting(false);
