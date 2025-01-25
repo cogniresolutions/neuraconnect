@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Phone, PhoneOff } from "lucide-react";
+import { Phone, PhoneOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Persona } from "@/types/persona";
@@ -17,14 +17,15 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
 
   const handleStartCall = async () => {
     if (callStatus === 'connecting' || callStatus === 'connected') {
-      console.log('Call already in progress');
+      console.log('Call already in progress, status:', callStatus);
       return;
     }
 
     try {
-      console.log('Starting video call...');
+      console.log('Step 1: Starting video call initialization...');
       setCallStatus('connecting');
       
+      // Check authentication
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
@@ -38,20 +39,49 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
         return;
       }
 
-      console.log('Creating conversation with persona:', persona.id);
-      const { data, error } = await supabase.functions.invoke('create-conversation', {
+      console.log('Step 2: User authenticated, creating conversation with persona:', persona.id);
+      
+      // Initialize video call session
+      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('azure-video-chat', {
+        body: {
+          action: 'initialize',
+          personaId: persona.id,
+          personaConfig: {
+            name: persona.name,
+            voice: persona.voice_style,
+            personality: persona.personality,
+            skills: persona.skills || [],
+            topics: persona.topics || []
+          }
+        }
+      });
+
+      if (sessionError) {
+        console.error('Session initialization error:', sessionError);
+        throw sessionError;
+      }
+
+      if (!sessionData?.success) {
+        console.error('Failed to initialize session:', sessionData);
+        throw new Error('Failed to initialize video call session');
+      }
+
+      console.log('Step 3: Session initialized successfully:', sessionData);
+
+      // Create conversation record
+      const { data: conversationData, error: conversationError } = await supabase.functions.invoke('create-conversation', {
         body: {
           persona_id: persona.id,
           user_id: user.id,
         },
       });
 
-      if (error) {
-        console.error('Error creating conversation:', error);
-        throw error;
+      if (conversationError) {
+        console.error('Error creating conversation:', conversationError);
+        throw conversationError;
       }
 
-      console.log('Conversation created successfully:', data);
+      console.log('Step 4: Conversation created successfully:', conversationData);
       setCallStatus('connected');
       onCallStart?.();
       
@@ -60,13 +90,13 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
         description: `Starting video call with ${persona.name}`,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting call:', error);
       setCallStatus('error');
       toast({
         variant: "destructive",
         title: "Call Error",
-        description: error instanceof Error ? error.message : "Failed to start video call",
+        description: error.message || "Failed to start video call",
       });
     }
   };
@@ -74,6 +104,17 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
   const handleEndCall = async () => {
     try {
       console.log('Ending video call...');
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.functions.invoke('video-call', {
+          body: {
+            action: 'end',
+            userId: user.id
+          }
+        });
+      }
+      
       setCallStatus('disconnected');
       onCallEnd?.();
       
@@ -82,7 +123,7 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
         description: "Video call has ended",
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error ending call:', error);
       toast({
         variant: "destructive",
@@ -109,8 +150,17 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
             ${callStatus === 'connecting' ? 'animate-pulse' : ''}
           `}
         >
-          <Phone className="h-4 w-4 mr-2 animate-subtle-movement" />
-          {callStatus === 'connecting' ? 'Connecting...' : 'Start Video Call'}
+          {callStatus === 'connecting' ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              <Phone className="h-4 w-4 mr-2 animate-subtle-movement" />
+              Start Video Call
+            </>
+          )}
         </Button>
       ) : (
         <Button
