@@ -14,6 +14,32 @@ const VideoCall = () => {
   const [persona, setPersona] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    // Check for authentication
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      if (!currentSession) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to access video calls",
+          variant: "destructive",
+        });
+        navigate('/auth', { state: { returnUrl: `/video-call/${personaId}` } });
+      }
+    });
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession);
+      if (!currentSession) {
+        navigate('/auth');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate, personaId, toast]);
 
   useEffect(() => {
     const loadPersona = async () => {
@@ -26,10 +52,9 @@ const VideoCall = () => {
           throw new Error('No persona ID provided');
         }
 
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          throw new Error('User not authenticated');
+        if (!session?.user) {
+          console.log('No authenticated user found');
+          return; // Early return if no session
         }
 
         // Load persona with appearances
@@ -58,7 +83,7 @@ const VideoCall = () => {
           body: {
             action: 'start',
             personaId: existingPersona.id,
-            userId: user.id,
+            userId: session.user.id,
             personaConfig: {
               name: existingPersona.name,
               voice: existingPersona.voice_style,
@@ -85,28 +110,33 @@ const VideoCall = () => {
       }
     };
 
-    loadPersona();
+    if (session?.user) {
+      loadPersona();
+    }
 
     // Cleanup function
     return () => {
       const cleanup = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+        if (session?.user) {
           await supabase.functions.invoke('video-call', {
             body: {
               action: 'end',
-              userId: user.id
+              userId: session.user.id
             }
           });
         }
       };
       cleanup();
     };
-  }, [personaId, toast]);
+  }, [personaId, toast, session]);
 
-  const handleSpeakingChange = (speaking: boolean) => {
-    console.log('Speaking state changed:', speaking);
-  };
+  if (!session) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
