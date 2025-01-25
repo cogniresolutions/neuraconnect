@@ -28,12 +28,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
 
-  const startCall = async () => {
+  const initializeMediaStream = async () => {
     try {
-      setIsLoading(true);
-      console.log('Starting new video call session...');
-      
-      // Initialize local video stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -51,6 +47,25 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
+      return true;
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
+      toast({
+        title: "Error",
+        description: "Unable to access camera or microphone. Please check your permissions.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const startCall = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Starting new video call session...');
+      
+      const mediaInitialized = await initializeMediaStream();
+      if (!mediaInitialized) return;
 
       // Initialize chat and audio connection
       chatRef.current = new RealtimeChat(async (event) => {
@@ -88,7 +103,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       // Initialize remote video if persona has video_url
       if (persona.video_url && remoteVideoRef.current) {
         remoteVideoRef.current.src = persona.video_url;
-        await remoteVideoRef.current.play();
+        await remoteVideoRef.current.play().catch(console.error);
       }
 
       toast({
@@ -99,7 +114,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       console.error('Error starting call:', error);
       toast({
         title: "Error",
-        description: "Failed to start video call. Please check your camera and microphone permissions.",
+        description: "Failed to start video call. Please try again.",
         variant: "destructive",
       });
     } finally {
