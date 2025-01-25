@@ -66,12 +66,10 @@ const VideoCall = () => {
     loadPersona();
   }, [personaId, toast]);
 
-  const handleSpeakingChange = (speaking: boolean) => {
-    console.log('Speaking state changed:', speaking);
-  };
-
   const handleStartCall = async () => {
     try {
+      console.log('Initializing video call...');
+      
       // Initialize video call session
       const { error: sessionError } = await supabase.functions.invoke('azure-video-chat', {
         body: {
@@ -87,8 +85,12 @@ const VideoCall = () => {
         }
       });
 
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('Session initialization error:', sessionError);
+        throw sessionError;
+      }
       
+      console.log('Session initialized, showing consent dialog...');
       setShowConsent(true);
     } catch (error: any) {
       console.error('Error starting call:', error);
@@ -101,6 +103,7 @@ const VideoCall = () => {
   };
 
   const handleConsentAccepted = () => {
+    console.log('Consent accepted, starting call...');
     setShowConsent(false);
     setIsCallStarted(true);
     toast({
@@ -177,7 +180,9 @@ const VideoCall = () => {
       ) : (
         <VideoCallInterface
           persona={persona}
-          onSpeakingChange={handleSpeakingChange}
+          onSpeakingChange={(speaking) => {
+            console.log('Speaking state changed:', speaking);
+          }}
           onCallStateChange={(isActive) => {
             console.log('Call state changed:', isActive);
             if (!isActive) {
