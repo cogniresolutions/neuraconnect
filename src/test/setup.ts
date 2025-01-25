@@ -11,7 +11,7 @@ afterEach(() => {
   cleanup();
 });
 
-// Add proper type declarations
+// Add proper type declarations for Jest matchers
 declare module 'vitest' {
   interface Assertion<T = any> extends jest.Matchers<void, T>, matchers.TestingLibraryMatchers<T, void> {}
   interface AsymmetricMatchersContaining extends jest.Matchers<void, any>, matchers.TestingLibraryMatchers<any, void> {}
