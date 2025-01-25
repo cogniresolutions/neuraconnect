@@ -75,6 +75,28 @@ const Auth = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        }
+      });
+      
+      if (error) throw error;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md p-6 space-y-8">
@@ -83,6 +105,26 @@ const Auth = () => {
           <p className="mt-2 text-sm text-gray-600">
             Sign in to your account or create a new one
           </p>
+        </div>
+
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+        >
+          {loading ? 'Loading...' : 'Continue with Google'}
+        </Button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              Or continue with
+            </span>
+          </div>
         </div>
 
         <Tabs defaultValue="login" className="w-full">
