@@ -33,7 +33,7 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
       // Verify the persona belongs to the user before deletion
       const { data: persona, error: fetchError } = await supabase
         .from('personas')
-        .select('user_id, name')
+        .select('user_id, name, status')
         .eq('id', personaId)
         .single();
 
@@ -44,6 +44,11 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
       
       if (!persona) {
         throw new Error('Persona not found');
+      }
+
+      // Check if persona is deployed and belongs to another user
+      if (persona.status === 'deployed' && persona.user_id !== user.id) {
+        throw new Error('You do not have permission to delete this persona as it is deployed by another user');
       }
 
       if (persona.user_id !== user.id) {
