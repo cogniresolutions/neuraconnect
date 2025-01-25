@@ -11,6 +11,7 @@ afterEach(() => {
   cleanup();
 });
 
+// Add proper type declarations
 declare global {
   namespace Vi {
     interface JestAssertion<T = any> extends jest.Matchers<void, T>, matchers.TestingLibraryMatchers<T, void> {}
