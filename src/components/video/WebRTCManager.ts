@@ -16,6 +16,14 @@ export class WebRTCManager {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        {
+          urls: 'turn:numb.viagenie.ca',
+          username: 'webrtc@live.com',
+          credential: 'muazkh'
+        }
       ]
     };
   }
@@ -23,18 +31,38 @@ export class WebRTCManager {
   async initializeLocalStream(constraints: MediaStreamConstraints): Promise<MediaStream> {
     try {
       console.log('Requesting media access with constraints:', constraints);
+      
+      // First check if we have permissions
+      const permissions = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true
+      });
+      permissions.getTracks().forEach(track => track.stop());
+
+      // Now get the actual stream with desired constraints
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Media access granted:', this.localStream.getTracks().map(t => t.kind));
+      console.log('Media access granted:', this.localStream.getTracks().map(t => ({
+        kind: t.kind,
+        label: t.label,
+        settings: t.getSettings()
+      })));
+      
       return this.localStream;
     } catch (error: any) {
       console.error('Error accessing media devices:', error);
-      throw new Error(`Failed to access media devices: ${error.message}`);
+      if (error.name === 'NotAllowedError') {
+        throw new Error('Camera and microphone access denied. Please allow access in your browser settings.');
+      } else if (error.name === 'NotFoundError') {
+        throw new Error('No camera or microphone found. Please check your device connections.');
+      } else {
+        throw new Error(`Failed to access media devices: ${error.message}`);
+      }
     }
   }
 
   async initializePeerConnection(): Promise<void> {
     try {
-      console.log('Initializing WebRTC peer connection');
+      console.log('Initializing WebRTC peer connection with config:', this.config);
       this.peerConnection = new RTCPeerConnection(this.config);
 
       // Add local tracks to the peer connection
@@ -53,9 +81,17 @@ export class WebRTCManager {
         this.onRemoteStream(event.streams[0]);
       };
 
-      // Log ICE connection state changes
+      // Log connection state changes
+      this.peerConnection.onconnectionstatechange = () => {
+        console.log('Connection state changed:', this.peerConnection?.connectionState);
+      };
+
       this.peerConnection.oniceconnectionstatechange = () => {
         console.log('ICE connection state:', this.peerConnection?.iceConnectionState);
+      };
+
+      this.peerConnection.onicegatheringstatechange = () => {
+        console.log('ICE gathering state:', this.peerConnection?.iceGatheringState);
       };
 
       // Handle ICE candidates
@@ -66,6 +102,7 @@ export class WebRTCManager {
         }
       };
 
+      console.log('Peer connection initialized successfully');
     } catch (error) {
       console.error('Error initializing peer connection:', error);
       throw error;
@@ -74,6 +111,7 @@ export class WebRTCManager {
 
   private async sendIceCandidate(candidate: RTCIceCandidate) {
     try {
+      console.log('Sending ICE candidate to signaling server');
       const { error } = await supabase.functions.invoke('webrtc-signaling', {
         body: {
           type: 'ice-candidate',
@@ -81,6 +119,7 @@ export class WebRTCManager {
         }
       });
       if (error) throw error;
+      console.log('ICE candidate sent successfully');
     } catch (error) {
       console.error('Error sending ICE candidate:', error);
     }
@@ -95,6 +134,7 @@ export class WebRTCManager {
       console.log('Creating offer');
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);
+      console.log('Offer created successfully:', offer);
       return offer;
     } catch (error) {
       console.error('Error creating offer:', error);
@@ -110,6 +150,7 @@ export class WebRTCManager {
     try {
       console.log('Setting remote description from answer');
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log('Remote description set successfully');
     } catch (error) {
       console.error('Error handling answer:', error);
       throw error;
@@ -117,14 +158,19 @@ export class WebRTCManager {
   }
 
   cleanup(): void {
+    console.log('Cleaning up WebRTC resources');
     if (this.localStream) {
-      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped track:', track.kind);
+      });
       this.localStream = null;
     }
 
     if (this.peerConnection) {
       this.peerConnection.close();
       this.peerConnection = null;
+      console.log('Peer connection closed');
     }
   }
 }
