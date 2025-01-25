@@ -5,6 +5,8 @@ import { RealtimeChat } from '@/utils/RealtimeAudio';
 import { VideoCallControls } from './video/VideoCallControls';
 import { Card } from './ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
+import { WebRTCManager } from './video/WebRTCManager';
+import { CallStatus } from './video/CallStatus';
 
 interface VideoCallInterfaceProps {
   persona: any;
@@ -22,15 +24,29 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
+  const [errorMessage, setErrorMessage] = useState<string>();
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const webRTCManagerRef = useRef<WebRTCManager | null>(null);
   const chatRef = useRef<RealtimeChat | null>(null);
 
-  const initializeMediaStream = async () => {
+  const initializeCall = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      setIsLoading(true);
+      setCallStatus('connecting');
+      console.log('Initializing video call...');
+
+      // Initialize WebRTC manager
+      webRTCManagerRef.current = new WebRTCManager((remoteStream) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+      });
+
+      // Get local media stream
+      const stream = await webRTCManagerRef.current.initializeLocalStream({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
@@ -43,16 +59,22 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         }
       });
 
-      mediaStreamRef.current = stream;
+      // Set local video
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
+
+      // Initialize peer connection
+      await webRTCManagerRef.current.initializePeerConnection();
+
       return true;
-    } catch (error) {
-      console.error('Error accessing media devices:', error);
+    } catch (error: any) {
+      console.error('Error initializing call:', error);
+      setCallStatus('error');
+      setErrorMessage(error.message);
       toast({
         title: "Error",
-        description: "Unable to access camera or microphone. Please check your permissions.",
+        description: error.message || "Failed to initialize call",
         variant: "destructive",
       });
       return false;
@@ -64,8 +86,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       setIsLoading(true);
       console.log('Starting new video call session...');
       
-      const mediaInitialized = await initializeMediaStream();
-      if (!mediaInitialized) return;
+      const initialized = await initializeCall();
+      if (!initialized) return;
 
       // Initialize chat and audio connection
       chatRef.current = new RealtimeChat(async (event) => {
@@ -98,13 +120,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       if (sessionError) throw sessionError;
 
       setIsCallActive(true);
+      setCallStatus('connected');
       onCallStateChange?.(true);
-
-      // Initialize remote video if persona has video_url
-      if (persona.video_url && remoteVideoRef.current) {
-        remoteVideoRef.current.src = persona.video_url;
-        await remoteVideoRef.current.play().catch(console.error);
-      }
 
       toast({
         title: "Call Started",
@@ -112,9 +129,11 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       });
     } catch (error: any) {
       console.error('Error starting call:', error);
+      setCallStatus('error');
+      setErrorMessage(error.message);
       toast({
         title: "Error",
-        description: "Failed to start video call. Please try again.",
+        description: error.message || "Failed to start video call",
         variant: "destructive",
       });
     } finally {
@@ -124,9 +143,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
 
   const endCall = async () => {
     try {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
+      if (webRTCManagerRef.current) {
+        webRTCManagerRef.current.cleanup();
       }
 
       if (chatRef.current) {
@@ -148,6 +166,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
       }
 
       setIsCallActive(false);
+      setCallStatus('disconnected');
       onCallStateChange?.(false);
       onSpeakingChange(false);
 
@@ -155,7 +174,7 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
         title: "Call Ended",
         description: "The video call has been disconnected",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error ending call:', error);
       toast({
         title: "Error",
@@ -166,8 +185,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const toggleAudio = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getAudioTracks().forEach(track => {
+    if (webRTCManagerRef.current?.localStream) {
+      webRTCManagerRef.current.localStream.getAudioTracks().forEach(track => {
         track.enabled = !track.enabled;
       });
       setIsAudioEnabled(!isAudioEnabled);
@@ -175,8 +194,8 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
   };
 
   const toggleVideo = () => {
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getVideoTracks().forEach(track => {
+    if (webRTCManagerRef.current?.localStream) {
+      webRTCManagerRef.current.localStream.getVideoTracks().forEach(track => {
         track.enabled = !track.enabled;
       });
       setIsVideoEnabled(!isVideoEnabled);
@@ -210,15 +229,15 @@ const VideoCallInterface: React.FC<VideoCallInterfaceProps> = ({
             </Avatar>
             <span className="text-sm font-medium">You</span>
           </div>
+          <CallStatus status={callStatus} errorMessage={errorMessage} />
         </Card>
 
-        {/* Remote Video (Persona) */}
+        {/* Remote Video */}
         <Card className="relative aspect-video bg-black rounded-lg overflow-hidden">
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            loop
             className="w-full h-full object-cover"
           />
           <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-full">
