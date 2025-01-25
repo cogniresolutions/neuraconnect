@@ -14,11 +14,17 @@ afterEach(() => {
 // Add proper type declarations
 declare global {
   namespace Vi {
-    interface JestAssertion<T = any> extends jest.Matchers<void, T>, matchers.TestingLibraryMatchers<T, void> {}
+    interface JestAssertion<T = any>
+      extends jest.Matchers<void, T>,
+        matchers.TestingLibraryMatchers<T, void> {}
   }
 }
 
 declare module 'vitest' {
-  interface Assertion<T = any> extends jest.Matchers<void, T>, matchers.TestingLibraryMatchers<T, void> {}
-  interface AsymmetricMatchersContaining extends jest.Matchers<void, any>, matchers.TestingLibraryMatchers<any, void> {}
+  interface Assertion<T = any>
+    extends jest.Matchers<void, T>,
+      matchers.TestingLibraryMatchers<T, void> {}
+  interface AsymmetricMatchersContaining
+    extends jest.Matchers<void, any>,
+      matchers.TestingLibraryMatchers<any, void> {}
 }
