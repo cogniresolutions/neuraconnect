@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { logAPIUsage } from "@/utils/errorHandling";
 
 interface DeletePersonaDialogProps {
   personaId: string;
@@ -32,33 +33,55 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
       // Verify the persona belongs to the user before deletion
       const { data: persona, error: fetchError } = await supabase
         .from('personas')
-        .select('user_id')
+        .select('user_id, name')
         .eq('id', personaId)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Error fetching persona:', fetchError);
+        throw new Error('Failed to verify persona ownership');
+      }
       
+      if (!persona) {
+        throw new Error('Persona not found');
+      }
+
       if (persona.user_id !== user.id) {
         throw new Error('You do not have permission to delete this persona');
       }
 
-      const { error } = await supabase
+      // Delete associated records first (due to foreign key constraints)
+      console.log('Deleting associated records...');
+      
+      const deleteOperations = [
+        supabase.from('persona_training_materials').delete().eq('persona_id', personaId),
+        supabase.from('persona_appearances').delete().eq('persona_id', personaId),
+        supabase.from('emotion_analysis').delete().eq('persona_id', personaId),
+        supabase.from('training_videos').delete().eq('persona_id', personaId),
+        supabase.from('api_keys').delete().eq('persona_id', personaId),
+      ];
+
+      const results = await Promise.all(deleteOperations);
+      const errors = results.filter(r => r.error);
+      
+      if (errors.length > 0) {
+        console.error('Errors deleting associated records:', errors);
+        throw new Error('Failed to delete some associated records');
+      }
+
+      // Finally delete the persona
+      const { error: deleteError } = await supabase
         .from('personas')
         .delete()
         .eq('id', personaId);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
       const endTime = performance.now();
       const responseTime = Math.round(endTime - startTime);
 
       // Log successful deletion
-      await supabase.from('api_monitoring').insert({
-        endpoint: 'delete-persona',
-        status: 'success',
-        response_time: responseTime,
-        user_id: user.id
-      });
+      await logAPIUsage('delete-persona', 'success', undefined, responseTime);
 
       toast({
         title: "Success",
@@ -69,15 +92,8 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
     } catch (error: any) {
       console.error('Error deleting persona:', error);
       
-      // Log error with user context if available
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      await supabase.from('api_monitoring').insert({
-        endpoint: 'delete-persona',
-        status: 'error',
-        error_message: error.message,
-        user_id: user?.id
-      });
+      // Log error
+      await logAPIUsage('delete-persona', 'error', error);
 
       toast({
         variant: "destructive",
@@ -110,7 +126,7 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
           <AlertDialogTitle>Delete {personaName}?</AlertDialogTitle>
           <AlertDialogDescription>
             This action cannot be undone. This will permanently delete the persona
-            and all associated data.
+            and all associated data including training materials, appearances, and API keys.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
