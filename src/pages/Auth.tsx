@@ -1,118 +1,160 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Auth as SupabaseAuth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, Loader2 } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-        if (session) navigate('/');
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to check authentication status');
-      } finally {
-        setIsLoading(false);
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/');
       }
     };
+    
+    checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        toast({ title: "Success", description: "Successfully signed in!" });
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
         navigate('/');
       }
     });
 
-    const handleHashError = () => {
-      const hash = window.location.hash;
-      if (hash?.includes('error')) {
-        const errorDescription = new URLSearchParams(hash.substring(1)).get('error_description');
-        if (errorDescription) {
-          setError(errorDescription);
-          toast({
-            variant: "destructive",
-            title: "Authentication Error",
-            description: errorDescription,
-          });
-        }
-      }
-    };
-
-    checkAuth();
-    handleHashError();
     return () => subscription.unsubscribe();
-  }, [navigate, toast]);
+  }, [navigate]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handleAuth = async (type: 'LOGIN' | 'SIGNUP') => {
+    try {
+      setLoading(true);
+      
+      let result;
+      if (type === 'LOGIN') {
+        result = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+      } else {
+        result = await supabase.auth.signUp({
+          email,
+          password,
+        });
+      }
+
+      const { error } = result;
+      
+      if (error) throw error;
+
+      if (type === 'SIGNUP') {
+        toast({
+          title: "Check your email",
+          description: "We've sent you a confirmation link.",
+        });
+      }
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Welcome to Video Chat
-          </CardTitle>
-          <CardDescription className="text-center">
-            Please sign in to start a video call
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          <SupabaseAuth 
-            supabaseClient={supabase}
-            appearance={{ 
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: '#4F46E5',
-                    brandAccent: '#4338CA',
-                    defaultButtonBackground: '#4F46E5',
-                    defaultButtonBackgroundHover: '#4338CA',
-                  },
-                  borderWidths: {
-                    buttonBorderWidth: '1px',
-                  },
-                  radii: {
-                    borderRadiusButton: '0.5rem',
-                    inputBorderRadius: '0.5rem',
-                  },
-                },
-              },
-              className: {
-                container: 'w-full',
-                button: 'w-full px-4 py-2 rounded-lg',
-                input: 'w-full px-4 py-2 rounded-lg border border-gray-300',
-              },
-            }}
-            providers={['google']}
-            redirectTo={window.location.origin}
-          />
-        </CardContent>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md p-6 space-y-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold">Welcome</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Sign in to your account or create a new one
+          </p>
+        </div>
+
+        <Tabs defaultValue="login" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="login">Login</TabsTrigger>
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="login" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => handleAuth('LOGIN')}
+              disabled={loading || !email || !password}
+            >
+              {loading ? 'Loading...' : 'Sign In'}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="signup" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="signup-email">Email</Label>
+              <Input
+                id="signup-email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-password">Password</Label>
+              <Input
+                id="signup-password"
+                type="password"
+                placeholder="Choose a password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => handleAuth('SIGNUP')}
+              disabled={loading || !email || !password}
+            >
+              {loading ? 'Loading...' : 'Create Account'}
+            </Button>
+          </TabsContent>
+        </Tabs>
       </Card>
     </div>
   );
