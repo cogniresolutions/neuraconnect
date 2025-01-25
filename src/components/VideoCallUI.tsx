@@ -3,15 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-
-interface Persona {
-  id: string;
-  name: string;
-  description?: string | null;
-  voice_style?: string | null;
-  profile_picture_url?: string | null;
-  video_url?: string | null;
-}
+import { Persona } from "@/types/persona";
 
 interface VideoCallUIProps {
   persona: Persona;
