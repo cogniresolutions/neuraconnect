@@ -18,16 +18,12 @@ const Auth = () => {
     const checkAuth = async () => {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
         if (sessionError) {
           setError(sessionError.message);
           return;
         }
-        
-        if (session) {
-          navigate('/');
-        }
-      } catch (err) {
+        if (session) navigate('/');
+      } catch {
         setError('Failed to check authentication status');
       } finally {
         setIsLoading(false);
@@ -60,9 +56,7 @@ const Auth = () => {
       }
     }
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
   if (isLoading) {
