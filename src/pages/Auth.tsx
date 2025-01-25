@@ -82,11 +82,16 @@ const Auth = () => {
         provider: 'google',
         options: {
           redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
       
       if (error) throw error;
     } catch (error: any) {
+      console.error('Google sign in error:', error);
       toast({
         title: "Error",
         description: error.message,
