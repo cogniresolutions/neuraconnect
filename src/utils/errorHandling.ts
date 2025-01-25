@@ -15,12 +15,20 @@ export async function logAPIUsage(
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
+    // Format the message for better readability in notifications
+    let formattedMessage = '';
+    if (endpoint === 'delete-persona') {
+      formattedMessage = status === 'success' 
+        ? `Successfully deleted persona (${responseTime}ms)`
+        : `Failed to delete persona: ${error?.message || 'Unknown error'}`;
+    }
+
     const { error: dbError } = await supabase
       .from('api_monitoring')
       .insert({
         endpoint,
         status,
-        error_message: error?.message,
+        error_message: formattedMessage || error?.message,
         response_time: responseTime,
         user_id: user?.id
       });

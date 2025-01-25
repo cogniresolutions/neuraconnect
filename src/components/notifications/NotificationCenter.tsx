@@ -59,7 +59,6 @@ export const NotificationCenter = () => {
       .limit(50);
 
     if (!error && data) {
-      // Convert the status to the correct type
       const typedNotifications: Notification[] = data.map(notification => ({
         ...notification,
         status: notification.status as 'success' | 'error' | 'pending'
@@ -86,6 +85,17 @@ export const NotificationCenter = () => {
       .split('-')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  };
+
+  const formatNotificationMessage = (notification: Notification) => {
+    if (notification.endpoint === 'delete-persona') {
+      return notification.error_message || (
+        notification.status === 'success'
+          ? `Successfully deleted persona ${notification.response_time ? `(${notification.response_time}ms)` : ''}`
+          : 'Failed to delete persona'
+      );
+    }
+    return notification.error_message || `${formatEndpoint(notification.endpoint)} ${notification.status}`;
   };
 
   const clearNotifications = async () => {
@@ -152,11 +162,9 @@ export const NotificationCenter = () => {
                 >
                   <div className="space-y-1">
                     <p className="font-medium">{formatEndpoint(notification.endpoint)}</p>
-                    {notification.error_message && (
-                      <p className="text-sm opacity-70">
-                        {notification.error_message}
-                      </p>
-                    )}
+                    <p className="text-sm opacity-70">
+                      {formatNotificationMessage(notification)}
+                    </p>
                     <p className="text-xs opacity-50">
                       {new Date(notification.created_at).toLocaleString()}
                     </p>
