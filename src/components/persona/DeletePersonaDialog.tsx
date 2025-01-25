@@ -59,6 +59,7 @@ export const DeletePersonaDialog = ({ personaId, personaName, onDelete }: Delete
         supabase.from('emotion_analysis').delete().eq('persona_id', personaId),
         supabase.from('training_videos').delete().eq('persona_id', personaId),
         supabase.from('api_keys').delete().eq('persona_id', personaId),
+        supabase.from('conversations').delete().eq('persona_id', personaId)
       ];
 
       const results = await Promise.all(deleteOperations);
