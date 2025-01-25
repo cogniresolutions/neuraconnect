@@ -18,44 +18,39 @@ const Auth = () => {
     const checkAuth = async () => {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          setError(sessionError.message);
-          return;
-        }
+        if (sessionError) throw sessionError;
         if (session) navigate('/');
-      } catch {
-        setError('Failed to check authentication status');
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to check authentication status');
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkAuth();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        toast({
-          title: "Success",
-          description: "Successfully signed in!",
-        });
+        toast({ title: "Success", description: "Successfully signed in!" });
         navigate('/');
       }
     });
 
-    const hash = window.location.hash;
-    if (hash && hash.includes('error')) {
-      const params = new URLSearchParams(hash.substring(1));
-      const errorDescription = params.get('error_description');
-      if (errorDescription) {
-        setError(errorDescription);
-        toast({
-          variant: "destructive",
-          title: "Authentication Error",
-          description: errorDescription,
-        });
+    const handleHashError = () => {
+      const hash = window.location.hash;
+      if (hash?.includes('error')) {
+        const errorDescription = new URLSearchParams(hash.substring(1)).get('error_description');
+        if (errorDescription) {
+          setError(errorDescription);
+          toast({
+            variant: "destructive",
+            title: "Authentication Error",
+            description: errorDescription,
+          });
+        }
       }
-    }
+    };
 
+    checkAuth();
+    handleHashError();
     return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
