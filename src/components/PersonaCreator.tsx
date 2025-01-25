@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PersonaList } from "./persona/PersonaList";
 import TrainingUploader from "./TrainingUploader";
-import VideoCallUI from "./VideoCallUI";
+import { VideoCallUI } from "./VideoCallUI";
 import { Upload, User, LogOut, Link } from "lucide-react";
 import TrainingMaterialUploader from "./training/TrainingMaterialUploader";
 import { NotificationCenter } from "./notifications/NotificationCenter";

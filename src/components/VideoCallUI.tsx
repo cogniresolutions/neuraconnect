@@ -3,18 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { PersonaType } from '@/types/persona';
 
-interface VideoCallUIProps {
-  persona: PersonaType;
-  onCallStart: () => void;
-  onCallEnd: () => void;
+interface Persona {
+  id: string;
+  name: string;
+  description?: string | null;
+  voice_style?: string | null;
+  profile_picture_url?: string | null;
+  video_url?: string | null;
 }
 
-type CallStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
+interface VideoCallUIProps {
+  persona: Persona;
+  onCallStart?: () => void;
+  onCallEnd?: () => void;
+}
 
 export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProps) => {
-  const [callStatus, setCallStatus] = useState<CallStatus>('idle');
+  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'>('idle');
   const { toast } = useToast();
 
   const handleStartCall = async () => {
@@ -47,7 +53,7 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
       }
 
       setCallStatus('connected');
-      onCallStart();
+      onCallStart?.();
       
       toast({
         title: "Call Started",
@@ -68,7 +74,7 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
   const handleEndCall = async () => {
     try {
       setCallStatus('disconnected');
-      onCallEnd();
+      onCallEnd?.();
       
       toast({
         title: "Call Ended",
@@ -93,9 +99,7 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
         <Button
           onClick={handleStartCall}
           disabled={callStatus === 'connecting'}
-          className={`bg-green-500 hover:bg-green-600 text-white ${
-            callStatus === 'connecting' ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
+          className="bg-green-500 hover:bg-green-600 text-white"
         >
           <Phone className="h-4 w-4 mr-2" />
           {callStatus === 'connecting' ? 'Connecting...' : 'Start Call'}
