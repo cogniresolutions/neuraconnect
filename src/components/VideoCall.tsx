@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import VideoCallInterface from '@/components/VideoCallInterface';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import VideoCallInterface from '@/components/VideoCallInterface';
 import { ConsentDialog } from './video/ConsentDialog';
 
 const VideoCall = () => {
@@ -43,8 +43,13 @@ const VideoCall = () => {
           .eq('id', personaId)
           .single();
 
-        if (personaError) throw personaError;
-        if (!existingPersona) throw new Error('Persona not found');
+        if (personaError) {
+          throw personaError;
+        }
+
+        if (!existingPersona) {
+          throw new Error('Persona not found');
+        }
 
         console.log('Loaded persona:', existingPersona);
         setPersona(existingPersona);
@@ -71,7 +76,7 @@ const VideoCall = () => {
       console.log('Initializing video call...');
       
       // Initialize video call session
-      const { error: sessionError } = await supabase.functions.invoke('azure-video-chat', {
+      const { data, error: sessionError } = await supabase.functions.invoke('azure-video-chat', {
         body: {
           action: 'initialize',
           personaId: persona.id,
@@ -89,6 +94,10 @@ const VideoCall = () => {
         console.error('Session initialization error:', sessionError);
         throw sessionError;
       }
+
+      if (!data?.success) {
+        throw new Error('Failed to initialize video call session');
+      }
       
       console.log('Session initialized, showing consent dialog...');
       setShowConsent(true);
@@ -96,7 +105,7 @@ const VideoCall = () => {
       console.error('Error starting call:', error);
       toast({
         title: "Error",
-        description: "Failed to initialize video call. Please try again.",
+        description: error.message || "Failed to initialize video call",
         variant: "destructive",
       });
     }
