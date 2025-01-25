@@ -8,6 +8,7 @@ export interface Persona {
   personality?: string | null;
   skills?: string[];
   topics?: string[];
+  status?: 'draft' | 'ready' | 'pending' | null;
   model_config?: {
     model: string;
     max_tokens: number;
