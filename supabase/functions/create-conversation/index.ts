@@ -1,83 +1,91 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    )
 
-    const { persona_id, title, context } = await req.json();
+    const { persona_id, user_id } = await req.json()
 
-    // Get user from auth header
-    const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1];
-    if (!authHeader) throw new Error('No authorization header');
+    if (!persona_id || !user_id) {
+      throw new Error('Missing required parameters')
+    }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader);
-    if (userError || !user) throw new Error('Invalid user token');
+    console.log('Creating conversation for persona:', persona_id, 'and user:', user_id)
 
-    // Create conversation
-    const { data: conversation, error: conversationError } = await supabase
+    // Create a new conversation
+    const { data: conversation, error: conversationError } = await supabaseClient
       .from('conversations')
       .insert({
         persona_id,
-        user_id: user.id,
-        title,
-        context,
-        status: 'active'
+        user_id,
+        status: 'active',
+        title: `Video Call ${new Date().toISOString()}`,
       })
       .select()
-      .single();
+      .single()
 
-    if (conversationError) throw conversationError;
+    if (conversationError) {
+      console.error('Error creating conversation:', conversationError)
+      throw conversationError
+    }
 
-    // Create initial session
-    const { data: session, error: sessionError } = await supabase
+    console.log('Conversation created:', conversation)
+
+    // Create a new session for the conversation
+    const { data: session, error: sessionError } = await supabaseClient
       .from('conversation_sessions')
       .insert({
         conversation_id: conversation.id,
-        session_type: 'chat',
+        session_type: 'video',
         status: 'active',
         metadata: {
           started_at: new Date().toISOString(),
-          platform: 'web'
-        }
+        },
       })
       .select()
-      .single();
+      .single()
 
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      console.error('Error creating session:', sessionError)
+      throw sessionError
+    }
+
+    console.log('Session created:', session)
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data: { 
-          conversation,
-          session,
-          conversation_url: `/chat/${conversation.id}`
-        }
+      JSON.stringify({
+        conversation: conversation,
+        session: session,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('Error in create-conversation function:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       }
-    );
+    )
+  } catch (error) {
+    console.error('Error:', error)
+    return new Response(
+      JSON.stringify({
+        error: error.message,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      }
+    )
   }
-});
+})

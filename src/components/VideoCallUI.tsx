@@ -16,14 +16,19 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
   const { toast } = useToast();
 
   const handleStartCall = async () => {
-    if (callStatus === 'connecting' || callStatus === 'connected') return;
+    if (callStatus === 'connecting' || callStatus === 'connected') {
+      console.log('Call already in progress');
+      return;
+    }
 
     try {
+      console.log('Starting video call...');
       setCallStatus('connecting');
       
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
+        console.error('Authentication error:', authError);
         toast({
           variant: "destructive",
           title: "Authentication Error",
@@ -33,6 +38,7 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
         return;
       }
 
+      console.log('Creating conversation with persona:', persona.id);
       const { data, error } = await supabase.functions.invoke('create-conversation', {
         body: {
           persona_id: persona.id,
@@ -41,9 +47,11 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
       });
 
       if (error) {
+        console.error('Error creating conversation:', error);
         throw error;
       }
 
+      console.log('Conversation created successfully:', data);
       setCallStatus('connected');
       onCallStart?.();
       
@@ -65,6 +73,7 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
 
   const handleEndCall = async () => {
     try {
+      console.log('Ending video call...');
       setCallStatus('disconnected');
       onCallEnd?.();
       
