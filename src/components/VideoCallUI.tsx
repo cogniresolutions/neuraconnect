@@ -91,18 +91,30 @@ export const VideoCallUI = ({ persona, onCallStart, onCallEnd }: VideoCallUIProp
         <Button
           onClick={handleStartCall}
           disabled={callStatus === 'connecting'}
-          className="bg-green-500 hover:bg-green-600 text-white"
+          className={`
+            relative overflow-hidden bg-gradient-to-r from-purple-600 to-indigo-600 
+            hover:from-purple-700 hover:to-indigo-700 text-white font-medium
+            px-6 py-2.5 rounded-full shadow-lg transform transition-all duration-200
+            hover:scale-105 hover:shadow-xl focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50
+            disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+            ${callStatus === 'connecting' ? 'animate-pulse' : ''}
+          `}
         >
-          <Phone className="h-4 w-4 mr-2" />
-          {callStatus === 'connecting' ? 'Connecting...' : 'Start Call'}
+          <Phone className="h-4 w-4 mr-2 animate-subtle-movement" />
+          {callStatus === 'connecting' ? 'Connecting...' : 'Start Video Call'}
         </Button>
       ) : (
         <Button
           onClick={handleEndCall}
           variant="destructive"
-          className="bg-red-500 hover:bg-red-600 text-white"
+          className={`
+            relative overflow-hidden bg-gradient-to-r from-red-500 to-red-600
+            hover:from-red-600 hover:to-red-700 text-white font-medium
+            px-6 py-2.5 rounded-full shadow-lg transform transition-all duration-200
+            hover:scale-105 hover:shadow-xl focus:ring-2 focus:ring-red-500 focus:ring-opacity-50
+          `}
         >
-          <PhoneOff className="h-4 w-4 mr-2" />
+          <PhoneOff className="h-4 w-4 mr-2 animate-subtle-movement" />
           End Call
         </Button>
       )}
