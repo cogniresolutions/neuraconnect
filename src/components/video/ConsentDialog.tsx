@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Shield } from 'lucide-react';
+import { Shield, Camera, Mic } from 'lucide-react';
 
 interface ConsentDialogProps {
   open: boolean;
@@ -31,13 +31,21 @@ export const ConsentDialog: React.FC<ConsentDialogProps> = ({
             <Shield className="h-5 w-5 text-purple-500" />
             Start Call with {personaName}
           </DialogTitle>
-          <DialogDescription className="text-base">
-            By starting this call, you agree to:
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Allow camera and microphone access</li>
-              <li>Permit emotion analysis for better interaction</li>
-              <li>Accept our terms of service and privacy policy</li>
-            </ul>
+          <DialogDescription className="space-y-4">
+            <p>Before starting the call, please ensure:</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Camera className="h-4 w-4 text-purple-500" />
+                <span>Your camera is working and properly positioned</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mic className="h-4 w-4 text-purple-500" />
+                <span>Your microphone is connected and working</span>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              By continuing, you agree to allow camera and microphone access for this call.
+            </p>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex sm:justify-between gap-3">
@@ -55,7 +63,7 @@ export const ConsentDialog: React.FC<ConsentDialogProps> = ({
             }}
             className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
           >
-            Accept & Start Call
+            Start Call
           </Button>
         </DialogFooter>
       </DialogContent>

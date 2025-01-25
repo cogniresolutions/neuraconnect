@@ -16,6 +16,7 @@ const VideoCall = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(false);
+  const [isCallStarted, setIsCallStarted] = useState(false);
 
   useEffect(() => {
     const loadPersona = async () => {
@@ -48,23 +49,6 @@ const VideoCall = () => {
         console.log('Loaded persona:', existingPersona);
         setPersona(existingPersona);
 
-        // Initialize video call session
-        const { error: sessionError } = await supabase.functions.invoke('azure-video-chat', {
-          body: {
-            action: 'initialize',
-            personaId: existingPersona.id,
-            personaConfig: {
-              name: existingPersona.name,
-              voice: existingPersona.voice_style,
-              personality: existingPersona.personality,
-              skills: existingPersona.skills || [],
-              topics: existingPersona.topics || []
-            }
-          }
-        });
-
-        if (sessionError) throw sessionError;
-
       } catch (error: any) {
         console.error('Error loading persona:', error);
         setError(error.message);
@@ -80,29 +64,49 @@ const VideoCall = () => {
     };
 
     loadPersona();
-
-    return () => {
-      const cleanup = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.functions.invoke('azure-video-chat', {
-            body: {
-              action: 'end',
-              userId: user.id
-            }
-          });
-        }
-      };
-      cleanup();
-    };
   }, [personaId, toast]);
 
   const handleSpeakingChange = (speaking: boolean) => {
     console.log('Speaking state changed:', speaking);
   };
 
-  const handleStartCall = () => {
-    setShowConsent(true);
+  const handleStartCall = async () => {
+    try {
+      // Initialize video call session
+      const { error: sessionError } = await supabase.functions.invoke('azure-video-chat', {
+        body: {
+          action: 'initialize',
+          personaId: persona.id,
+          personaConfig: {
+            name: persona.name,
+            voice: persona.voice_style,
+            personality: persona.personality,
+            skills: persona.skills || [],
+            topics: persona.topics || []
+          }
+        }
+      });
+
+      if (sessionError) throw sessionError;
+      
+      setShowConsent(true);
+    } catch (error: any) {
+      console.error('Error starting call:', error);
+      toast({
+        title: "Error",
+        description: "Failed to initialize video call. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConsentAccepted = () => {
+    setShowConsent(false);
+    setIsCallStarted(true);
+    toast({
+      title: "Call Starting",
+      description: "Initializing video call...",
+    });
   };
 
   if (isLoading) {
@@ -153,32 +157,44 @@ const VideoCall = () => {
         <h1 className="text-2xl font-bold">Video Call with {persona?.name}</h1>
       </div>
 
-      <VideoCallInterface
-        persona={persona}
-        onSpeakingChange={handleSpeakingChange}
-        onCallStateChange={(isActive) => {
-          console.log('Call state changed:', isActive);
-          if (isActive) {
-            toast({
-              title: "Call Started",
-              description: `Connected to video call with ${persona.name}`,
-            });
-          } else {
-            toast({
-              title: "Call Ended",
-              description: "The video call has been disconnected",
-            });
-          }
-        }}
-      />
+      {!isCallStarted ? (
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle>Start Video Call</CardTitle>
+            <CardDescription>
+              Ready to start a video call with {persona.name}? Make sure your camera and microphone are working.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={handleStartCall}
+              className="w-full"
+            >
+              Start Call
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <VideoCallInterface
+          persona={persona}
+          onSpeakingChange={handleSpeakingChange}
+          onCallStateChange={(isActive) => {
+            console.log('Call state changed:', isActive);
+            if (!isActive) {
+              setIsCallStarted(false);
+              toast({
+                title: "Call Ended",
+                description: "The video call has been disconnected",
+              });
+            }
+          }}
+        />
+      )}
 
       <ConsentDialog
         open={showConsent}
         onOpenChange={setShowConsent}
-        onAccept={() => {
-          setShowConsent(false);
-          // Start the call after consent
-        }}
+        onAccept={handleConsentAccepted}
         personaName={persona.name}
       />
     </div>
